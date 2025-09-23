@@ -5,7 +5,8 @@ import pino from 'pino';
 const isDevelopment = process.env.NODE_ENV === 'development';
 const logLevel = process.env.LOG_LEVEL || (isDevelopment ? 'debug' : 'info');
 
-// Create logger instance
+// Create logger instance that always writes to stderr
+// This is critical for stdio mode where stdout is used for MCP protocol communication
 export const logger = pino({
   level: logLevel,
   transport: isDevelopment ? {
@@ -13,7 +14,8 @@ export const logger = pino({
     options: {
       colorize: true,
       translateTime: 'SYS:standard',
-      ignore: 'pid,hostname'
+      ignore: 'pid,hostname',
+      destination: 2 // stderr
     }
   } : undefined,
   formatters: {
@@ -22,7 +24,7 @@ export const logger = pino({
     }
   },
   timestamp: pino.stdTimeFunctions.isoTime
-});
+}, pino.destination({ dest: 2, sync: false })); // Write to stderr (fd 2)
 
 // Export logger methods for convenience
 export const log = {

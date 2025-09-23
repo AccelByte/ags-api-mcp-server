@@ -28,22 +28,8 @@ async function testServer() {
     logger.info({ data: healthResponse.data }, '✅ Health check passed');
     logger.info('');
 
-    // Test OAuth login endpoint
-    logger.info('2. Testing OAuth login endpoint...');
-    try {
-      const loginResponse = await axios.get(`${BASE_URL}/auth/login`, {
-        maxRedirects: 0,
-        validateStatus: (status) => status < 400
-      });
-      logger.info('✅ OAuth login endpoint accessible');
-    } catch (error) {
-      if (error.response?.status === 501) {
-        logger.warn('⚠️  OAuth not configured (expected if no env vars set)');
-      } else {
-        logger.info('✅ OAuth login endpoint accessible');
-      }
-    }
-    logger.info('');
+    // Note: OAuth login endpoint has been removed - using session token authentication
+    logger.info('2. OAuth login endpoint removed (using session token auth)');
 
     // Test MCP endpoint without auth (should fail)
     logger.info('3. Testing MCP endpoint without authentication...');
@@ -66,15 +52,14 @@ async function testServer() {
     logger.info('🎉 Basic server tests completed!');
     logger.info('');
     logger.info('To test with authentication:');
-    logger.info('1. Configure OAuth settings in .env file');
-    logger.info('2. Visit http://localhost:3000/auth/login');
-    logger.info('3. Complete OAuth flow');
-    logger.info('4. Use the returned JWT token in MCP requests');
+    logger.info('1. Configure OAuth client credentials in .env file');
+    logger.info('2. Use session token authentication (client credentials flow)');
+    logger.info('3. Access tokens are automatically obtained via client credentials grant');
 
   } catch (error) {
     logger.error({ error: error.message }, '❌ Test failed');
     if (error.code === 'ECONNREFUSED') {
-      logger.info('💡 Make sure the server is running: npm run dev');
+      logger.info('💡 Make sure the server is running: pnpm dev:http');
     }
   }
 }

@@ -1,19 +1,76 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { MCPServer } from './mcp-server';
 import { OAuthMiddleware } from './oauth-middleware';
 import { StaticTools } from './tools/static-tools';
 import { OpenApiTools } from './tools/openapi-tools';
 import { logger } from './logger';
-import { serverConfig, oauthConfig, oidcConfig, openApiConfig } from './config';
+import { config, serverConfig, oauthConfig, oidcConfig, openApiConfig } from './config';
+import { StdioMCPServer } from './stdio-server';
 
+let stdioServer: StdioMCPServer | null = null;
+let httpServer: any = null;
+
+// Start server based on transport configuration
+if (config.transport === 'stdio') {
+  logger.info('Starting MCP Server in stdio mode');
+  stdioServer = new StdioMCPServer();
+  
+  stdioServer.start().catch((error) => {
+    logger.fatal({ error }, 'Failed to start stdio MCP server');
+    process.exit(1);
+  });
+} else {
+  logger.info('Starting MCP Server in HTTP mode');
+  httpServer = startHttpServer();
+}
+
+logger.info(`MCP Server running in ${config.transport} mode`);
+
+
+// Graceful shutdown handling
+process.on('SIGINT', async () => {
+  logger.info('Received SIGINT, shutting down gracefully...');
+  
+  if (stdioServer) {
+    await stdioServer.stop();
+  }
+  
+  if (httpServer) {
+    httpServer.close(() => {
+      logger.info('HTTP server closed');
+    });
+  }
+  
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  logger.info('Received SIGTERM, shutting down gracefully...');
+  
+  if (stdioServer) {
+    await stdioServer.stop();
+  }
+  
+  if (httpServer) {
+    httpServer.close(() => {
+      logger.info('HTTP server closed');
+    });
+  }
+  
+  process.exit(0);
+});
+
+function startHttpServer() {
 const app = express();
 const port = serverConfig.port;
 
 // Middleware
 app.use(helmet());
 app.use(cors());
+app.use(cookieParser()); // Parse cookies from Cookie header
 app.use(express.json());
 
 // Initialize OAuth middleware
@@ -24,14 +81,7 @@ const mcpServer = new MCPServer();
 
 // Register static tools
 const staticTools = new StaticTools();
-mcpServer.registerTool('echo', staticTools.echo.bind(staticTools));
-mcpServer.registerTool('get_time', staticTools.getTime.bind(staticTools));
-mcpServer.registerTool('calculate', staticTools.calculate.bind(staticTools));
-mcpServer.registerTool('get_system_info', staticTools.getSystemInfo.bind(staticTools));
-mcpServer.registerTool('generate_random_string', staticTools.generateRandomString.bind(staticTools));
-mcpServer.registerTool('convert_case', staticTools.convertCase.bind(staticTools));
-mcpServer.registerTool('get_user_info', staticTools.getUserInfo.bind(staticTools));
-// mcpServer.registerTool('make_api_call', staticTools.makeApiCall.bind(staticTools));
+mcpServer.registerTool('get_token_info', staticTools.getTokenInfo.bind(staticTools));
 
 
 // Register OpenAPI-derived tools
@@ -142,7 +192,7 @@ mcpServer.registerTool('run-apis', openApiTools.runApi.bind(openApiTools), {
         description: 'Request payload for methods that support a body. Provide JSON-compatible data or a raw string.',
         oneOf: [
           { type: 'object' },
-          { type: 'array' },
+          { type: 'array', items: {} },
           { type: 'string' },
           { type: 'number' },
           { type: 'boolean' }
@@ -187,7 +237,7 @@ app.get('/.well-known/oauth-authorization-server', (req, res) => {
     grant_types_supported: ['authorization_code', 'refresh_token'],
     code_challenge_methods_supported: ['S256'],
     token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post'],
-    redirect_uris: ['http://localhost:3334/oauth/callback']
+    redirect_uris: [oauthConfig.redirectUri]
   };
 
   logger.debug({ metadata }, 'Returning OAuth Authorization Server Metadata');
@@ -218,7 +268,7 @@ app.get('/.well-known/openid-configuration', (req, res) => {
     grant_types_supported: ['authorization_code', 'refresh_token'],
     code_challenge_methods_supported: ['S256'],
     token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post'],
-    redirect_uris: ['http://localhost:3334/oauth/callback']
+    redirect_uris: [oauthConfig.redirectUri]
   };
 
   logger.info({ metadata }, 'Returning OpenID Connect Discovery Metadata');
@@ -266,13 +316,7 @@ app.get('/.well-known/oauth-protected-resource', (req, res) => {
 });
 
 // Note: Dynamic Client Registration removed - using static OAuth client credentials
-// mcp-remote should use pre-configured client_id and client_secret
-
-// OAuth routes
-app.get('/auth/login', oauthMiddleware.initiateOAuth.bind(oauthMiddleware));
-app.get('/oauth/callback', oauthMiddleware.handleCallback.bind(oauthMiddleware));
-app.get('/callback', oauthMiddleware.handleCallback.bind(oauthMiddleware));
-app.get('/auth/logout', oauthMiddleware.logout.bind(oauthMiddleware));
+// Note: OAuth routes (/auth/login, /oauth/callback) removed - using session token authentication
 
 // Protected MCP endpoint
 app.post('/mcp', oauthMiddleware.authenticate.bind(oauthMiddleware), (req, res) => {
@@ -294,71 +338,20 @@ app.post('/mcp', oauthMiddleware.authenticate.bind(oauthMiddleware), (req, res) 
   mcpServer.handleRequest(req, res);
 });
 
-// SSE endpoint for MCP streaming
-app.get('/mcp/sse', oauthMiddleware.authenticate.bind(oauthMiddleware), (req, res) => {
-  logger.debug({
-    method: req.method,
-    url: req.url,
-    headers: {
-      'user-agent': req.get('User-Agent'),
-      'accept': req.get('Accept'),
-      'authorization': req.get('Authorization') ? '***REDACTED***' : undefined,
-      'x-forwarded-for': req.get('X-Forwarded-For'),
-      'x-real-ip': req.get('X-Real-IP')
-    },
-    query: req.query,
-    ip: req.ip,
-    user: req.user
-  }, 'MCP SSE request received');
-  
-  mcpServer.handleSSE(req, res);
-});
-
-// Alternative SSE endpoint (some MCP clients expect just /sse)
-app.get('/sse', oauthMiddleware.authenticate.bind(oauthMiddleware), (req, res) => {
-  logger.debug({
-    method: req.method,
-    url: req.url,
-    headers: {
-      'user-agent': req.get('User-Agent'),
-      'accept': req.get('Accept'),
-      'authorization': req.get('Authorization') ? '***REDACTED***' : undefined,
-      'x-forwarded-for': req.get('X-Forwarded-For'),
-      'x-real-ip': req.get('X-Real-IP')
-    },
-    query: req.query,
-    ip: req.ip,
-    user: req.user
-  }, 'MCP SSE (alternative) request received');
-  
-  mcpServer.handleSSE(req, res);
-});
-
-// Additional MCP endpoints that some clients might expect
-app.get('/stream', oauthMiddleware.authenticate.bind(oauthMiddleware), (req, res) => {
-  mcpServer.handleSSE(req, res);
-});
-
-app.get('/events', oauthMiddleware.authenticate.bind(oauthMiddleware), (req, res) => {
-  mcpServer.handleSSE(req, res);
-});
-
 // Root endpoint for MCP clients that expect it
 app.get('/', (req, res) => {
   const baseUrl = `${req.protocol}://${req.get('host')}`;
-  res.json({ 
+  res.json({
     message: 'MCP Server is running',
     endpoints: {
-      sse: `${baseUrl}/sse`,
       mcp: `${baseUrl}/mcp`,
-      health: `${baseUrl}/health`,
-      auth: `${baseUrl}/auth/login`
+      health: `${baseUrl}/health`
     },
     version: '1.0.0',
     authentication: {
       required: true,
       type: 'OIDC',
-      flow: 'Visit /auth/login to authenticate and get a token for MCP clients'
+      flow: 'Session token authentication via OAuth client credentials'
     }
   });
 });
@@ -375,10 +368,11 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(port, () => {
-  logger.info({ port }, 'MCP Server started');
+const server = app.listen(port, () => {
+  logger.info({ port }, 'HTTP MCP Server started');
   logger.info(`Health check: http://localhost:${port}/health`);
-  logger.info(`OAuth login: http://localhost:${port}/auth/login`);
   logger.info(`MCP endpoint: http://localhost:${port}/mcp`);
-  logger.info(`MCP SSE endpoints: http://localhost:${port}/sse, http://localhost:${port}/mcp/sse`);
 });
+
+return server;
+}

@@ -1,23 +1,26 @@
 # AGS API MCP Server
 
-A simple Streamable HTTP-based MCP (Model Context Protocol) server built with TypeScript that supports OAuth authorization.
+A simple Streamable HTTP-based MCP (Model Context Protocol) server built with TypeScript that issues Accelbyte AGS API requests on behalf of the authenticated user.
 
 ## Features
 
-- **HTTP-based MCP Server**: Implements the Model Context Protocol over HTTP
+- **Dual Transport Support**: Supports both HTTP and stdio transports for maximum flexibility
+  - **HTTP Mode**: Traditional HTTP-based MCP server for web clients
+  - **Stdio Mode**: Direct stdin/stdout communication for MCP clients like Claude Desktop
 - **OAuth 2.1 with PKCE**: Secure authentication using OAuth 2.1 with Proof Key for Code Exchange
+- **Client Credentials Flow**: Automatic server-to-server authentication when no user token is provided
 - **JWT Token Verification**: Secure token validation using JWKS (JSON Web Key Set)
 - **Static OAuth Client**: Simplified OAuth flow using pre-configured client credentials
 - **User Context Propagation**: Authenticated user context passed to all MCP tools
+- **Smart Logging**: All logs automatically redirected to stderr in stdio mode
 - **Example Tools**: Built-in tools for demonstration and testing
-- **TypeScript**: Full type safety and modern JavaScript features
-- **Express.js**: Fast and lightweight web framework
+
 
 ## Prerequisites
 
 - Node.js 18+ 
-- npm or yarn
-- OAuth provider (Google, GitHub, Auth0, etc.)
+- pnpm (install with: `npm install -g pnpm`)
+- IAM OAuth provider in an Accelbyte Environment
 
 ## Installation
 
@@ -29,105 +32,170 @@ cd ags-api-mcp
 
 2. Install dependencies:
 ```bash
-npm install
+pnpm install
 ```
 
 3. Set up environment configuration:
 ```bash
-npm run setup
+pnpm run setup
 ```
-This will create a `.env` file from the template and generate a secure JWT secret.
+This will create a `.env` file from the template.
 
-4. Configure your OAuth settings in `.env`:
+4. Configure your AccelByte environment in `.env`:
 ```env
-# OAuth Configuration
-OAUTH_CLIENT_ID=your_client_id
-OAUTH_CLIENT_SECRET=<redacted>
-OAUTH_REDIRECT_URI=http://localhost:3000/oauth/callback
-OAUTH_AUTHORIZATION_URL=https://your-provider.com/oauth/authorize
-OAUTH_TOKEN_URL=https://your-provider.com/oauth/token
-OAUTH_USER_INFO_URL=https://your-provider.com/oauth/userinfo
+# Base URL for AccelByte environment, e.g. https://development.accelbyte.io
+AB_BASE_URL=<your_base_url>
 
-# JWT Configuration
-JWT_SECRET=<redacted>
-JWT_EXPIRES_IN=1h
+# OAuth Configuration (optional - defaults will be derived from AB_BASE_URL)
+OAUTH_CLIENT_ID=<your_client_id>
+OAUTH_CLIENT_SECRET=<redacted>
 
 # Server Configuration
 PORT=3000
 NODE_ENV=development
 ```
 
+**Note**: OAuth URLs (`OAUTH_AUTHORIZATION_URL`, `OAUTH_TOKEN_URL`) and OIDC configuration (`JWKS_URI`, `JWT_ISSUER`) will automatically be derived from `AB_BASE_URL` if not explicitly set.
+
 ## Usage
 
-### Development Mode
+### Stdio Mode (Default)
+
+#### Development Mode
 ```bash
-npm run dev
+pnpm run dev:stdio
 ```
 
-### Production Mode
+#### Production Mode
 ```bash
-npm run build
-npm start
+pnpm run build
+pnpm start:stdio
 ```
+
+### HTTP Mode
+
+#### Development Mode
+```bash
+TRANSPORT=http pnpm run dev
+```
+
+#### Production Mode
+```bash
+TRANSPORT=http pnpm run build
+TRANSPORT=http pnpm start
+```
+
+```
+
+**Note**: In stdio mode:
+- All logs are automatically redirected to stderr to avoid interfering with the MCP protocol on stdout
+- The server communicates via stdin/stdout using the MCP protocol
+- HTTP endpoints are not available in this mode
+- Client credentials flow is automatically used if `OAUTH_CLIENT_ID` is configured
+
+📖 **For detailed client configuration instructions**, see [STDIO_CLIENT_CONFIG.md](STDIO_CLIENT_CONFIG.md)
+
+#### Quick Start: Claude Desktop Configuration
+
+Add this to your `claude_desktop_config.json`:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "ags-api": {
+      "command": "node",
+      "args": ["/absolute/path/to/ags-api-mcp-server/dist/index.js"],
+      "env": {
+        "TRANSPORT": "stdio",
+        "AB_BASE_URL": "https://yourgame.accelbyte.io",
+        "OAUTH_CLIENT_ID": "your-client-id",
+        "OAUTH_CLIENT_SECRET": "your-client-secret",
+        "LOG_LEVEL": "info"
+      }
+    }
+  }
+}
+```
+
+After adding the configuration, restart Claude Desktop and the tools will be available.
 
 ### Watch Mode (for development)
 ```bash
-npm run watch
+pnpm run watch
+```
+
+### Testing
+```bash
+# Run the TypeScript unit tests (node:test via ts-node)
+pnpm test
+
+# Invoke the legacy integration harness
+pnpm run test:integration
 ```
 
 ### Environment Setup
 ```bash
 # Set up environment variables
-npm run setup
+pnpm run setup
 
 # Test with environment variables
-npm run test:env
+pnpm run test:env
 ```
+
+### OpenAPI Spec Processing
+```bash
+# Process OpenAPI specs (filter APIs and clean up fields)
+pnpm run process-specs
+
+# With custom input folder
+pnpm run process-specs -- /path/to/input/folder
+
+# With custom input and output folders
+pnpm run process-specs -- /path/to/input/folder /path/to/output/folder
+```
+
+The processing script performs the following cleanup operations:
+- **Filters out operations**: e.g. can be used to remove POST, PUT, PATCH, DELETE methods
+- **Filters out deprecated APIs**: Removes operations marked as deprecated
+- **Removes documentation fields**: Cleans up `host`, `externalDocs`, and `x-docs` fields
+- **Removes environment-specific data**: Removes `realm` field from `x-version`
+- **Ignores specified services**: Skips processing of buildinfo, challenge, differ, eventlog, matchmaking, sessionbrowser, ugc
+- **Prettifies JSON**: Formats output with proper indentation
 
 ### Development Mode (Skip Authentication)
-For development and testing, you can disable JWT validation:
-
-```bash
-# Set DISABLE_JWT_VALIDATION=true in .env
-echo "DISABLE_JWT_VALIDATION=true" >> .env
-
-# Or run with environment variable
-DISABLE_JWT_VALIDATION=true npm run dev
-```
-
-When JWT validation is disabled:
-- Any token (or no token) will be accepted
-- User will be set to anonymous
-- Useful for API testing without OAuth setup
 
 ## Environment Variables
 
 The server uses the following environment variables (configured in `.env`):
 
 ### Required Variables
-- `PORT` - Server port (default: 3000)
-- `NODE_ENV` - Environment mode (development/production)
-- `LOG_LEVEL` - Logging level (debug, info, warn, error, fatal)
+- `AB_BASE_URL` - Base URL for AccelByte environment (e.g., https://development.accelbyte.io)
 
 ### OAuth Variables (Optional)
 - `OAUTH_CLIENT_ID` - OAuth client ID
 - `OAUTH_CLIENT_SECRET` - OAuth client secret
-- `OAUTH_REDIRECT_URI` - OAuth redirect URI
-- `OAUTH_AUTHORIZATION_URL` - OAuth authorization URL
-- `OAUTH_TOKEN_URL` - OAuth token URL
-- `OAUTH_USER_INFO_URL` - OAuth user info URL
+- `OAUTH_AUTHORIZATION_URL` - OAuth authorization URL (default: {AB_BASE_URL}/iam/v3/oauth/authorize)
+- `OAUTH_TOKEN_URL` - OAuth token URL (default: {AB_BASE_URL}/iam/v3/oauth/token)
 
-### JWT Variables
-- `JWT_SECRET` - JWT signing secret (auto-generated by setup script)
-- `JWT_EXPIRES_IN` - JWT expiration time (default: 1h)
-- `DISABLE_JWT_VALIDATION` - Disable JWT validation for development/testing (default: false)
+### OIDC Variables (Optional - derived from AB_BASE_URL)
+- `JWKS_URI` - JWKS endpoint for token signature verification (default: {AB_BASE_URL}/iam/v3/oauth/jwks)
+- `JWT_ISSUER` - Expected token issuer (default: {AB_BASE_URL})
+- `JWT_AUDIENCE` - Expected token audience (default: 0f8b2a3ecb63466994d5e4631d3b9fe7)
+- `JWT_ALGORITHMS` - Supported JWT algorithms (default: RS256)
+
+### Other Optional Variables
+- `PORT` - Server port (default: 3000)
+- `NODE_ENV` - Environment mode (development/production)
+- `LOG_LEVEL` - Logging level (debug, info, warn, error, fatal)
+- `TRANSPORT` - Transport mode (http or stdio; default: stdio)
+  - `stdio` - Run with stdin/stdout communication for MCP clients only (default)
+  - `http` - Run as HTTP server only
+
 
 ## API Endpoints
-
-### Authentication
-- `GET /auth/login` - Initiate OAuth login
-- `GET /oauth/callback` - OAuth callback handler
-- `GET /auth/logout` - Logout and clear session
 
 ### MCP Protocol
 - `POST /mcp` - Main MCP endpoint (requires authentication)
@@ -135,76 +203,24 @@ The server uses the following environment variables (configured in `.env`):
 ### Health Check
 - `GET /health` - Server health status
 
-### Authentication Helper
-
 ## MCP Tools
 
-The server includes several example tools:
+The server includes tools for AccelByte API interaction:
 
-### 1. Echo
-Echo back the input message.
+### 1. Get Token Info
+Get information about the authenticated token and user.
 ```json
 {
-  "name": "echo",
-  "arguments": {
-    "message": "Hello, World!"
-  }
-}
-```
-
-### 2. Get Time
-Get the current timestamp.
-```json
-{
-  "name": "get_time",
+  "name": "get_token_info",
   "arguments": {}
 }
 ```
 
-### 3. Calculate
-Perform basic arithmetic calculations.
-```json
-{
-  "name": "calculate",
-  "arguments": {
-    "expression": "2 + 2 * 3"
-  }
-}
-```
-
-### 4. System Info
-Get system information.
-```json
-{
-  "name": "get_system_info",
-  "arguments": {}
-}
-```
-
-### 5. Generate Random String
-Generate a random string with customizable options.
-```json
-{
-  "name": "generate_random_string",
-  "arguments": {
-    "length": 10,
-    "includeNumbers": true,
-    "includeSymbols": false
-  }
-}
-```
-
-### 6. Convert Case
-Convert text to different cases.
-```json
-{
-  "name": "convert_case",
-  "arguments": {
-    "text": "hello world",
-    "case": "upper"
-  }
-}
-```
+### 2. OpenAPI Tools
+The server also provides dynamically generated tools from OpenAPI specifications:
+- **search-apis**: Search across loaded OpenAPI operations
+- **describe-apis**: Get detailed information about specific API operations
+- **run-apis**: Execute API requests against endpoints with authentication
 
 ## MCP Protocol Usage
 
@@ -241,10 +257,8 @@ Convert text to different cases.
   "id": 3,
   "method": "tools/call",
   "params": {
-    "name": "echo",
-    "arguments": {
-      "message": "Hello, MCP!"
-    }
+    "name": "get_token_info",
+    "arguments": {}
   }
 }
 ```
@@ -255,65 +269,17 @@ Convert text to different cases.
 This MCP server uses a **simplified OAuth 2.1 flow** with static client credentials:
 
 1. **No Dynamic Registration**: Uses pre-configured OAuth client credentials
-2. **Direct OAuth Flow**: mcp-remote connects directly to AccelByte OAuth server
+2. **Direct OAuth Flow**: Client connects directly to AccelByte OAuth server
 3. **JWT Verification**: Server validates tokens using AccelByte's JWKS
 4. **User Context**: Authenticated user information passed to all tools
 
-### AccelByte OAuth Example (mcp-remote mode)
+### AccelByte OAuth Example
 ```env
-# OAuth Discovery URLs (for metadata only - mcp-remote handles OAuth)
-OAUTH_AUTHORIZATION_URL=https://development.accelbyte.io/iam/v3/oauth/authorize
-OAUTH_TOKEN_URL=https://development.accelbyte.io/iam/v3/oauth/token
-OAUTH_USER_INFO_URL=https://development.accelbyte.io/iam/v3/public/users/userinfo
-
-# OIDC Configuration (for JWT token verification)
-JWKS_URI=https://development.accelbyte.io/iam/v3/oauth/jwks
-JWT_ISSUER=https://development.accelbyte.io
-JWT_AUDIENCE=<your_client_id>
-JWT_ALGORITHMS=RS256
+# Minimal configuration - URLs are automatically derived
+AB_BASE_URL=https://development.accelbyte.io
 ```
 
-**Note**: `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` are not needed in mcp-remote mode since mcp-remote handles OAuth using its static credentials.
-
-### mcp-remote Configuration
-Configure mcp-remote to use the same static OAuth credentials:
-
-```json
-{
-  "mcpServers": {
-    "ags-api-mcp": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "http://localhost:3000/mcp",
-        "3334",
-        "--host", "localhost",
-        "--static-oauth-client-info",
-        "{ \"client_id\": \"<your_client_id>\", \"client_secret\": \"<redacted>\" }"
-      ]
-    }
-  }
-}
-```
-
-### Simplified OAuth Flow Sequence
-
-1. **MCP Client** connects to **mcp-remote** (port 3334)
-2. **mcp-remote** discovers OAuth server metadata from **MCP Server**
-3. **mcp-remote** uses static OAuth credentials to authenticate with **AccelByte IAM**
-4. **AccelByte IAM** redirects user for authentication
-5. **User** authenticates and authorizes the application
-6. **AccelByte IAM** returns authorization code to **mcp-remote**
-7. **mcp-remote** exchanges code for access token using static credentials
-8. **mcp-remote** forwards MCP requests to **MCP Server** with access token
-9. **MCP Server** validates JWT token using AccelByte's JWKS
-10. **MCP Server** passes user context to tools for authenticated API calls
-
-**Key Benefits:**
-- ✅ **No Dynamic Registration** - Uses pre-configured credentials
-- ✅ **Simplified Flow** - Fewer steps and dependencies
-- ✅ **Better Performance** - No unnecessary API calls
-- ✅ **Easier Configuration** - Static credentials in one place
+**Note**: All OAuth and OIDC URLs are automatically derived from `AB_BASE_URL`. `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` are configured in your MCP client's environment.
 
 ## Security Features
 
@@ -359,6 +325,102 @@ mcpServer.registerTool('tool_name', handler, {
 });
 ```
 
+## Docker Deployment
+
+The MCP server can be deployed using Docker for easy containerization and deployment.
+
+### Building the Docker Image
+
+Build the Docker image from the project directory:
+
+```bash
+docker build -t ags-api-mcp-server .
+```
+
+### Running with Docker
+
+#### Option 1: Using Environment File
+
+1. Create a `.env` file with your configuration:
+```bash
+cp env.oidc.example .env
+```
+
+2. Edit `.env` with your AccelByte environment details:
+```env
+# Base URL for AccelByte environment; REQUIRED
+AB_BASE_URL=https://yourgame.accelbyte.io
+
+# Server Configuration
+PORT=3000
+NODE_ENV=production
+LOG_LEVEL=info
+```
+
+3. Run the container:
+```bash
+# Run in background
+docker run -d \
+  --name ags-api-mcp-server \
+  --env-file .env \
+  -p 3000:3000 \
+  ags-api-mcp-server
+
+# Or run interactively to see logs
+docker run -it --rm \
+  --name ags-api-mcp-server \
+  --env-file .env \
+  -p 3000:3000 \
+  ags-api-mcp-server
+```
+
+#### Option 2: Direct Environment Variables
+
+```bash
+docker run -d \
+  --name ags-api-mcp-server \
+  -e AB_BASE_URL=https://yourgame.accelbyte.io \
+  -e PORT=3000 \
+  -e NODE_ENV=production \
+  -e LOG_LEVEL=info \
+  -p 3000:3000 \
+  ags-api-mcp-server
+```
+
+### Docker Container Management
+
+```bash
+# View logs
+docker logs ags-api-mcp-server
+
+# Follow logs in real-time
+docker logs -f ags-api-mcp-server
+
+# Stop and remove container
+docker stop ags-api-mcp-server
+docker rm ags-api-mcp-server
+```
+
+### Health Check
+
+The Docker container includes a built-in health check that monitors the `/health` endpoint:
+
+```bash
+# Check container health status
+docker ps
+
+# Manual health check
+curl http://localhost:3000/health
+```
+
+### Docker Features
+
+- **Multi-stage build**: Optimized image size with separate build and runtime stages
+- **Health checks**: Built-in monitoring of server health
+- **Port exposure**: Port 3000 is automatically exposed
+- **Production ready**: Configured for production deployment
+- **Lightweight**: Based on Node.js Alpine Linux image
+
 ## Testing
 
 Test the server using curl or any HTTP client:
@@ -368,12 +430,7 @@ Test the server using curl or any HTTP client:
 curl http://localhost:3000/health
 ```
 
-2. **OAuth Login** (redirects to OAuth provider):
-```bash
-curl -L http://localhost:3000/auth/login
-```
-
-3. **MCP Request** (after authentication):
+2. **MCP Request** (after authentication):
 ```bash
 curl -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
@@ -384,17 +441,6 @@ curl -X POST http://localhost:3000/mcp \
     "method": "tools/list"
   }'
 ```
-## Clean up
-With mcp-remote, clean up the token caches under ~/.mcp-auth, e.g. 
-
-```
-rm -rf ~/.mcp-auth
-```
-
-## License
-
-MIT License - see LICENSE file for details.
-
 ## Contributing
 
 1. Fork the repository

@@ -1,0 +1,66 @@
+openapi: 3.0.3
+info:
+  title: Sample Pets API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /pets:
+    get:
+      summary: List pets
+      description: Return available pets from the catalog.
+      tags:
+        - Pets
+      operationId: listPets
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of pets to return.
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Successful response.
+    post:
+      summary: Create a new pet.
+      description: Create a pet entry in the catalog.
+      tags:
+        - Pets
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                tag:
+                  type: string
+              required:
+                - name
+      responses:
+        '201':
+          description: Pet created.
+  /pets/{petId}:
+    get:
+      summary: Get a pet by ID.
+      description: Retrieve the details for a specific pet.
+      tags:
+        - Pets
+      operationId: getPet
+      parameters:
+        - name: petId
+          in: path
+          description: Unique identifier for the pet.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pet details response.
+components: {}

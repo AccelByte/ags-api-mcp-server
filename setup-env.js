@@ -27,15 +27,7 @@ function setupEnvironment() {
     fs.copyFileSync(ENV_EXAMPLE, ENV_FILE);
     console.log('✅ Created .env file from env.example');
 
-    // Generate a random JWT secret
-    const jwtSecret = generateJWTSecret();
-    const envContent = fs.readFileSync(ENV_FILE, 'utf8');
-    const updatedContent = envContent.replace(
-      'JWT_SECRET=your_jwt_secret_key_here',
-      `JWT_SECRET=${jwtSecret}`
-    );
-    fs.writeFileSync(ENV_FILE, updatedContent);
-    console.log('✅ Generated secure JWT secret');
+    console.log('✅ Environment file created');
 
     console.log('\n🎉 Environment setup complete!');
     console.log('\nNext steps:');
@@ -49,10 +41,6 @@ function setupEnvironment() {
   }
 }
 
-function generateJWTSecret() {
-  const crypto = require('crypto');
-  return crypto.randomBytes(64).toString('hex');
-}
 
 // Run setup if this file is executed directly
 if (require.main === module) {

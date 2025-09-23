@@ -36,6 +36,7 @@ export interface UserContext {
   client_id?: string;
   scope?: string;
   namespace?: string;
+  isFromCache?: boolean;
 }
 
 export class MCPServer {
@@ -60,7 +61,7 @@ export class MCPServer {
 
       // Extract user context from request
       const userContext: UserContext = {
-        accessToken: req.get('Authorization')?.replace('Bearer ', ''),
+        accessToken: req.accessToken || req.get('Authorization')?.replace('Bearer ', ''),
         user: req.user,
         sub: req.user?.sub,
         client_id: req.user?.client_id,
@@ -74,46 +75,6 @@ export class MCPServer {
       logger.error({ error }, 'Error processing MCP request');
       this.sendError(res, req.body?.id || 'unknown', -32603, 'Internal error');
     }
-  }
-
-  handleSSE(req: Request, res: Response): void {
-    // Set SSE headers
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Cache-Control'
-    });
-
-    // Send initial connection event
-    this.sendSSEEvent(res, 'connected', { message: 'MCP Server connected' });
-
-    // Handle client disconnect
-    req.on('close', () => {
-      logger.debug('SSE client disconnected');
-    });
-
-    // Keep connection alive with periodic ping
-    const pingInterval = setInterval(() => {
-      if (res.destroyed) {
-        clearInterval(pingInterval);
-        return;
-      }
-      this.sendSSEEvent(res, 'ping', { timestamp: new Date().toISOString() });
-    }, 30000); // Ping every 30 seconds
-
-    // Clean up on disconnect
-    req.on('close', () => {
-      clearInterval(pingInterval);
-    });
-  }
-
-  private sendSSEEvent(res: Response, event: string, data: any): void {
-    if (res.destroyed) return;
-    
-    const eventData = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-    res.write(eventData);
   }
 
   private async processRequest(request: MCPRequest, userContext?: UserContext): Promise<MCPResponse> {
@@ -186,111 +147,12 @@ export class MCPServer {
 
   private generateDefaultToolSchema(name: string): Tool {
     const toolSchemas: Record<string, Tool> = {
-      'echo': {
-        name: 'echo',
-        description: 'Echo back the input message',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            message: {
-              type: 'string',
-              description: 'The message to echo back'
-            }
-          },
-          required: ['message']
-        }
-      },
-      'get_time': {
-        name: 'get_time',
-        description: 'Get the current time',
+      'get_token_info': {
+        name: 'get_token_info',
+        description: 'Get information about the authenticated token and user from the access token',
         inputSchema: {
           type: 'object',
           properties: {}
-        }
-      },
-      'calculate': {
-        name: 'calculate',
-        description: 'Perform basic arithmetic calculations',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            expression: {
-              type: 'string',
-              description: 'Mathematical expression to evaluate (e.g., "2 + 2")'
-            }
-          },
-          required: ['expression']
-        }
-      },
-      'get_system_info': {
-        name: 'get_system_info',
-        description: 'Get system information',
-        inputSchema: {
-          type: 'object',
-          properties: {}
-        }
-      },
-      'generate_random_string': {
-        name: 'generate_random_string',
-        description: 'Generate a random string with customizable options',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            length: {
-              type: 'number',
-              description: 'Length of the string (1-100)',
-              minimum: 1,
-              maximum: 100
-            },
-            includeNumbers: {
-              type: 'boolean',
-              description: 'Include numbers in the string'
-            },
-            includeSymbols: {
-              type: 'boolean',
-              description: 'Include symbols in the string'
-            }
-          }
-        }
-      },
-      'convert_case': {
-        name: 'convert_case',
-        description: 'Convert text to different cases',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            text: {
-              type: 'string',
-              description: 'The text to convert'
-            },
-            case: {
-              type: 'string',
-              enum: ['upper', 'lower', 'title', 'camel', 'snake'],
-              description: 'The case to convert to'
-            }
-          },
-          required: ['text', 'case']
-        }
-      },
-      'get_user_info': {
-        name: 'get_user_info',
-        description: 'Get information about the authenticated user from the access token',
-        inputSchema: {
-          type: 'object',
-          properties: {}
-        }
-      },
-      'make_api_call': {
-        name: 'make_api_call',
-        description: 'Make an authenticated API call using the access token',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            url: {
-              type: 'string',
-              description: 'The API URL to call (defaults to AccelByte user info endpoint)'
-            }
-          }
         }
       }
     };

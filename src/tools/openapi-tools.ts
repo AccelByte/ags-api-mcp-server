@@ -427,7 +427,8 @@ export class OpenApiTools {
   }
 
   private loadSpecs(): void {
-    const specsPath = path.resolve(this.options.specsDir);
+    // specsDir is already an absolute path from config, no need to resolve again
+    const specsPath = this.options.specsDir;
 
     if (!fs.existsSync(specsPath)) {
       logger.warn({ specsPath }, 'OpenAPI specs directory not found. Skipping OpenAPI tool registration.');

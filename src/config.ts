@@ -1,14 +1,25 @@
 import dotenv from 'dotenv';
+import path from 'path';
 import { logger } from './logger';
 
-// Load environment variables
-dotenv.config();
+// Determine project root directory
+// In development (src/), __dirname is the src directory
+// In production (dist/), __dirname is the dist directory
+// We need to go up one level from dist or stay at src's parent
+const isCompiledCode = __dirname.endsWith('dist');
+const projectRoot = isCompiledCode 
+  ? path.resolve(__dirname, '..') 
+  : path.resolve(__dirname, '..');
+
+// Load environment variables from project root
+dotenv.config({ path: path.join(projectRoot, '.env') });
 
 export interface Config {
   // Server Configuration
   port: number;
   nodeEnv: string;
   logLevel: string;
+  transport: 'http' | 'stdio';
 
   // OpenAPI configuration
   openapi: {
@@ -25,7 +36,7 @@ export interface Config {
     redirectUri: string;
     authorizationUrl: string;
     tokenUrl: string;
-    userInfoUrl: string;
+    enableClientCredentialsFallback: boolean;
   };
   
   // OIDC Configuration
@@ -34,7 +45,6 @@ export interface Config {
     issuer: string;
     audience: string;
     algorithms: string[];
-    disableValidation: boolean;
   };
 }
 
@@ -69,6 +79,14 @@ function validateBoolean(value: string | undefined, defaultValue: boolean = fals
   return lowerValue === 'true' || lowerValue === '1' || lowerValue === 'yes';
 }
 
+function validateTransport(value: string | undefined): 'http' | 'stdio' {
+  const transport = (value || 'stdio').toLowerCase();
+  if (transport !== 'http' && transport !== 'stdio') {
+    throw new Error(`Invalid transport: ${transport}. Must be 'http' or 'stdio'`);
+  }
+  return transport as 'http' | 'stdio';
+}
+
 function validatePositiveInteger(name: string, value: string | undefined, defaultValue: number): number {
   if (!value) {
     return defaultValue;
@@ -83,51 +101,68 @@ function validatePositiveInteger(name: string, value: string | undefined, defaul
 // Load and validate configuration
 function loadConfig(): Config {
   try {
+    // Get AB_BASE_URL for building default URLs
+    const abBaseUrl = validateEnvVar('AB_BASE_URL', process.env.AB_BASE_URL, false) || 'https://development.accelbyte.io';
+    
+    // Determine transport mode first so we can use it for other config values
+    const transport = validateTransport(process.env.TRANSPORT);
+    
     const config: Config = {
       // Server Configuration
       port: validatePort(process.env.PORT),
       nodeEnv: validateEnvVar('NODE_ENV', process.env.NODE_ENV, false) || 'development',
       logLevel: validateLogLevel(process.env.LOG_LEVEL),
+      transport,
 
       // OpenAPI configuration
       openapi: {
-        specsDir: validateEnvVar('OPENAPI_SPECS_DIR', process.env.OPENAPI_SPECS_DIR, false) || 'openapi-specs',
+        specsDir: (() => {
+          const specsDirEnv = validateEnvVar('OPENAPI_SPECS_DIR', process.env.OPENAPI_SPECS_DIR, false) || 'openapi-specs';
+          // If it's already an absolute path, use it as is, otherwise resolve relative to project root
+          return path.isAbsolute(specsDirEnv) 
+            ? specsDirEnv 
+            : path.resolve(projectRoot, specsDirEnv);
+        })(),
         defaultSearchLimit: validatePositiveInteger('OPENAPI_DEFAULT_SEARCH_LIMIT', process.env.OPENAPI_DEFAULT_SEARCH_LIMIT, 5),
-        defaultServerUrl: validateEnvVar('AB_BASE_URL', process.env.AB_BASE_URL, false) || undefined,
-        includeWriteRequests: validateBoolean(process.env.INCLUDE_WRITE_REQUESTS, false)
+        defaultServerUrl: abBaseUrl,
+        includeWriteRequests: validateBoolean(process.env.INCLUDE_WRITE_REQUESTS, true)
       },
       
       // OAuth Configuration
       oauth: {
         clientId: validateEnvVar('OAUTH_CLIENT_ID', process.env.OAUTH_CLIENT_ID, false),
         clientSecret: validateEnvVar('OAUTH_CLIENT_SECRET', process.env.OAUTH_CLIENT_SECRET, false),
-        redirectUri: validateEnvVar('OAUTH_REDIRECT_URI', process.env.OAUTH_REDIRECT_URI, false) || 'http://localhost:3000/oauth/callback',
-        authorizationUrl: validateEnvVar('OAUTH_AUTHORIZATION_URL', process.env.OAUTH_AUTHORIZATION_URL, false),
-        tokenUrl: validateEnvVar('OAUTH_TOKEN_URL', process.env.OAUTH_TOKEN_URL, false),
-        userInfoUrl: validateEnvVar('OAUTH_USER_INFO_URL', process.env.OAUTH_USER_INFO_URL, false),
+        redirectUri: validateEnvVar('OAUTH_REDIRECT_URI', process.env.OAUTH_REDIRECT_URI, false) || '', // Not used with session token auth
+        authorizationUrl: validateEnvVar('OAUTH_AUTHORIZATION_URL', process.env.OAUTH_AUTHORIZATION_URL, false) || `${abBaseUrl}/iam/v3/oauth/authorize`,
+        tokenUrl: validateEnvVar('OAUTH_TOKEN_URL', process.env.OAUTH_TOKEN_URL, false) || `${abBaseUrl}/iam/v3/oauth/token`,
+        // Always enable client credentials fallback in stdio mode, respect flag in HTTP mode (default: false)
+        enableClientCredentialsFallback: transport === 'stdio'
+          ? true
+          : validateBoolean(process.env.ENABLE_CLIENT_CREDENTIALS_FALLBACK, false),
       },
       
       // OIDC Configuration
       oidc: {
-        jwksUri: validateEnvVar('JWKS_URI', process.env.JWKS_URI, false) || 'https://development.accelbyte.io/iam/v3/oauth/jwks',
-        issuer: validateEnvVar('JWT_ISSUER', process.env.JWT_ISSUER, false) || 'https://development.accelbyte.io',
-        audience: validateEnvVar('JWT_AUDIENCE', process.env.JWT_AUDIENCE, false) || '0f8b2a3ecb63466994d5e4631d3b9fe7',
-        algorithms: process.env.JWT_ALGORITHMS ? process.env.JWT_ALGORITHMS.split(',') : ['RS256'],
-        disableValidation: validateBoolean(process.env.DISABLE_JWT_VALIDATION, false)
+        jwksUri: validateEnvVar('JWKS_URI', process.env.JWKS_URI, false) || `${abBaseUrl}/iam/v3/oauth/jwks`,
+        issuer: validateEnvVar('JWT_ISSUER', process.env.JWT_ISSUER, false) || abBaseUrl,
+        audience: validateEnvVar('JWT_AUDIENCE', process.env.JWT_AUDIENCE, false) || 'NOT_SET',
+        algorithms: process.env.JWT_ALGORITHMS ? process.env.JWT_ALGORITHMS.split(',') : ['RS256']
       }
     };
 
     // Log configuration status
     logger.info({ 
+      projectRoot,
       port: config.port,
       nodeEnv: config.nodeEnv,
       logLevel: config.logLevel,
+      transport: config.transport,
       openapiSpecsDir: config.openapi.specsDir,
       openapiDefaultServerUrl: config.openapi.defaultServerUrl,
       includeWriteRequests: config.openapi.includeWriteRequests,
       oauthConfigured: !!(config.oauth.clientId && config.oauth.authorizationUrl),
-      oidcConfigured: !!(config.oidc.jwksUri && config.oidc.issuer),
-      oidcValidationDisabled: config.oidc.disableValidation
+      enableClientCredentialsFallback: config.oauth.enableClientCredentialsFallback,
+      oidcConfigured: !!(config.oidc.jwksUri && config.oidc.issuer)
     }, 'Configuration loaded');
 
     // Warn about missing OAuth configuration
@@ -139,11 +174,6 @@ function loadConfig(): Config {
     // Warn about missing OIDC configuration
     if (!config.oidc.jwksUri || !config.oidc.issuer) {
       logger.warn('OIDC configuration is incomplete. Set JWKS_URI and JWT_ISSUER environment variables.');
-    }
-
-    // Warn about disabled OIDC validation
-    if (config.oidc.disableValidation) {
-      logger.warn('OIDC validation is disabled. This should only be used for development/testing.');
     }
 
     return config;
