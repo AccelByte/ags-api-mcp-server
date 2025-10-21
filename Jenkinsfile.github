@@ -1,0 +1,95 @@
+library(
+  identifier: 'jenkins-shared-library@master',
+  retriever: modernSCM(
+    [
+      $class: 'GitSCMSource',
+      remote: 'https://github.com/dhanarab/jenkins-pipeline-library.git'
+    ]
+  )
+)
+
+githubOwner = 'AccelByte'
+githubRepo = 'ags-api-mcp-server'
+githubSsh = 'accelbyte-sdk-sdkbuild-ssh'
+githubPat = 'accelbyte-sdk-sdkbuild-pat-github'
+imageName = 'ags-api-mcp-server'
+
+githubUrl = "git@github.com:${githubOwner}/${githubRepo}.git"
+
+agentLabel = params.ACTION == 'PUSH+RELEASE' ? 'extend-builder-ci && linux-amd64' : 'extend-builder-ci'
+
+pipeline {
+    agent {
+        label "${agentLabel}"
+    }
+    stages {
+        stage('Push') {
+            when {
+                expression { 
+                    return params.ACTION == 'PUSH'
+                }
+            }
+            steps {
+                script {
+                    sh "git checkout master"
+                    sshagent(credentials: [githubSsh])
+                    {
+                        sh "git push ${githubUrl} HEAD:master"
+                    }
+                }
+            }
+        }
+        stage('Release') {
+            when {
+                expression { 
+                    return params.ACTION == 'PUSH+RELEASE'
+                }
+            }
+            steps {
+                script {
+                    if (params.RELEASE_NOTE ==~ /(?s).*@[A-Za-z0-9_-]+@.*/)
+                    {
+                        echo 'Release note still contains one or more template placeholders e.g. @VERSION@, etc. Please check.'
+                        sh 'false' // Fail this job
+                    }
+                    sh "git checkout ${params.RELEASE_BRANCH}"
+                    sshagent(credentials: [githubSsh])
+                    {
+                        sh "git push ${githubUrl} HEAD:${params.RELEASE_BRANCH}"
+                        sh "git push ${githubUrl} ${params.RELEASE_TAG}"
+                    }
+                    github.createRelease(githubPat, githubOwner, githubRepo, params.RELEASE_TAG, params.RELEASE_TAG, params.RELEASE_NOTE)
+
+                    sh "docker buildx inspect ${imageName}-builder || docker buildx create --name ${imageName}-builder --use"
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: githubPat, 
+                            usernameVariable: 'GHCR_USERNAME', 
+                            passwordVariable: 'GHCR_PASSWORD'
+                        )
+                    ]) {
+                        sh 'docker login ghcr.io --username $GHCR_USERNAME --password $GHCR_PASSWORD'
+                    }
+                    sh "docker buildx build -t ghcr.io/accelbyte/${imageName}:\$(echo ${params.RELEASE_TAG} | sed s/v//) --platform linux/amd64,linux/arm64 --push ."
+                }
+            }
+            post {
+                always {
+                    sh "docker buildx rm --keep-state ${imageName}-builder"
+                    sh 'docker logout ghcr.io'
+                }
+            }
+        }
+    }
+    post {
+        failure {
+            script {
+                message = """
+                    :no_entry: <${env.BUILD_URL}|${env.JOB_NAME}-${env.BUILD_NUMBER}> *failed*
+
+                    |""".stripMargin()
+                slackSend(channel: "#activity-extend-engineering", color: '#FF0000', message: message)
+            }
+        }
+    }
+}
