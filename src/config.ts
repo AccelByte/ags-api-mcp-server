@@ -102,7 +102,7 @@ function validatePositiveInteger(name: string, value: string | undefined, defaul
 function loadConfig(): Config {
   try {
     // Get AB_BASE_URL for building default URLs
-    const abBaseUrl = validateEnvVar('AB_BASE_URL', process.env.AB_BASE_URL, false) || 'https://development.accelbyte.io';
+    const abBaseUrl = validateEnvVar('AB_BASE_URL', process.env.AB_BASE_URL, false) || 'https://test.accelbyte.io';
     
     // Determine transport mode first so we can use it for other config values
     const transport = validateTransport(process.env.TRANSPORT);

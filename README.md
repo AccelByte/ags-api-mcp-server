@@ -43,7 +43,7 @@ This will create a `.env` file from the template.
 
 4. Configure your AccelByte environment in `.env`:
 ```env
-# Base URL for AccelByte environment, e.g. https://development.accelbyte.io
+# Base URL for AccelByte environment, e.g. https://test.accelbyte.io
 AB_BASE_URL=<your_base_url>
 
 # OAuth Configuration (optional - defaults will be derived from AB_BASE_URL)
@@ -172,7 +172,7 @@ The processing script performs the following cleanup operations:
 The server uses the following environment variables (configured in `.env`):
 
 ### Required Variables
-- `AB_BASE_URL` - Base URL for AccelByte environment (e.g., https://development.accelbyte.io)
+- `AB_BASE_URL` - Base URL for AccelByte environment (e.g., https://test.accelbyte.io)
 
 ### OAuth Variables (Optional)
 - `OAUTH_CLIENT_ID` - OAuth client ID
@@ -276,7 +276,7 @@ This MCP server uses a **simplified OAuth 2.1 flow** with static client credenti
 ### AccelByte OAuth Example
 ```env
 # Minimal configuration - URLs are automatically derived
-AB_BASE_URL=https://development.accelbyte.io
+AB_BASE_URL=https://test.accelbyte.io
 ```
 
 **Note**: All OAuth and OIDC URLs are automatically derived from `AB_BASE_URL`. `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` are configured in your MCP client's environment.

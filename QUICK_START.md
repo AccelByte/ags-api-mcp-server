@@ -79,7 +79,7 @@ pnpm install
 #### 2.3 Configure AccelByte OAuth Client
 
 1. **Log into your AccelByte Admin Portal**
-   - Navigate to your target environment (e.g., development.accelbyte.io/admin)
+   - Navigate to your target environment (e.g., test.accelbyte.io/admin)
    - Go to **Game Setup** → **Games and Apps** → **IAM Clients**
 
 2. **Create or Configure OAuth Client**
