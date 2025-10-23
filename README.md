@@ -347,8 +347,6 @@ docker build -t ags-api-mcp-server .
 
 ### Running with Docker
 
-#### Option 1: Using Environment File
-
 1. Create a `.env` file with your configuration:
 ```bash
 cp env.oidc.example .env
@@ -378,19 +376,6 @@ docker run -d \
 docker run -it --rm \
   --name ags-api-mcp-server \
   --env-file .env \
-  -p 3000:3000 \
-  ags-api-mcp-server
-```
-
-#### Option 2: Direct Environment Variables
-
-```bash
-docker run -d \
-  --name ags-api-mcp-server \
-  -e AB_BASE_URL=https://yourgame.accelbyte.io \
-  -e PORT=3000 \
-  -e NODE_ENV=production \
-  -e LOG_LEVEL=info \
   -p 3000:3000 \
   ags-api-mcp-server
 ```
