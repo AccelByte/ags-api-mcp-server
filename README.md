@@ -139,8 +139,6 @@ TRANSPORT=http pnpm run build
 TRANSPORT=http pnpm start
 ```
 
-```
-
 **Note**: In stdio mode:
 - All logs are automatically redirected to stderr to avoid interfering with the MCP protocol on stdout
 - The server communicates via stdin/stdout using the MCP protocol
