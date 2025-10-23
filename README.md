@@ -84,7 +84,7 @@ A Model Context Protocol (MCP) server that issues AccelByte Gaming Services (AGS
 
 ## Prerequisites
 
-- Node.js 18+ 
+- Node.js 20+ 
 - pnpm (install with: `npm install -g pnpm`)
 - IAM OAuth provider in an Accelbyte Environment
 
