@@ -333,41 +333,6 @@ AB_BASE_URL=https://test.accelbyte.io
 
 **Note**: All OAuth and OIDC URLs are automatically derived from `AB_BASE_URL`. `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` are configured in your MCP client's environment.
 
-## Development
-
-### Project Structure
-```
-src/
-├── index.ts              # Main server entry point
-├── mcp-server.ts         # MCP protocol implementation
-├── oauth-middleware.ts   # OAuth authentication middleware
-└── tools/
-    └── static-tools.ts  # Example MCP tools
-```
-
-### Adding New Tools
-
-1. Create a new tool class or add methods to `StaticTools`
-2. Register the tool in `src/index.ts`:
-```typescript
-mcpServer.registerTool('tool_name', toolInstance.method.bind(toolInstance));
-```
-
-3. Optionally, provide a schema for better tool discovery:
-```typescript
-mcpServer.registerTool('tool_name', handler, {
-  name: 'tool_name',
-  description: 'Tool description',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      param1: { type: 'string', description: 'Parameter description' }
-    },
-    required: ['param1']
-  }
-});
-```
-
 ## Docker Deployment
 
 The MCP server can be deployed using Docker for easy containerization and deployment.
