@@ -1,6 +1,73 @@
 # AGS API MCP Server
 
-A simple Streamable HTTP-based MCP (Model Context Protocol) server built with TypeScript that issues Accelbyte AGS API requests on behalf of the authenticated user.
+A Model Context Protocol (MCP) server that issues AccelByte Gaming Services (AGS) API requests on behalf of the authenticated user.
+
+## Quickstart
+
+### Prerequisites
+
+1. [Cursor](https://cursor.com/home)
+2. Docker
+3. Access to AGS environment.
+
+   a. Base URL:
+
+      - Sample URL for AGS Shared Cloud customers: `https://testshooter.prod.gamingservices.accelbyte.io`
+      - Sample URL for AGS Private Cloud customers:  `https://test.accelbyte.io`
+
+   b. [Create a Game Namespace](https://docs.accelbyte.io/gaming-services/services/access/reference/namespaces/manage-your-namespaces/) if you don't have one yet. Keep the `Namespace ID`. Make sure this namespace is in active status.
+
+   c. [Create an OAuth Client](https://docs.accelbyte.io/gaming-services/services/access/authorization/manage-access-control-for-applications/#create-an-iam-client) with confidential client type with the permissions you need. Keep the `Client ID` and `Client Secret`. 
+      - The permission will limit what APIs this MCP server can call.  
+      - We recommend to give the least amount of permissions as possible especially if you are planning to share the client credentials with others.
+
+> [!NOTE]
+> The instructions below can be adapted for other MCP clients as well e.g. Claude Desktop, Gemini CLI, and Visual Studio Code.
+
+### Using STDIO transport
+
+1. Pull the AGS Extend SDK MCP Server container image. For example, with image tag 2025.7.0.
+
+    ```bash
+    docker pull ghcr.io/accelbyte/ags-extend-sdk-mcp-server:2025.7.0
+    ```
+
+2. Switch to your project directory and create `.cursor/mcp.json` with the following content.
+
+    ```json
+    {
+      "mcpServers": {
+        "ags-api-mcp-server": {
+          "command": "docker",
+          "args": [
+            "run",
+            "-i",
+            "--rm",
+            "-e",
+            "AB_BASE_URL",
+            "-e",
+            "OAUTH_CLIENT_ID",
+            "-e",
+            "OAUTH_CLIENT_SECRET",
+            "ghcr.io/accelbyte/ags-api-mcp-server:2025.7.0"
+          ],
+          "env": {
+            "AB_BASE_URL": "<your-base-url>",
+            "OAUTH_CLIENT_ID": "<your-client-id>",
+            "OAUTH_CLIENT_SECRET": "<your-client-secret>",
+          }
+        }
+      }
+    }
+    ```
+
+3. Open your project directory in Cursor and open `File` > `Preferences` > `Cursor Settings`, In `Cursor Settings`, click `MCP`, and make sure `ags-api-mcp-server` is enabled.
+
+> [!IMPORTANT]
+> Use the `ghcr.io/accelbyte/ags-api-mcp-server` image tag that matches your AGS version. See the available image tags [here](https://github.com/accelbyte/ags-extend-sdk-mcp-server/pkgs/container/ags-extend-sdk-mcp-server/versions).
+
+> [!NOTE]
+> Other transport, `http`, is still under development and may not be working yet.
 
 ## Features
 
@@ -15,7 +82,6 @@ A simple Streamable HTTP-based MCP (Model Context Protocol) server built with Ty
 - **Smart Logging**: All logs automatically redirected to stderr in stdio mode
 - **Example Tools**: Built-in tools for demonstration and testing
 
-
 ## Prerequisites
 
 - Node.js 18+ 
@@ -25,6 +91,7 @@ A simple Streamable HTTP-based MCP (Model Context Protocol) server built with Ty
 ## Installation
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd ags-api-mcp
