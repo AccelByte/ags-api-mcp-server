@@ -219,8 +219,6 @@ The processing script performs the following cleanup operations:
 - **Ignores specified services**: Skips processing of buildinfo, challenge, differ, eventlog, matchmaking, sessionbrowser, ugc
 - **Prettifies JSON**: Formats output with proper indentation
 
-### Development Mode (Skip Authentication)
-
 ## Environment Variables
 
 The server uses the following environment variables (configured in `.env`):
