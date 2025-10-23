@@ -69,19 +69,6 @@ A Model Context Protocol (MCP) server that issues AccelByte Gaming Services (AGS
 > [!NOTE]
 > Other transport, `http`, is still under development and may not be working yet.
 
-## Features
-
-- **Dual Transport Support**: Supports both HTTP and stdio transports for maximum flexibility
-  - **HTTP Mode**: Traditional HTTP-based MCP server for web clients
-  - **Stdio Mode**: Direct stdin/stdout communication for MCP clients like Claude Desktop
-- **OAuth 2.1 with PKCE**: Secure authentication using OAuth 2.1 with Proof Key for Code Exchange
-- **Client Credentials Flow**: Automatic server-to-server authentication when no user token is provided
-- **JWT Token Verification**: Secure token validation using JWKS (JSON Web Key Set)
-- **Static OAuth Client**: Simplified OAuth flow using pre-configured client credentials
-- **User Context Propagation**: Authenticated user context passed to all MCP tools
-- **Smart Logging**: All logs automatically redirected to stderr in stdio mode
-- **Example Tools**: Built-in tools for demonstration and testing
-
 ## Prerequisites
 
 - Node.js 20+ 
@@ -348,15 +335,6 @@ AB_BASE_URL=https://test.accelbyte.io
 
 **Note**: All OAuth and OIDC URLs are automatically derived from `AB_BASE_URL`. `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` are configured in your MCP client's environment.
 
-## Security Features
-
-- **Helmet.js**: Security headers
-- **CORS**: Cross-origin resource sharing configuration
-- **JWT**: Secure token-based authentication
-- **HTTP-only Cookies**: Secure session management
-- **Input Validation**: Tool parameter validation
-- **Error Handling**: Comprehensive error handling
-
 ## Development
 
 ### Project Structure
@@ -479,14 +457,6 @@ docker ps
 # Manual health check
 curl http://localhost:3000/health
 ```
-
-### Docker Features
-
-- **Multi-stage build**: Optimized image size with separate build and runtime stages
-- **Health checks**: Built-in monitoring of server health
-- **Port exposure**: Port 3000 is automatically exposed
-- **Production ready**: Configured for production deployment
-- **Lightweight**: Based on Node.js Alpine Linux image
 
 ## Testing
 
