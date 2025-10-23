@@ -69,71 +69,77 @@ A Model Context Protocol (MCP) server that issues AccelByte Gaming Services (AGS
 > [!NOTE]
 > Other transport, `http`, is still under development and may not be working yet.
 
-## Prerequisites
+## Development
+
+### Prerequisites
 
 - Node.js 20+ 
 - pnpm (install with: `npm install -g pnpm`)
 - IAM OAuth provider in an Accelbyte Environment
 
-## Installation
+### Setup
 
 1. Clone the repository:
 
-```bash
-git clone <repository-url>
-cd ags-api-mcp
-```
+    ```bash
+    git clone <repository-url>
+    cd ags-api-mcp
+    ```
 
 2. Install dependencies:
-```bash
-pnpm install
-```
+
+    ```bash
+    pnpm install
+    ```
 
 3. Set up environment configuration:
-```bash
-pnpm run setup
-```
-This will create a `.env` file from the template.
+
+    ```bash
+    pnpm run setup
+    ```
+
+    This will create a `.env` file from the template.
 
 4. Configure your AccelByte environment in `.env`:
-```env
-# Base URL for AccelByte environment, e.g. https://test.accelbyte.io
-AB_BASE_URL=<your_base_url>
 
-# OAuth Configuration (optional - defaults will be derived from AB_BASE_URL)
-OAUTH_CLIENT_ID=<your_client_id>
-OAUTH_CLIENT_SECRET=<redacted>
+    ```env
+    # Base URL for AccelByte environment, e.g. https://test.accelbyte.io
+    AB_BASE_URL=<your_base_url>
 
-# Server Configuration
-PORT=3000
-NODE_ENV=development
-```
+    # OAuth Configuration (optional - defaults will be derived from AB_BASE_URL)
+    OAUTH_CLIENT_ID=<your_client_id>
+    OAUTH_CLIENT_SECRET=<redacted>
+
+    # Server Configuration
+    PORT=3000
+    NODE_ENV=development
+    ```
 
 **Note**: OAuth URLs (`OAUTH_AUTHORIZATION_URL`, `OAUTH_TOKEN_URL`) and OIDC configuration (`JWKS_URI`, `JWT_ISSUER`) will automatically be derived from `AB_BASE_URL` if not explicitly set.
 
-## Usage
+### Usage
 
-### Stdio Mode (Default)
+#### Stdio Mode (Default)
 
-#### Development Mode
+##### Development Mode
 ```bash
 pnpm run dev:stdio
 ```
 
-#### Production Mode
+##### Production Mode
 ```bash
 pnpm run build
 pnpm start:stdio
 ```
 
-### HTTP Mode
+#### HTTP Mode
 
-#### Development Mode
+##### Development Mode
 ```bash
 TRANSPORT=http pnpm run dev
 ```
 
-#### Production Mode
+##### Production Mode
 ```bash
 TRANSPORT=http pnpm run build
 TRANSPORT=http pnpm start
@@ -147,7 +153,7 @@ TRANSPORT=http pnpm start
 
 📖 **For detailed client configuration instructions**, see [STDIO_CLIENT_CONFIG.md](STDIO_CLIENT_CONFIG.md)
 
-#### Quick Start: Claude Desktop Configuration
+##### Claude Desktop Configuration
 
 Add this to your `claude_desktop_config.json`:
 
@@ -174,12 +180,14 @@ Add this to your `claude_desktop_config.json`:
 
 After adding the configuration, restart Claude Desktop and the tools will be available.
 
-### Watch Mode (for development)
+#### Watch Mode (for development)
+
 ```bash
 pnpm run watch
 ```
 
-### Testing
+#### Testing
+
 ```bash
 # Run the TypeScript unit tests (node:test via ts-node)
 pnpm test
@@ -188,7 +196,8 @@ pnpm test
 pnpm run test:integration
 ```
 
-### Environment Setup
+#### Environment Setup
+
 ```bash
 # Set up environment variables
 pnpm run setup
@@ -197,7 +206,8 @@ pnpm run setup
 pnpm run test:env
 ```
 
-### OpenAPI Spec Processing
+#### OpenAPI Spec Processing
+
 ```bash
 # Process OpenAPI specs (filter APIs and clean up fields)
 pnpm run process-specs
@@ -217,26 +227,26 @@ The processing script performs the following cleanup operations:
 - **Ignores specified services**: Skips processing of buildinfo, challenge, differ, eventlog, matchmaking, sessionbrowser, ugc
 - **Prettifies JSON**: Formats output with proper indentation
 
-## Environment Variables
+### Environment Variables
 
 The server uses the following environment variables (configured in `.env`):
 
-### Required Variables
+#### Required Variables
 - `AB_BASE_URL` - Base URL for AccelByte environment (e.g., https://test.accelbyte.io)
 
-### OAuth Variables (Optional)
+#### OAuth Variables (Optional)
 - `OAUTH_CLIENT_ID` - OAuth client ID
 - `OAUTH_CLIENT_SECRET` - OAuth client secret
 - `OAUTH_AUTHORIZATION_URL` - OAuth authorization URL (default: {AB_BASE_URL}/iam/v3/oauth/authorize)
 - `OAUTH_TOKEN_URL` - OAuth token URL (default: {AB_BASE_URL}/iam/v3/oauth/token)
 
-### OIDC Variables (Optional - derived from AB_BASE_URL)
+#### OIDC Variables (Optional - derived from AB_BASE_URL)
 - `JWKS_URI` - JWKS endpoint for token signature verification (default: {AB_BASE_URL}/iam/v3/oauth/jwks)
 - `JWT_ISSUER` - Expected token issuer (default: {AB_BASE_URL})
 - `JWT_AUDIENCE` - Expected token audience (default: 0f8b2a3ecb63466994d5e4631d3b9fe7)
 - `JWT_ALGORITHMS` - Supported JWT algorithms (default: RS256)
 
-### Other Optional Variables
+#### Other Optional Variables
 - `PORT` - Server port (default: 3000)
 - `NODE_ENV` - Environment mode (development/production)
 - `LOG_LEVEL` - Logging level (debug, info, warn, error, fatal)
@@ -245,19 +255,19 @@ The server uses the following environment variables (configured in `.env`):
   - `http` - Run as HTTP server only
 
 
-## API Endpoints
+### API Endpoints
 
-### MCP Protocol
+#### MCP Protocol
 - `POST /mcp` - Main MCP endpoint (requires authentication)
 
-### Health Check
+#### Health Check
 - `GET /health` - Server health status
 
-## MCP Tools
+### MCP Tools
 
 The server includes tools for AccelByte API interaction:
 
-### 1. Get Token Info
+#### 1. Get Token Info
 Get information about the authenticated token and user.
 ```json
 {
@@ -266,15 +276,15 @@ Get information about the authenticated token and user.
 }
 ```
 
-### 2. OpenAPI Tools
+#### 2. OpenAPI Tools
 The server also provides dynamically generated tools from OpenAPI specifications:
 - **search-apis**: Search across loaded OpenAPI operations
 - **describe-apis**: Get detailed information about specific API operations
 - **run-apis**: Execute API requests against endpoints with authentication
 
-## MCP Protocol Usage
+### MCP Protocol Usage
 
-### Initialize
+#### Initialize
 ```json
 {
   "jsonrpc": "2.0",
@@ -291,7 +301,7 @@ The server also provides dynamically generated tools from OpenAPI specifications
 }
 ```
 
-### List Tools
+#### List Tools
 ```json
 {
   "jsonrpc": "2.0",
@@ -300,7 +310,7 @@ The server also provides dynamically generated tools from OpenAPI specifications
 }
 ```
 
-### Call Tool
+#### Call Tool
 ```json
 {
   "jsonrpc": "2.0",
@@ -313,9 +323,9 @@ The server also provides dynamically generated tools from OpenAPI specifications
 }
 ```
 
-## OAuth Configuration
+### OAuth Configuration
 
-### Simplified OAuth Flow
+#### Simplified OAuth Flow
 This MCP server uses a **simplified OAuth 2.1 flow** with static client credentials:
 
 1. **No Dynamic Registration**: Uses pre-configured OAuth client credentials
@@ -323,7 +333,7 @@ This MCP server uses a **simplified OAuth 2.1 flow** with static client credenti
 3. **JWT Verification**: Server validates tokens using AccelByte's JWKS
 4. **User Context**: Authenticated user information passed to all tools
 
-### AccelByte OAuth Example
+#### AccelByte OAuth Example
 ```env
 # Minimal configuration - URLs are automatically derived
 AB_BASE_URL=https://test.accelbyte.io
@@ -331,11 +341,11 @@ AB_BASE_URL=https://test.accelbyte.io
 
 **Note**: All OAuth and OIDC URLs are automatically derived from `AB_BASE_URL`. `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` are configured in your MCP client's environment.
 
-## Docker Deployment
+### Docker Deployment
 
 The MCP server can be deployed using Docker for easy containerization and deployment.
 
-### Building the Docker Image
+#### Building the Docker Image
 
 Build the Docker image from the project directory:
 
@@ -343,7 +353,7 @@ Build the Docker image from the project directory:
 docker build -t ags-api-mcp-server .
 ```
 
-### Running with Docker
+#### Running with Docker
 
 1. Create a `.env` file with your configuration:
 ```bash
@@ -378,7 +388,7 @@ docker run -it --rm \
   ags-api-mcp-server
 ```
 
-### Docker Container Management
+#### Docker Container Management
 
 ```bash
 # View logs
@@ -392,7 +402,7 @@ docker stop ags-api-mcp-server
 docker rm ags-api-mcp-server
 ```
 
-### Health Check
+#### Health Check
 
 The Docker container includes a built-in health check that monitors the `/health` endpoint:
 
@@ -404,7 +414,7 @@ docker ps
 curl http://localhost:3000/health
 ```
 
-## Testing
+### Testing
 
 Test the server using curl or any HTTP client:
 
@@ -424,7 +434,7 @@ curl -X POST http://localhost:3000/mcp \
     "method": "tools/list"
   }'
 ```
-## Contributing
+### Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -432,6 +442,6 @@ curl -X POST http://localhost:3000/mcp \
 4. Add tests if applicable
 5. Submit a pull request
 
-## Support
+### Support
 
 For issues and questions, please open an issue in the repository.
