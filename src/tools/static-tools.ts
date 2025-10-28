@@ -72,67 +72,41 @@ export class StaticTools {
       tokenMetadata: {
         type: tokenType,
         isExpired,
-        isFromCache,
-        length: userContext.accessToken.length,
-        prefix: userContext.accessToken.substring(0, 20) + '...'
+        isFromCache
       }
     };
 
     if (decodedToken && decodedToken.payload) {
       const payload = decodedToken.payload;
-      
+
       response.tokenClaims = {
         // Standard JWT claims
         issuer: payload.iss,
-        subject: payload.sub,
+        subject: payload.sub ? payload.sub.substring(0, 8) + '...' : undefined,
         audience: payload.aud,
         expiresAt: payload.exp ? new Date(payload.exp * 1000).toISOString() : undefined,
         expiresAtTimestamp: payload.exp,
         issuedAt: payload.iat ? new Date(payload.iat * 1000).toISOString() : undefined,
         issuedAtTimestamp: payload.iat,
         notBefore: payload.nbf ? new Date(payload.nbf * 1000).toISOString() : undefined,
-        jwtId: payload.jti,
-        
+
         // Custom claims
         grantType: payload.grant_type,
-        clientId: payload.client_id,
+        clientId: payload.client_id ? payload.client_id.substring(0, 8) + '...' : undefined,
         namespace: payload.namespace,
-        scope: payload.scope,
-        roles: payload.roles,
-        permissions: payload.permissions,
-        
+
         // User-specific claims (if present)
-        userId: payload.user_id,
+        userId: payload.user_id ? payload.user_id.substring(0, 8) + '...' : undefined,
         displayName: payload.display_name,
-        country: payload.country,
-        dateOfBirth: payload.date_of_birth,
         emailVerified: payload.email_verified,
         phoneVerified: payload.phone_verified,
         isComply: payload.is_comply,
-        
+
         // Timing information
         timeUntilExpiry,
         isExpired
       };
-
-      // Add header information
-      if (decodedToken.header) {
-        response.tokenHeader = {
-          algorithm: decodedToken.header.alg,
-          type: decodedToken.header.typ,
-          keyId: decodedToken.header.kid
-        };
-      }
     }
-
-    // Include original user context information for backwards compatibility
-    response.userContext = {
-      sub: userContext.sub,
-      client_id: userContext.client_id,
-      scope: userContext.scope,
-      namespace: userContext.namespace,
-      user: userContext.user
-    };
 
     return response;
   }
