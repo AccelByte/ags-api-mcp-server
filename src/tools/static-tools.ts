@@ -24,14 +24,14 @@ export class StaticTools {
 
     try {
       decodedToken = jwt.decode(userContext.accessToken, { complete: true });
-      
+
       if (decodedToken && decodedToken.payload) {
         const payload = decodedToken.payload;
-        
+
         // Determine token type based on claims
-        if (payload.grant_type === 'client_credentials' || 
-            (payload.sub && payload.sub.includes('client:')) ||
-            (!payload.display_name && payload.client_id)) {
+        if (payload.grant_type === 'client_credentials' ||
+          (payload.sub && payload.sub.includes('client:')) ||
+          (!payload.display_name && payload.client_id)) {
           tokenType = 'client_credentials';
         } else if (payload.grant_type === 'authorization_code' || payload.display_name) {
           tokenType = 'user_token';
@@ -44,13 +44,13 @@ export class StaticTools {
           const expiryDate = new Date(payload.exp * 1000);
           const now = new Date();
           isExpired = expiryDate < now;
-          
+
           if (!isExpired) {
             const diffMs = expiryDate.getTime() - now.getTime();
             const diffMins = Math.floor(diffMs / 60000);
             const diffHours = Math.floor(diffMins / 60);
             const diffDays = Math.floor(diffHours / 24);
-            
+
             if (diffDays > 0) {
               timeUntilExpiry = `${diffDays} day(s) ${diffHours % 24} hour(s)`;
             } else if (diffHours > 0) {
@@ -69,6 +69,10 @@ export class StaticTools {
 
     const response: any = {
       message: 'Token information from authenticated token',
+      default_namespace: decodedToken?.payload?.namespace || null,
+      namespace_usage_hint: decodedToken?.payload?.namespace
+        ? `Use namespace "${decodedToken.payload.namespace}" as the implicit namespace for subsequent API requests when namespace is not explicitly specified`
+        : 'No namespace available in token',
       tokenMetadata: {
         type: tokenType,
         isExpired,

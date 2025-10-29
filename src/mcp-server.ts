@@ -149,7 +149,7 @@ export class MCPServer {
     const toolSchemas: Record<string, Tool> = {
       'get_token_info': {
         name: 'get_token_info',
-        description: 'Get information about the authenticated token and user from the access token',
+        description: 'Get information about the authenticated token and user from the access token. Returns the namespace that should be used as the implicit default namespace for all subsequent API requests when a namespace parameter is not explicitly specified.',
         inputSchema: {
           type: 'object',
           properties: {}
