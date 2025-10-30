@@ -26,10 +26,10 @@ A Model Context Protocol (MCP) server that issues AccelByte Gaming Services (AGS
 
 ### Using STDIO transport
 
-1. Pull the AGS Extend SDK MCP Server container image. For example, with image tag 2025.7.0.
+1. Pull the AGS API MCP Server container image. For example, with image tag 2025.7.0.
 
     ```bash
-    docker pull ghcr.io/accelbyte/ags-extend-sdk-mcp-server:2025.7.0
+    docker pull ghcr.io/accelbyte/ags-api-mcp-server:2025.7.0
     ```
 
 2. Switch to your project directory and create `.cursor/mcp.json` with the following content.
@@ -64,7 +64,7 @@ A Model Context Protocol (MCP) server that issues AccelByte Gaming Services (AGS
 3. Open your project directory in Cursor and open `File` > `Preferences` > `Cursor Settings`, In `Cursor Settings`, click `MCP`, and make sure `ags-api-mcp-server` is enabled.
 
 > [!IMPORTANT]
-> Use the `ghcr.io/accelbyte/ags-api-mcp-server` image tag that matches your AGS version. See the available image tags [here](https://github.com/accelbyte/ags-extend-sdk-mcp-server/pkgs/container/ags-extend-sdk-mcp-server/versions).
+> Use the `ghcr.io/accelbyte/ags-api-mcp-server` image tag that matches your AGS version. See the available image tags [here](https://github.com/accelbyte/ags-api-mcp-server/pkgs/container/ags-api-mcp-server/versions).
 
 > [!NOTE]
 > Other transport, `http`, is still under development and may not be working yet.
