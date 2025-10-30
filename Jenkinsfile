@@ -14,7 +14,7 @@ bitbucketCredentialsSsh = "bitbucket-build-extend-ssh"
 bitbucketPayload = null
 bitbucketCommitHref = null
 
-imageName = 'extend-sdk-mcp-server'
+imageName = 'ags-api-mcp-server'
 
 pipeline {
   agent {
