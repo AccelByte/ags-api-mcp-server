@@ -367,6 +367,12 @@
               "$ref": "#/definitions/restapi.ErrorResponseBody"
             }
           },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
           "500": {
             "description": "Internal Server Error",
             "schema": {
@@ -759,6 +765,30 @@
             "schema": {
               "$ref": "#/definitions/message.ActionDeleteTopicResult"
             }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
           }
         },
         "security": [
@@ -817,6 +847,30 @@
             "description": "",
             "schema": {
               "$ref": "#/definitions/api.CreateTopicResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
             }
           }
         },
@@ -894,6 +948,12 @@
           },
           "403": {
             "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "schema": {
               "$ref": "#/definitions/restapi.ErrorResponseBody"
             }
@@ -1069,6 +1129,12 @@
               "$ref": "#/definitions/restapi.ErrorResponseBody"
             }
           },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
           "500": {
             "description": "Internal Server Error",
             "schema": {
@@ -1146,6 +1212,12 @@
           },
           "403": {
             "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "schema": {
               "$ref": "#/definitions/restapi.ErrorResponseBody"
             }
@@ -1425,6 +1497,12 @@
               "$ref": "#/definitions/restapi.ErrorResponseBody"
             }
           },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
           "500": {
             "description": "Internal Server Error",
             "schema": {
@@ -1489,6 +1567,30 @@
             "description": "",
             "schema": {
               "$ref": "#/definitions/message.ActionAddUserToTopicResult"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
             }
           }
         },
@@ -1555,6 +1657,36 @@
             "description": "",
             "schema": {
               "$ref": "#/definitions/message.ActionAddUserToTopicResult"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
             }
           }
         },
@@ -2053,6 +2185,12 @@
               "$ref": "#/definitions/restapi.ErrorResponseBody"
             }
           },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
           "500": {
             "description": "Internal Server Error",
             "schema": {
@@ -2310,6 +2448,12 @@
               "$ref": "#/definitions/restapi.ErrorResponseBody"
             }
           },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
           "500": {
             "description": "Internal Server Error",
             "schema": {
@@ -2395,6 +2539,12 @@
               "$ref": "#/definitions/restapi.ErrorResponseBody"
             }
           },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
           "500": {
             "description": "Internal Server Error",
             "schema": {
@@ -2474,6 +2624,12 @@
           },
           "403": {
             "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/restapi.ErrorResponseBody"
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "schema": {
               "$ref": "#/definitions/restapi.ErrorResponseBody"
             }
@@ -7984,6 +8140,14 @@
     },
     {
       "Attributes": [],
+      "Code": "510414",
+      "CodeName": "LoadTopicsInvalidTopicType",
+      "Section": "load topic",
+      "Service": "chat",
+      "Text": "topic type is invalid"
+    },
+    {
+      "Attributes": [],
       "Code": "510420",
       "CodeName": "LoadTopicByIdSuccess",
       "Section": "load topic",
@@ -10020,11 +10184,11 @@
     }
   ],
   "x-version": {
-    "buildDate": "2025-09-12T03:55:57+00:00",
-    "gitHash": "0c049e12da1f346817db9826612366e6f8f800fa",
+    "buildDate": "2025-10-16T03:09:12+00:00",
+    "gitHash": "03a521d0b1dcf58148a7a97973785fc7e3ec9a4d",
     "name": "justice-chat-service",
-    "revisionID": "0.4.49",
-    "version": "0.4.49",
-    "version-roles-seeding": "1.2.15"
+    "revisionID": "0.4.50",
+    "version": "0.4.50",
+    "version-roles-seeding": "1.2.108"
   }
 }
