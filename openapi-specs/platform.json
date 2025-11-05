@@ -7,7 +7,7 @@
     },
     "description": "Justice Platform Service",
     "title": "justice-platform-service",
-    "version": "6.8.0"
+    "version": "6.9.0"
   },
   "schemes": [
     "https"
@@ -4928,6 +4928,318 @@
         }
       }
     },
+    "/platform/admin/namespaces/{namespace}/iap/config/oculus/subscription/group": {
+      "get": {
+        "description": "List Meta Quest(Oculus) subscriptions group",
+        "operationId": "listOculusSubscriptionGroups",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "successful operation",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/ThirdPartySubscriptionGroupInfo"
+              },
+              "type": "array"
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "List All of AGS Meta Quest(Oculus) subscriptions group",
+        "tags": [
+          "IAP(Subscription)"
+        ],
+        "x-errorCodes": {},
+        "x-security": {
+          "userPermissions": "ADMIN:NAMESPACE:{namespace}:INTEGRATION [READ]"
+        }
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "Create subscriptions group",
+        "operationId": "createOculusSubscriptionGroup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "required": false,
+            "schema": {
+              "$ref": "#/definitions/ThirdPartySubscriptionGroupCreate"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "successful operation",
+            "schema": {
+              "$ref": "#/definitions/ThirdPartySubscriptionGroupInfo"
+            }
+          },
+          "409": {
+            "description": "<table><tr><td>ErrorCode</td><td>ErrorMessage</td></tr><tr><td>39187</td><td>Duplicated group sku [{sku}] platform [{platform}] in namespace [{namespace}]</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/ErrorEntity"
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "Create AGS Meta Quest(Oculus) subscriptions group",
+        "tags": [
+          "IAP(Subscription)"
+        ],
+        "x-errorCodes": {
+          "39187": "Duplicated group sku [{sku}] platform [{platform}] in namespace [{namespace}]"
+        },
+        "x-security": {
+          "userPermissions": "ADMIN:NAMESPACE:{namespace}:INTEGRATION [CREATE]"
+        }
+      }
+    },
+    "/platform/admin/namespaces/{namespace}/iap/config/oculus/subscription/group/{sku}": {
+      "delete": {
+        "description": "can&#39;t delete it if this subscription group is used.",
+        "operationId": "deleteOculusSubscriptionGroup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "path",
+            "name": "sku",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "204": {
+            "description": "Anonymize successfully"
+          },
+          "404": {
+            "description": "<table><tr><td>ErrorCode</td><td>ErrorMessage</td></tr><tr><td>39152</td><td>Platform [{platform}] - Third-party subscription group [{sku}] not found in namespace [{namespace}]. It may have been deleted.</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/ErrorEntity"
+            }
+          },
+          "409": {
+            "description": "<table><tr><td>ErrorCode</td><td>ErrorMessage</td></tr><tr><td>39188</td><td>Third-party subscription group [{sku}] on platform [{platform}] in namespace [{namespace}] is already linked to the user's third-party subscription.</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/ErrorEntity"
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "Delete a AGS Meta Quest(Oculus) subscriptions group",
+        "tags": [
+          "IAP(Subscription)"
+        ],
+        "x-errorCodes": {
+          "39152": "Platform [{platform}] - Third-party subscription group [{sku}] not found in namespace [{namespace}]. It may have been deleted.",
+          "39188": "Third-party subscription group [{sku}] on platform [{platform}] in namespace [{namespace}] is already linked to the user's third-party subscription."
+        },
+        "x-security": {
+          "userPermissions": "ADMIN:NAMESPACE:{namespace}:INTEGRATION [DELETE]"
+        }
+      }
+    },
+    "/platform/admin/namespaces/{namespace}/iap/config/oculus/subscription/group/{sku}/tiers": {
+      "get": {
+        "description": "List All Tier of AGS Meta Quest(Oculus) subscriptions group",
+        "operationId": "listOculusSubscriptionGroupTier",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "path",
+            "name": "sku",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "successful operation",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/ThirdPartySubscriptionTierInfo"
+              },
+              "type": "array"
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "List All Tier of AGS Meta Quest(Oculus) subscriptions group",
+        "tags": [
+          "IAP(Subscription)"
+        ],
+        "x-errorCodes": {},
+        "x-security": {
+          "userPermissions": "ADMIN:NAMESPACE:{namespace}:INTEGRATION [READ]"
+        }
+      }
+    },
+    "/platform/admin/namespaces/{namespace}/iap/config/oculus/subscription/tier": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "Create Meta Quest(Oculus) subscriptions tier",
+        "operationId": "addTierIntoMetaQuestSubscriptionGroup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "required": false,
+            "schema": {
+              "$ref": "#/definitions/ThirdPartySubscriptionTierCreate"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "successful operation",
+            "schema": {
+              "$ref": "#/definitions/ThirdPartySubscriptionTierInfo"
+            }
+          },
+          "409": {
+            "description": "<table><tr><td>ErrorCode</td><td>ErrorMessage</td></tr><tr><td>39187</td><td>Duplicated group sku [{sku}] platform [{platform}] in namespace [{namespace}]</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/ErrorEntity"
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "Create Meta quest(Oculus) subscriptions tier",
+        "tags": [
+          "IAP(Subscription)"
+        ],
+        "x-errorCodes": {
+          "39187": "Duplicated group sku [{sku}] platform [{platform}] in namespace [{namespace}]"
+        },
+        "x-security": {
+          "userPermissions": "ADMIN:NAMESPACE:{namespace}:INTEGRATION [CREATE]"
+        }
+      }
+    },
+    "/platform/admin/namespaces/{namespace}/iap/config/oculus/subscription/tier/{sku}": {
+      "delete": {
+        "description": "",
+        "operationId": "deleteOculusSubscriptionTier",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "path",
+            "name": "sku",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "204": {
+            "description": "Anonymize successfully"
+          },
+          "404": {
+            "description": "<table><tr><td>ErrorCode</td><td>ErrorMessage</td></tr><tr><td>39152</td><td>Platform [{platform}] - Third-party subscription group [{sku}] not found in namespace [{namespace}]. It may have been deleted.</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/ErrorEntity"
+            }
+          },
+          "409": {
+            "description": "<table><tr><td>ErrorCode</td><td>ErrorMessage</td></tr><tr><td>39188</td><td>Third-party subscription group [{sku}] on platform [{platform}] in namespace [{namespace}] is already linked to the user's third-party subscription.</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/ErrorEntity"
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "Delete a AGS Meta Quest(Oculus) subscriptions tier",
+        "tags": [
+          "IAP(Subscription)"
+        ],
+        "x-errorCodes": {
+          "39152": "Platform [{platform}] - Third-party subscription group [{sku}] not found in namespace [{namespace}]. It may have been deleted.",
+          "39188": "Third-party subscription group [{sku}] on platform [{platform}] in namespace [{namespace}] is already linked to the user's third-party subscription."
+        },
+        "x-security": {
+          "userPermissions": "ADMIN:NAMESPACE:{namespace}:INTEGRATION [DELETE]"
+        }
+      }
+    },
     "/platform/admin/namespaces/{namespace}/iap/config/playstation": {
       "delete": {
         "description": "Delete playstation iap config.",
@@ -6307,7 +6619,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "This API is used to create an item. APP item only can created in publisher namespace.&lt;p&gt;An item create example:&lt;p&gt;&lt;pre&gt;&lt;code&gt;{\r\n   &#34;categoryPath&#34;: &#34;/games&#34;,\r\n   &#34;localizations&#34;: \\{\r\n       &#34;en&#34;: \\{\r\n           &#34;title&#34;:&#34;required&#34;,\r\n           &#34;description&#34;:&#34;optional&#34;,\r\n           &#34;longDescription&#34;:&#34;optional&#34;,\r\n           &#34;localExt&#34;: \\{\r\n                  &#34;properties&#34;:\\[\r\n                                   \\{\r\n                                       &#34;key1&#34;:&#34;value1&#34;,\r\n                                       &#34;key2&#34;:&#34;value2&#34;\r\n                                   \\}\r\n                  \\],\r\n                  &#34;functions&#34;:\\[\r\n                                   \\{\r\n                                       &#34;key1&#34;:&#34;value1&#34;,\r\n                                       &#34;key2&#34;:&#34;value2&#34;\r\n                                   \\}\r\n                 \\]\r\n           \\}\r\n        \\}\r\n   \\},\r\n   &#34;images&#34;: \\[\r\n     \\{\r\n           &#34;as&#34;:&#34;optional, image for&#34;,\r\n           &#34;caption&#34;:&#34;optional&#34;,\r\n           &#34;height&#34;:10,\r\n           &#34;width&#34;:10,\r\n           &#34;imageUrl&#34;:&#34;http://img-url-required&#34;,\r\n           &#34;smallImageUrl&#34;:&#34;http://small-img-url-required&#34;\r\n     \\}\r\n   \\],\r\n   &#34;thumbnailUrl&#34;: &#34;optional, thumbnail url&#34;,\r\n   &#34;status&#34;: &#34;ACTIVE&#34;,\r\n   &#34;listable&#34;: true,\r\n   &#34;purchasable&#34;: true,\r\n   &#34;itemType&#34;: &#34;APP(allowed: [APP,COINS,INGAMEITEM,CODE,BUNDLE])&#34;,\r\n   &#34;name&#34;: &#34;required, also will be used as entitlement name&#34;,\r\n   &#34;entitlementType&#34;: &#34;DURABLE(allowed:[DURABLE,CONSUMABLE], should be CONSUMABLE when item type is COINS)&#34;, \r\n   &#34;useCount&#34;: 1(optional, required if the entitlement type is consumable),\r\n   &#34;stackable&#34;: false,\r\n   &#34;appId&#34;: &#34;optional, required if itemType is APP&#34;,\r\n   &#34;appType&#34;: &#34;GAME(optional, required if itemType is APP)&#34;,\r\n   &#34;seasonType&#34;: &#34;PASS(optional, required if itemType is SEASON)&#34;,\r\n   &#34;baseAppId&#34;: &#34;optional, set value of game app id if you want to link to a game&#34;,\r\n   &#34;targetCurrencyCode&#34;: &#34;optional, required if itemType is COINS&#34;,\r\n   &#34;targetNamespace&#34;: &#34;optional, required when itemType is INGAMEITEM, the targetNamespace will only take effect when the item\r\n   created belongs to the publisher namespace&#34;,\r\n   &#34;sku&#34;: &#34;optional, commonly unique item code&#34;,\r\n   &#34;regionData&#34;: \\{\r\n       &#34;US(store&#39;s default region is required)&#34;: \\[\r\n         \\{\r\n            &#34;price&#34;:10,\r\n            &#34;discountPercentage&#34;: 0(integer, optional, range[0,100], discountedPrice = price  \\* ((100 - discountPercentage) \\* 0.01),\r\n              will use it to calculate discounted price if it is not 0),\r\n            &#34;discountAmount&#34;:0(integer, optional, range[0,itemPrice], will use it to calculate discounted price if discountPercentage is 0),\r\n            &#34;currencyCode&#34;:&#34;code(required, example: USD)&#34;,\r\n            &#34;currencyNamespace&#34;:&#34;test-ns-required(allow publisher namespace if namespace is publisher namespace, allow publisher and game namespace if namespace is not publisher namespace)&#34;,\r\n            &#34;trialPrice&#34;:5(required while fixedTrialCycles set, should &gt;=0 and &lt;= price, will same as price if not present),\r\n            &#34;purchaseAt&#34;:&#34;optional yyyy-MM-dd&#39;T&#39;HH:mm:ss.SSS&#39;Z&#39;&#34;,\r\n            &#34;expireAt&#34;:&#34;optional yyyy-MM-dd&#39;T&#39;HH:mm:ss.SSS&#39;Z&#39;&#34;,\r\n            &#34;discountPurchaseAt&#34;:&#34;optional yyyy-MM-dd&#39;T&#39;HH:mm:ss.SSS&#39;Z&#39;&#34;,\r\n            &#34;discountExpireAt&#34;:&#34;optional yyyy-MM-dd&#39;T&#39;HH:mm:ss.SSS&#39;Z&#39;&#34;\r\n         \\}\r\n       \\]\r\n   \\},\r\n   &#34;itemIds&#34;: \\[\r\n       &#34;itemId&#34;\r\n   \\],\r\n   &#34;itemQty&#34;: \\{\r\n       &#34;itemId&#34;:1\r\n   \\},\r\n   &#34;recurring&#34;: \\{\r\n       &#34;cycle&#34;:&#34;MONTHLY(allowed: [WEEKLY,MONTHLY,QUARTERLY,YEARLY])&#34;,\r\n       &#34;fixedFreeDays&#34;:0(integer, fixed free days, 0 means not set),\r\n       &#34;fixedTrialCycles&#34;:0(integer, fixed trial cycles, 0 means not set, will not take effect if fixedFreeDays set),\r\n       &#34;graceDays&#34;:7(integer, recurring grace days, retry recurring charge within configured days if charge fail, default 7)\r\n   \\},\r\n   &#34;tags&#34;: \\[\r\n       &#34;exampleTag24&#34;\r\n   \\],\r\n   &#34;features&#34;: \\[\r\n       &#34;feature&#34;\r\n   \\],\r\n   &#34;clazz&#34;: &#34;weapon&#34;,\r\n   &#34;boothName&#34;: &#34;C_campaign1&#34;,\r\n   &#34;displayOrder&#34;: 1000,\r\n   &#34;ext&#34;: \\{\r\n       &#34;properties&#34;:\\[\r\n           \\{\r\n               &#34;key1&#34;:&#34;value1&#34;,\r\n               &#34;key2&#34;:&#34;value2&#34;\r\n           \\}\r\n       \\],\r\n       &#34;functions&#34;:\\[\r\n           \\{\r\n               &#34;key1&#34;:&#34;value1&#34;,\r\n               &#34;key2&#34;:&#34;value2&#34;\r\n           \\}\r\n       \\]\r\n   \\},\r\n   &#34;maxCountPerUser&#34;: 1(integer, optional, -1 means UNLIMITED),\r\n   &#34;maxCount&#34;: 1(integer, optional, -1 means UNLIMITED, unset when itemType is CODE)\r\n}&lt;/code&gt;&lt;/pre&gt;Other detail info: &lt;ul&gt;&lt;li&gt;&lt;i&gt;Returns&lt;/i&gt;: created item data&lt;/li&gt;&lt;/ul&gt;&lt;h2&gt;Restrictions for item extension and localization extension and inventory config custom attributes&lt;/h2&gt;\n1. Cannot use &lt;b&gt;&#34;.&#34;&lt;/b&gt; as the key name\n-\t&lt;pre&gt;{ &#34;data.2&#34;: &#34;value&#34; }&lt;/pre&gt;\n2. Cannot use &lt;b&gt;&#34;$&#34;&lt;/b&gt; as the prefix in key names\n-\t&lt;pre&gt;{ &#34;$data&#34;: &#34;value&#34; }&lt;/pre&gt;",
+        "description": "This API is used to create an item. APP item only can created in publisher namespace.&lt;p&gt;An item create example:&lt;p&gt;&lt;pre&gt;&lt;code&gt;{\r\n   &#34;itemId&#34;: &#34;b478be9ad42f4d0f8ba49ef3ef605a83&#34; (optional, UUID V4 without hyphen format)\r\n   &#34;categoryPath&#34;: &#34;/games&#34;,\r\n   &#34;localizations&#34;: \\{\r\n       &#34;en&#34;: \\{\r\n           &#34;title&#34;:&#34;required&#34;,\r\n           &#34;description&#34;:&#34;optional&#34;,\r\n           &#34;longDescription&#34;:&#34;optional&#34;,\r\n           &#34;localExt&#34;: \\{\r\n                  &#34;properties&#34;:\\[\r\n                                   \\{\r\n                                       &#34;key1&#34;:&#34;value1&#34;,\r\n                                       &#34;key2&#34;:&#34;value2&#34;\r\n                                   \\}\r\n                  \\],\r\n                  &#34;functions&#34;:\\[\r\n                                   \\{\r\n                                       &#34;key1&#34;:&#34;value1&#34;,\r\n                                       &#34;key2&#34;:&#34;value2&#34;\r\n                                   \\}\r\n                 \\]\r\n           \\}\r\n        \\}\r\n   \\},\r\n   &#34;images&#34;: \\[\r\n     \\{\r\n           &#34;as&#34;:&#34;optional, image for&#34;,\r\n           &#34;caption&#34;:&#34;optional&#34;,\r\n           &#34;height&#34;:10,\r\n           &#34;width&#34;:10,\r\n           &#34;imageUrl&#34;:&#34;http://img-url-required&#34;,\r\n           &#34;smallImageUrl&#34;:&#34;http://small-img-url-required&#34;\r\n     \\}\r\n   \\],\r\n   &#34;thumbnailUrl&#34;: &#34;optional, thumbnail url&#34;,\r\n   &#34;status&#34;: &#34;ACTIVE&#34;,\r\n   &#34;listable&#34;: true,\r\n   &#34;purchasable&#34;: true,\r\n   &#34;itemType&#34;: &#34;APP(allowed: [APP,COINS,INGAMEITEM,CODE,BUNDLE])&#34;,\r\n   &#34;name&#34;: &#34;required, also will be used as entitlement name&#34;,\r\n   &#34;entitlementType&#34;: &#34;DURABLE(allowed:[DURABLE,CONSUMABLE], should be CONSUMABLE when item type is COINS)&#34;, \r\n   &#34;useCount&#34;: 1(optional, required if the entitlement type is consumable),\r\n   &#34;stackable&#34;: false,\r\n   &#34;appId&#34;: &#34;optional, required if itemType is APP&#34;,\r\n   &#34;appType&#34;: &#34;GAME(optional, required if itemType is APP)&#34;,\r\n   &#34;seasonType&#34;: &#34;PASS(optional, required if itemType is SEASON)&#34;,\r\n   &#34;baseAppId&#34;: &#34;optional, set value of game app id if you want to link to a game&#34;,\r\n   &#34;targetCurrencyCode&#34;: &#34;optional, required if itemType is COINS&#34;,\r\n   &#34;targetNamespace&#34;: &#34;optional, required when itemType is INGAMEITEM, the targetNamespace will only take effect when the item\r\n   created belongs to the publisher namespace&#34;,\r\n   &#34;sku&#34;: &#34;optional, commonly unique item code&#34;,\r\n   &#34;regionData&#34;: \\{\r\n       &#34;US(store&#39;s default region is required)&#34;: \\[\r\n         \\{\r\n            &#34;price&#34;:10,\r\n            &#34;discountPercentage&#34;: 0(integer, optional, range[0,100], discountedPrice = price  \\* ((100 - discountPercentage) \\* 0.01),\r\n              will use it to calculate discounted price if it is not 0),\r\n            &#34;discountAmount&#34;:0(integer, optional, range[0,itemPrice], will use it to calculate discounted price if discountPercentage is 0),\r\n            &#34;currencyCode&#34;:&#34;code(required, example: USD)&#34;,\r\n            &#34;currencyNamespace&#34;:&#34;test-ns-required(allow publisher namespace if namespace is publisher namespace, allow publisher and game namespace if namespace is not publisher namespace)&#34;,\r\n            &#34;trialPrice&#34;:5(required while fixedTrialCycles set, should &gt;=0 and &lt;= price, will same as price if not present),\r\n            &#34;purchaseAt&#34;:&#34;optional yyyy-MM-dd&#39;T&#39;HH:mm:ss.SSS&#39;Z&#39;&#34;,\r\n            &#34;expireAt&#34;:&#34;optional yyyy-MM-dd&#39;T&#39;HH:mm:ss.SSS&#39;Z&#39;&#34;,\r\n            &#34;discountPurchaseAt&#34;:&#34;optional yyyy-MM-dd&#39;T&#39;HH:mm:ss.SSS&#39;Z&#39;&#34;,\r\n            &#34;discountExpireAt&#34;:&#34;optional yyyy-MM-dd&#39;T&#39;HH:mm:ss.SSS&#39;Z&#39;&#34;\r\n         \\}\r\n       \\]\r\n   \\},\r\n   &#34;itemIds&#34;: \\[\r\n       &#34;itemId&#34;\r\n   \\],\r\n   &#34;itemQty&#34;: \\{\r\n       &#34;itemId&#34;:1\r\n   \\},\r\n   &#34;recurring&#34;: \\{\r\n       &#34;cycle&#34;:&#34;MONTHLY(allowed: [WEEKLY,MONTHLY,QUARTERLY,YEARLY])&#34;,\r\n       &#34;fixedFreeDays&#34;:0(integer, fixed free days, 0 means not set),\r\n       &#34;fixedTrialCycles&#34;:0(integer, fixed trial cycles, 0 means not set, will not take effect if fixedFreeDays set),\r\n       &#34;graceDays&#34;:7(integer, recurring grace days, retry recurring charge within configured days if charge fail, default 7)\r\n   \\},\r\n   &#34;tags&#34;: \\[\r\n       &#34;exampleTag24&#34;\r\n   \\],\r\n   &#34;features&#34;: \\[\r\n       &#34;feature&#34;\r\n   \\],\r\n   &#34;clazz&#34;: &#34;weapon&#34;,\r\n   &#34;boothName&#34;: &#34;C_campaign1&#34;,\r\n   &#34;displayOrder&#34;: 1000,\r\n   &#34;ext&#34;: \\{\r\n       &#34;properties&#34;:\\[\r\n           \\{\r\n               &#34;key1&#34;:&#34;value1&#34;,\r\n               &#34;key2&#34;:&#34;value2&#34;\r\n           \\}\r\n       \\],\r\n       &#34;functions&#34;:\\[\r\n           \\{\r\n               &#34;key1&#34;:&#34;value1&#34;,\r\n               &#34;key2&#34;:&#34;value2&#34;\r\n           \\}\r\n       \\]\r\n   \\},\r\n   &#34;maxCountPerUser&#34;: 1(integer, optional, -1 means UNLIMITED),\r\n   &#34;maxCount&#34;: 1(integer, optional, -1 means UNLIMITED, unset when itemType is CODE)\r\n}&lt;/code&gt;&lt;/pre&gt;Other detail info: &lt;ul&gt;&lt;li&gt;&lt;i&gt;Returns&lt;/i&gt;: created item data&lt;/li&gt;&lt;/ul&gt;&lt;h2&gt;Restrictions for item extension and localization extension and inventory config custom attributes&lt;/h2&gt;\n1. Cannot use &lt;b&gt;&#34;.&#34;&lt;/b&gt; as the key name\n-\t&lt;pre&gt;{ &#34;data.2&#34;: &#34;value&#34; }&lt;/pre&gt;\n2. Cannot use &lt;b&gt;&#34;$&#34;&lt;/b&gt; as the prefix in key names\n-\t&lt;pre&gt;{ &#34;$data&#34;: &#34;value&#34; }&lt;/pre&gt;",
         "operationId": "createItem",
         "parameters": [
           {
@@ -17841,6 +18153,82 @@
         }
       }
     },
+    "/platform/admin/namespaces/{namespace}/users/{userId}/iap/oculus/subscription/sync": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "this endpoint only return existed subscription transaction info",
+        "operationId": "adminSyncOculusSubscriptions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "required": false,
+            "schema": {
+              "$ref": "#/definitions/OculusSubscriptionSyncRequest"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "successful operation",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/ThirdPartySubscriptionTransactionInfo"
+              },
+              "type": "array"
+            }
+          },
+          "400": {
+            "description": "<table><tr><td>ErrorCode</td><td>ErrorMessage</td></tr><tr><td>39126</td><td>User id [{}] in namespace [{}] doesn't link platform [{}]</td></tr><tr><td>39134</td><td>Invalid Oculus IAP config under namespace [{namespace}]: [{message}]</td></tr><tr><td>39133</td><td>Bad request for Oculus: [{reason}]</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/ErrorEntity"
+            }
+          },
+          "404": {
+            "description": "<table><tr><td>ErrorCode</td><td>ErrorMessage</td></tr><tr><td>39146</td><td>Oculus IAP config not found in namespace [{namespace}].</td></tr><tr><td>39154</td><td>Meta Quest Subscription Sku [{sku}] not found in namespace [{namespace}] config, please config this Subscription sku in subscription group.</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/ErrorEntity"
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "Sync Meta Quest(Oculus) subscription",
+        "tags": [
+          "IAP"
+        ],
+        "x-errorCodes": {
+          "39126": "User id [{}] in namespace [{}] doesn't link platform [{}]",
+          "39133": "Bad request for Oculus: [{reason}]",
+          "39134": "Invalid Oculus IAP config under namespace [{namespace}]: [{message}]",
+          "39146": "Oculus IAP config not found in namespace [{namespace}].",
+          "39154": "Meta Quest Subscription Sku [{sku}] not found in namespace [{namespace}] config, please config this Subscription sku in subscription group."
+        },
+        "x-security": {
+          "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:IAP [UPDATE]"
+        }
+      }
+    },
     "/platform/admin/namespaces/{namespace}/users/{userId}/iap/orders/{iapOrderNo}/line_items": {
       "get": {
         "description": "Query IAP order ine items.&lt;br&gt;Other detail info: &lt;ul&gt;&lt;li&gt;&lt;i&gt;Returns&lt;/i&gt;: paginated iap orders&lt;/li&gt;&lt;/ul&gt;",
@@ -28356,6 +28744,82 @@
           "39172": "The order id in namespace [{namespace}] expect [{expected}] but was [{actual}]",
           "39173": "The purchase status of google play order [{orderId}] in namespace [{namespace}] expect [{expected}] but was [{actual}]",
           "39174": "The google iap purchase time of order [{orderId}] in namespace [{namespace}] expect [{expected}] but was [{actual}]"
+        },
+        "x-security": {
+          "userPermissions": "NAMESPACE:{namespace}:USER:{userId}:IAP [UPDATE]"
+        }
+      }
+    },
+    "/platform/public/namespaces/{namespace}/users/{userId}/iap/oculus/subscription/sync": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "this endpoint only return existed subscription transaction info",
+        "operationId": "syncOculusSubscriptions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "required": false,
+            "schema": {
+              "$ref": "#/definitions/OculusSubscriptionSyncRequest"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "successful operation",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/ThirdPartySubscriptionTransactionInfo"
+              },
+              "type": "array"
+            }
+          },
+          "400": {
+            "description": "<table><tr><td>ErrorCode</td><td>ErrorMessage</td></tr><tr><td>39126</td><td>User id [{}] in namespace [{}] doesn't link platform [{}]</td></tr><tr><td>39134</td><td>Invalid Oculus IAP config under namespace [{namespace}]: [{message}]</td></tr><tr><td>39133</td><td>Bad request for Oculus: [{reason}]</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/ErrorEntity"
+            }
+          },
+          "404": {
+            "description": "<table><tr><td>ErrorCode</td><td>ErrorMessage</td></tr><tr><td>39146</td><td>Oculus IAP config not found in namespace [{namespace}].</td></tr><tr><td>39154</td><td>Meta Quest Subscription Sku [{sku}] not found in namespace [{namespace}] config, please config this Subscription sku in subscription group.</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/ErrorEntity"
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "Sync Meta Quest(Oculus) subscription",
+        "tags": [
+          "IAP"
+        ],
+        "x-errorCodes": {
+          "39126": "User id [{}] in namespace [{}] doesn't link platform [{}]",
+          "39133": "Bad request for Oculus: [{reason}]",
+          "39134": "Invalid Oculus IAP config under namespace [{namespace}]: [{message}]",
+          "39146": "Oculus IAP config not found in namespace [{namespace}].",
+          "39154": "Meta Quest Subscription Sku [{sku}] not found in namespace [{namespace}] config, please config this Subscription sku in subscription group."
         },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:USER:{userId}:IAP [UPDATE]"
@@ -40158,6 +40622,10 @@
           "$ref": "#/definitions/InventoryConfig",
           "description": "inventory config"
         },
+        "itemId": {
+          "description": "Item ID (optional). UUID V4 without hyphen format",
+          "type": "string"
+        },
         "itemIds": {
           "description": "itemIds, should be empty if item type is not \"BUNDLE\"",
           "items": {
@@ -42085,6 +42553,10 @@
         "namespace": {
           "description": "namespace",
           "type": "string"
+        },
+        "webhookVerifyToken": {
+          "description": "oculus webhook verify token",
+          "type": "string"
         }
       },
       "required": [
@@ -42100,6 +42572,10 @@
         },
         "appSecret": {
           "description": "oculus api app secret, don't allow white space and *",
+          "type": "string"
+        },
+        "webhookVerifyToken": {
+          "description": "oculus webhook verify token, please refer this link: https://developers.meta.com/horizon/documentation/unity/ps-webhooks-getting-started",
           "type": "string"
         }
       },
@@ -42141,6 +42617,18 @@
         "transactionId": {
           "description": "AGS transaction id",
           "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "OculusSubscriptionSyncRequest": {
+      "properties": {
+        "skus": {
+          "description": "Meta Quest Subscription, if pass an empty list or null, will fetch all of subscription sku which config in AGS subscription config.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "type": "object"
@@ -49280,6 +49768,24 @@
       ],
       "type": "object"
     },
+    "ThirdPartySubscriptionGroupCreate": {
+      "properties": {
+        "sku": {
+          "description": "subscription group sku, unique identification",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ThirdPartySubscriptionGroupInfo": {
+      "properties": {
+        "sku": {
+          "description": "subscription group sku, unique identification",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "ThirdPartySubscriptionOwnership": {
       "properties": {
         "owned": {
@@ -49291,6 +49797,32 @@
       "required": [
         "owned"
       ],
+      "type": "object"
+    },
+    "ThirdPartySubscriptionTierCreate": {
+      "properties": {
+        "groupSku": {
+          "description": "Group sku",
+          "type": "string"
+        },
+        "sku": {
+          "description": "Tier sku",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ThirdPartySubscriptionTierInfo": {
+      "properties": {
+        "groupSku": {
+          "description": "Group sku",
+          "type": "string"
+        },
+        "sku": {
+          "description": "Tier sku",
+          "type": "string"
+        }
+      },
       "type": "object"
     },
     "ThirdPartySubscriptionTransactionHistoryInfo": {
@@ -51344,15 +51876,15 @@
   },
   "x-version": {
     "buildBy": "Gradle 8.5",
-    "buildDate": "2025-09-12T12:08:58+00:00",
-    "buildID": "6.8.0",
+    "buildDate": "2025-10-16T09:48:51+00:00",
+    "buildID": "6.9.0",
     "buildJDK": "21.0.6 (Amazon.com Inc. 21.0.6+7-LTS)",
-    "buildOS": "Linux amd64 5.10.240-238.959.amzn2.x86_64",
+    "buildOS": "Linux amd64 5.10.244-240.965.amzn2.x86_64",
     "gitBranchName": "release-candidate",
-    "gitHash": "8116a96789",
-    "gitTag": "6.5.0",
+    "gitHash": "c260997de5",
+    "gitTag": "6.9.0",
     "name": "justice-platform-service",
-    "version": "6.8.0",
-    "version-roles-seeding": "1.2.74"
+    "version": "6.9.0",
+    "version-roles-seeding": "1.2.118"
   }
 }

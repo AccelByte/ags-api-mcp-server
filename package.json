@@ -1,6 +1,6 @@
 {
   "name": "ags-api-mcp-server",
-  "version": "1.0.0",
+  "version": "2025.8.0",
   "description": "A simple Streamable HTTP-based MCP server with OAuth authorization",
   "main": "dist/index.js",
   "scripts": {
