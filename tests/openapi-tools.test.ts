@@ -12,7 +12,7 @@ test('searchApis indexes GET operations by default', async () => {
   const tools = createTools();
   const result: any = await tools.searchApis({ query: 'pets' });
 
-  assert.equal(result.totalOperations, 2);
+  assert.equal(result.totalOperations, 3);
   assert.ok(result.results.length > 0);
   for (const entry of result.results) {
     assert.equal(entry.method, 'GET');
@@ -61,4 +61,112 @@ test('runApi surfaces missing path parameter errors before making a request', as
       message: "Missing path parameter 'petId' for URL template /pets/{petId}"
     }
   );
+});
+
+test('runApi throws error when required query parameter is missing', async () => {
+  const tools = createTools();
+
+  await assert.rejects(
+    tools.runApi({
+      spec: 'sample-pets-api',
+      method: 'get',
+      path: '/pets/search',
+      query: { age: 5 }
+    }),
+    {
+      message: "Missing required query parameter 'species' for GET /pets/search"
+    }
+  );
+});
+
+test('runApi throws error when multiple required query parameters are missing', async () => {
+  const tools = createTools();
+
+  await assert.rejects(
+    tools.runApi({
+      spec: 'sample-pets-api',
+      method: 'get',
+      path: '/pets/search',
+      query: {}
+    }),
+    {
+      message: "Missing required query parameter 'species' for GET /pets/search"
+    }
+  );
+});
+
+test('runApi throws error when all query parameters are missing', async () => {
+  const tools = createTools();
+
+  await assert.rejects(
+    tools.runApi({
+      spec: 'sample-pets-api',
+      method: 'get',
+      path: '/pets/search'
+    }),
+    {
+      message: "Missing required query parameter 'species' for GET /pets/search"
+    }
+  );
+});
+
+test('runApi does not throw validation error when all required query parameters are present', async () => {
+  const tools = createTools();
+
+  // This should pass validation - we don't care if network call succeeds/fails,
+  // just that validation doesn't throw an error
+  try {
+    await tools.runApi({
+      spec: 'sample-pets-api',
+      method: 'get',
+      path: '/pets/search',
+      query: { species: 'dog', age: 5 }
+    });
+    // If it succeeds, great! Validation passed
+    assert.ok(true);
+  } catch (error: any) {
+    // If it fails, make sure it's NOT a query parameter validation error
+    assert.ok(!error.message.includes('Missing required query parameter'),
+      `Expected network/other error but got validation error: ${error.message}`);
+  }
+});
+
+test('runApi does not throw validation error when optional query parameters are missing', async () => {
+  const tools = createTools();
+
+  // Optional 'color' parameter is not provided, should pass validation
+  try {
+    await tools.runApi({
+      spec: 'sample-pets-api',
+      method: 'get',
+      path: '/pets/search',
+      query: { species: 'cat', age: 3 }
+    });
+    // If it succeeds, great! Validation passed
+    assert.ok(true);
+  } catch (error: any) {
+    // If it fails, make sure it's NOT a query parameter validation error
+    assert.ok(!error.message.includes('Missing required query parameter'),
+      `Expected network/other error but got validation error: ${error.message}`);
+  }
+});
+
+test('runApi passes validation with all parameters including optional ones', async () => {
+  const tools = createTools();
+
+  // All parameters provided including optional one - should pass validation
+  try {
+    await tools.runApi({
+      spec: 'sample-pets-api',
+      method: 'get',
+      path: '/pets/search',
+      query: { species: 'bird', age: 2, color: 'blue' }
+    });
+    // If it succeeds, great! Validation passed
+    assert.ok(true);
+  } catch (error: any) {
+    // If it fails, make sure it's NOT a query parameter validation error
+    assert.ok(!error.message.includes('Missing required query parameter'),
+      `Expected network/other error but got validation error: ${error.message}`);
+  }
 });

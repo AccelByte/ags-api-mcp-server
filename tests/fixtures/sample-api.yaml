@@ -63,4 +63,33 @@ paths:
       responses:
         '200':
           description: Pet details response.
+  /pets/search:
+    get:
+      summary: Search pets by criteria.
+      description: Search for pets matching specific criteria.
+      tags:
+        - Pets
+      operationId: searchPets
+      parameters:
+        - name: species
+          in: query
+          description: Species of pet to search for.
+          required: true
+          schema:
+            type: string
+        - name: age
+          in: query
+          description: Maximum age of pets to return.
+          required: true
+          schema:
+            type: integer
+        - name: color
+          in: query
+          description: Color of pet (optional).
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Search results.
 components: {}
