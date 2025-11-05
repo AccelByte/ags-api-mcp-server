@@ -305,6 +305,9 @@ export class OpenApiTools {
       resolvedPath,
       operation.basePath,
     );
+
+    this.validateQueryParameters(operation, args.query);
+
     const url = new URL(
       baseUrl +
         (resolvedPath.startsWith("/") ? resolvedPath : `/${resolvedPath}`),
@@ -756,6 +759,18 @@ export class OpenApiTools {
     }
 
     return operation;
+  }
+
+  private validateQueryParameters(operation: ApiOperation, queryParams?: Record<string, any>): void {
+    const requiredQueryParams = operation.parameters.filter(
+      (param) => param.in === 'query' && param.required === true
+    );
+
+    for (const param of requiredQueryParams) {
+      if (!queryParams || !(param.name in queryParams)) {
+        throw new Error(`Missing required query parameter '${param.name}' for ${operation.method} ${operation.path}`);
+      }
+    }
   }
 
   private computeSearchScore(operation: ApiOperation, terms: string[]): number {
