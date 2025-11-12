@@ -59,7 +59,7 @@ test('tools/list returns both explicit schemas and generated defaults', async ()
   assert.ok(defaultSchema);
   assert.equal(
     defaultSchema.description,
-    'Get information about the authenticated token and user from the access token'
+    'Get information about the authenticated token and user from the access token. Returns the namespace that should be used as the implicit default namespace for all subsequent API requests when a namespace parameter is not explicitly specified.'
   );
   assert.equal(defaultSchema.inputSchema.type, 'object');
 });

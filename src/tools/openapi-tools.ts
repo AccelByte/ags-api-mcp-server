@@ -268,6 +268,7 @@ export class OpenApiTools {
     resolvedPath = this.applyBasePath(baseUrl, resolvedPath, operation.basePath);
 
     this.validateQueryParameters(operation, args.query);
+    this.validateRequestBody(operation, args.body);
 
     const url = new URL(baseUrl + (resolvedPath.startsWith('/') ? resolvedPath : `/${resolvedPath}`));
     if (args.query) {
@@ -656,6 +657,24 @@ export class OpenApiTools {
     for (const param of requiredQueryParams) {
       if (!queryParams || !(param.name in queryParams)) {
         throw new Error(`Missing required query parameter '${param.name}' for ${operation.method} ${operation.path}`);
+      }
+    }
+  }
+
+  private validateRequestBody(operation: ApiOperation, body?: any): void {
+    if (operation.requestBody?.required === true && (body === undefined || body === null)) {
+      throw new Error(`Missing required request body for ${operation.method} ${operation.path}`);
+    }
+
+    if (body !== undefined && body !== null && operation.requestBody?.contents) {
+      for (const content of operation.requestBody.contents) {
+        if (content.schema && Array.isArray(content.schema.required)) {
+          for (const fieldName of content.schema.required) {
+            if (!(fieldName in body)) {
+              throw new Error(`Missing required field '${fieldName}' in request body for ${operation.method} ${operation.path}`);
+            }
+          }
+        }
       }
     }
   }
