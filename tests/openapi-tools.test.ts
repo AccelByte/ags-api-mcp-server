@@ -173,3 +173,137 @@ test('runApi passes validation with all parameters including optional ones', asy
       `Expected network/other error but got validation error: ${error.message}`);
   }
 });
+
+test('runApi throws error when required request body is missing', async () => {
+  const tools = createTools({ includeWriteRequests: true });
+
+  await assert.rejects(
+    tools.runApi({
+      spec: 'sample-pets-api',
+      method: 'post',
+      path: '/pets'
+      // No body provided, but it's required
+    }),
+    {
+      message: 'Missing required request body for POST /pets'
+    }
+  );
+});
+
+test('runApi throws error when required request body is null', async () => {
+  const tools = createTools({ includeWriteRequests: true });
+
+  await assert.rejects(
+    tools.runApi({
+      spec: 'sample-pets-api',
+      method: 'post',
+      path: '/pets',
+      body: null
+    }),
+    {
+      message: 'Missing required request body for POST /pets'
+    }
+  );
+});
+
+test('runApi throws error when required field is missing in request body', async () => {
+  const tools = createTools({ includeWriteRequests: true });
+
+  await assert.rejects(
+    tools.runApi({
+      spec: 'sample-pets-api',
+      method: 'post',
+      path: '/pets',
+      body: { tag: 'cute' } // Missing required 'name' field
+    }),
+    {
+      message: "Missing required field 'name' in request body for POST /pets"
+    }
+  );
+});
+
+test('runApi throws error when required field is missing even with other fields present', async () => {
+  const tools = createTools({ includeWriteRequests: true });
+
+  await assert.rejects(
+    tools.runApi({
+      spec: 'sample-pets-api',
+      method: 'post',
+      path: '/pets',
+      body: {} // Empty body, missing required 'name' field
+    }),
+    {
+      message: "Missing required field 'name' in request body for POST /pets"
+    }
+  );
+});
+
+test('runApi passes validation when required body and fields are present', async () => {
+  const tools = createTools({ includeWriteRequests: true });
+
+  // This should pass validation - we don't care if network call succeeds/fails,
+  // just that validation doesn't throw an error
+  try {
+    await tools.runApi({
+      spec: 'sample-pets-api',
+      method: 'post',
+      path: '/pets',
+      body: { name: 'Fluffy' } // Required field is present
+    });
+    // If it succeeds, great! Validation passed
+    assert.ok(true);
+  } catch (error: any) {
+    // If it fails, make sure it's NOT a request body validation error
+    assert.ok(
+      !error.message.includes('Missing required request body') &&
+      !error.message.includes('Missing required field'),
+      `Expected network/other error but got validation error: ${error.message}`
+    );
+  }
+});
+
+test('runApi passes validation when optional fields are missing from body', async () => {
+  const tools = createTools({ includeWriteRequests: true });
+
+  // Optional 'tag' field is not provided, should pass validation
+  try {
+    await tools.runApi({
+      spec: 'sample-pets-api',
+      method: 'post',
+      path: '/pets',
+      body: { name: 'Buddy' } // Only required field, optional 'tag' is missing
+    });
+    // If it succeeds, great! Validation passed
+    assert.ok(true);
+  } catch (error: any) {
+    // If it fails, make sure it's NOT a request body validation error
+    assert.ok(
+      !error.message.includes('Missing required request body') &&
+      !error.message.includes('Missing required field'),
+      `Expected network/other error but got validation error: ${error.message}`
+    );
+  }
+});
+
+test('runApi passes validation when all fields including optional ones are present', async () => {
+  const tools = createTools({ includeWriteRequests: true });
+
+  // All fields provided including optional 'tag' - should pass validation
+  try {
+    await tools.runApi({
+      spec: 'sample-pets-api',
+      method: 'post',
+      path: '/pets',
+      body: { name: 'Max', tag: 'friendly' } // Both required and optional fields
+    });
+    // If it succeeds, great! Validation passed
+    assert.ok(true);
+  } catch (error: any) {
+    // If it fails, make sure it's NOT a request body validation error
+    assert.ok(
+      !error.message.includes('Missing required request body') &&
+      !error.message.includes('Missing required field'),
+      `Expected network/other error but got validation error: ${error.message}`
+    );
+  }
+});
