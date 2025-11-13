@@ -110,46 +110,56 @@ test('runApi throws error when all query parameters are missing', async () => {
   );
 });
 
-test('runApi does not throw validation error when all required query parameters are present', async () => {
-  const tools = createTools();
+test(
+  'runApi does not throw validation error when all required query parameters are present',
+  async () => {
+    const tools = createTools();
 
-  // This should pass validation - we don't care if network call succeeds/fails,
-  // just that validation doesn't throw an error
-  try {
-    await tools.runApi({
-      spec: 'sample-pets-api',
-      method: 'get',
-      path: '/pets/search',
-      query: { species: 'dog', age: 5 }
-    });
-    // If it succeeds, great! Validation passed
-    assert.ok(true);
-  } catch (error: any) {
-    // If it fails, make sure it's NOT a query parameter validation error
-    assert.ok(!error.message.includes('Missing required query parameter'),
-      `Expected network/other error but got validation error: ${error.message}`);
+    // This should pass validation - we don't care if network call succeeds/fails,
+    // just that validation doesn't throw an error
+    try {
+      await tools.runApi({
+        spec: 'sample-pets-api',
+        method: 'get',
+        path: '/pets/search',
+        query: { species: 'dog', age: 5 }
+      });
+      // If it succeeds, great! Validation passed
+      assert.ok(true);
+    } catch (error: any) {
+      // If it fails, make sure it's NOT a query parameter validation error
+      assert.ok(
+        !error.message.includes('Missing required query parameter'),
+        `Expected network/other error but got validation error: ${error.message}`
+      );
+    }
   }
-});
+);
 
-test('runApi does not throw validation error when optional query parameters are missing', async () => {
-  const tools = createTools();
+test(
+  'runApi does not throw validation error when optional query parameters are missing',
+  async () => {
+    const tools = createTools();
 
-  // Optional 'color' parameter is not provided, should pass validation
-  try {
-    await tools.runApi({
-      spec: 'sample-pets-api',
-      method: 'get',
-      path: '/pets/search',
-      query: { species: 'cat', age: 3 }
-    });
-    // If it succeeds, great! Validation passed
-    assert.ok(true);
-  } catch (error: any) {
-    // If it fails, make sure it's NOT a query parameter validation error
-    assert.ok(!error.message.includes('Missing required query parameter'),
-      `Expected network/other error but got validation error: ${error.message}`);
+    // Optional 'color' parameter is not provided, should pass validation
+    try {
+      await tools.runApi({
+        spec: 'sample-pets-api',
+        method: 'get',
+        path: '/pets/search',
+        query: { species: 'cat', age: 3 }
+      });
+      // If it succeeds, great! Validation passed
+      assert.ok(true);
+    } catch (error: any) {
+      // If it fails, make sure it's NOT a query parameter validation error
+      assert.ok(
+        !error.message.includes('Missing required query parameter'),
+        `Expected network/other error but got validation error: ${error.message}`
+      );
+    }
   }
-});
+);
 
 test('runApi passes validation with all parameters including optional ones', async () => {
   const tools = createTools();
@@ -219,21 +229,24 @@ test('runApi throws error when required field is missing in request body', async
   );
 });
 
-test('runApi throws error when required field is missing even with other fields present', async () => {
-  const tools = createTools({ includeWriteRequests: true });
+test(
+  'runApi throws error when required field is missing even with other fields present',
+  async () => {
+    const tools = createTools({ includeWriteRequests: true });
 
-  await assert.rejects(
-    tools.runApi({
-      spec: 'sample-pets-api',
-      method: 'post',
-      path: '/pets',
-      body: {} // Empty body, missing required 'name' field
-    }),
-    {
-      message: "Missing required field 'name' in request body for POST /pets"
-    }
-  );
-});
+    await assert.rejects(
+      tools.runApi({
+        spec: 'sample-pets-api',
+        method: 'post',
+        path: '/pets',
+        body: {} // Empty body, missing required 'name' field
+      }),
+      {
+        message: "Missing required field 'name' in request body for POST /pets"
+      }
+    );
+  }
+);
 
 test('runApi passes validation when required body and fields are present', async () => {
   const tools = createTools({ includeWriteRequests: true });
