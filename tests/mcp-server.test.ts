@@ -59,58 +59,63 @@ test('tools/list returns both explicit schemas and generated defaults', async ()
   assert.ok(defaultSchema);
   assert.equal(
     defaultSchema.description,
-    'Get information about the authenticated token and user from the access token. Returns the namespace that should be used as the implicit default namespace for all subsequent API requests when a namespace parameter is not explicitly specified.'
+    'Get information about the authenticated token and user from the access token. ' +
+      'Returns the namespace that should be used as the implicit default namespace ' +
+      'for all subsequent API requests when a namespace parameter is not explicitly specified.'
   );
   assert.equal(defaultSchema.inputSchema.type, 'object');
 });
 
-test('tools/call passes user context to handlers and formats object results as JSON text', async () => {
-  const server = new MCPServer();
-  let receivedUserContext: any = null;
-  server.registerTool('echo', async (args: any, userContext: any) => {
-    receivedUserContext = userContext;
-    return { echoed: args, user: userContext?.sub };
-  });
+test(
+  'tools/call passes user context to handlers and formats object results as JSON text',
+  async () => {
+    const server = new MCPServer();
+    let receivedUserContext: any = null;
+    server.registerTool('echo', async (args: any, userContext: any) => {
+      receivedUserContext = userContext;
+      return { echoed: args, user: userContext?.sub };
+    });
 
-  const req = createMockRequest({
-    headers: { Authorization: 'Bearer token-123' },
-    user: {
-      sub: 'user-42',
-      client_id: 'client-7',
-      scope: 'read write',
-      namespace: 'test-ns'
-    },
-    body: {
-      jsonrpc: '2.0',
-      id: 'call-1',
-      method: 'tools/call',
-      params: {
-        name: 'echo',
-        arguments: {
-          value: 'ping'
+    const req = createMockRequest({
+      headers: { Authorization: 'Bearer token-123' },
+      user: {
+        sub: 'user-42',
+        client_id: 'client-7',
+        scope: 'read write',
+        namespace: 'test-ns'
+      },
+      body: {
+        jsonrpc: '2.0',
+        id: 'call-1',
+        method: 'tools/call',
+        params: {
+          name: 'echo',
+          arguments: {
+            value: 'ping'
+          }
         }
       }
-    }
-  });
-  const res = createMockResponse();
+    });
+    const res = createMockResponse();
 
-  await server.handleRequest(req as any, res as any);
+    await server.handleRequest(req as any, res as any);
 
-  const content = res.jsonPayload?.result?.content;
-  assert.ok(Array.isArray(content));
-  assert.equal(content[0].type, 'text');
-  const parsed = JSON.parse(content[0].text);
-  assert.deepEqual(parsed, {
-    echoed: { value: 'ping' },
-    user: 'user-42'
-  });
+    const content = res.jsonPayload?.result?.content;
+    assert.ok(Array.isArray(content));
+    assert.equal(content[0].type, 'text');
+    const parsed = JSON.parse(content[0].text);
+    assert.deepEqual(parsed, {
+      echoed: { value: 'ping' },
+      user: 'user-42'
+    });
 
-  assert.ok(receivedUserContext);
-  assert.equal(receivedUserContext?.accessToken, 'token-123');
-  assert.equal(receivedUserContext?.sub, 'user-42');
-  assert.equal(receivedUserContext?.client_id, 'client-7');
-  assert.equal(receivedUserContext?.namespace, 'test-ns');
-});
+    assert.ok(receivedUserContext);
+    assert.equal(receivedUserContext?.accessToken, 'token-123');
+    assert.equal(receivedUserContext?.sub, 'user-42');
+    assert.equal(receivedUserContext?.client_id, 'client-7');
+    assert.equal(receivedUserContext?.namespace, 'test-ns');
+  }
+);
 
 test('tools/call returns structured errors when tool is missing or throws', async () => {
   const server = new MCPServer();
