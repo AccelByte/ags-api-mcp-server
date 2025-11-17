@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -9,26 +10,47 @@ import { OpenApiTools } from './tools/openapi-tools';
 import { logger } from './logger';
 import { config, serverConfig, oauthConfig, oidcConfig, openApiConfig } from './config';
 import { StdioMCPServer } from './stdio-server';
+import { StreamableHTTPTransport } from './streamable-http';
 
 let stdioServer: StdioMCPServer | null = null;
 let httpServer: any = null;
+let globalStreamableHttp: StreamableHTTPTransport | undefined;
+
+// HTTP server status tracking (for stdio mode)
+export let httpServerStatus: {
+  available: boolean;
+  error: string | null;
+  port: number | null;
+} = {
+  available: false,
+  error: null,
+  port: null
+};
 
 // Start server based on transport configuration
 if (config.transport === 'stdio') {
   logger.info('Starting MCP Server in stdio mode');
   stdioServer = new StdioMCPServer();
-  
+
   stdioServer.start().catch((error) => {
     logger.fatal({ error }, 'Failed to start stdio MCP server');
     process.exit(1);
   });
+
+  // Always start HTTP server for OAuth routes in stdio mode
+  // Session token is auto-generated and managed by StdioMCPServer
+  const sessionToken = stdioServer.getSessionToken();
+  logger.info({
+    sessionToken: sessionToken.substring(0, 8) + '...',
+    port: serverConfig.port
+  }, 'Attempting to start HTTP server for OAuth authentication routes (stdio mode)');
+  httpServer = startHttpServer(true, sessionToken); // true = OAuth routes only, pass session token
 } else {
   logger.info('Starting MCP Server in HTTP mode');
-  httpServer = startHttpServer();
+  httpServer = startHttpServer(false); // false = full HTTP server
 }
 
 logger.info(`MCP Server running in ${config.transport} mode`);
-
 
 // Graceful shutdown handling
 process.on('SIGINT', async () => {
@@ -36,6 +58,10 @@ process.on('SIGINT', async () => {
   
   if (stdioServer) {
     await stdioServer.stop();
+  }
+  
+  if (globalStreamableHttp) {
+    globalStreamableHttp.stop();
   }
   
   if (httpServer) {
@@ -54,6 +80,10 @@ process.on('SIGTERM', async () => {
     await stdioServer.stop();
   }
   
+  if (globalStreamableHttp) {
+    globalStreamableHttp.stop();
+  }
+  
   if (httpServer) {
     httpServer.close(() => {
       logger.info('HTTP server closed');
@@ -63,7 +93,7 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-function startHttpServer() {
+function startHttpServer(oauthOnly: boolean = false, stdioSessionToken?: string) {
 const app = express();
 const port = serverConfig.port;
 
@@ -76,23 +106,52 @@ app.use(express.json());
 // Initialize OAuth middleware
 const oauthMiddleware = new OAuthMiddleware();
 
-// Initialize MCP server
-const mcpServer = new MCPServer();
+// Initialize MCP server and register tools only if not OAuth-only mode
+let mcpServer: MCPServer | undefined;
+let staticTools: StaticTools | undefined;
+let openApiTools: OpenApiTools | undefined;
+let streamableHttp: StreamableHTTPTransport | undefined;
 
-// Register static tools
-const staticTools = new StaticTools();
-mcpServer.registerTool('get_token_info', staticTools.getTokenInfo.bind(staticTools));
+if (!oauthOnly) {
+  // Initialize MCP server
+  mcpServer = new MCPServer();
+  
+  // Initialize Streamable HTTP transport
+  streamableHttp = new StreamableHTTPTransport(mcpServer);
+  globalStreamableHttp = streamableHttp;
 
+  // Register static tools
+  staticTools = new StaticTools();
+  mcpServer.registerTool('get_token_info', staticTools.getTokenInfo.bind(staticTools));
+  mcpServer.registerTool('start_oauth_login', staticTools.startOAuthLogin.bind(staticTools), {
+    name: 'start_oauth_login',
+    description: 'Start OAuth login flow and get a session token. Returns a URL to open in a browser for authentication.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  });
 
-// Register OpenAPI-derived tools
-const openApiTools = new OpenApiTools({
-  specsDir: openApiConfig.specsDir,
-  defaultSearchLimit: openApiConfig.defaultSearchLimit,
-  defaultServerUrl: openApiConfig.defaultServerUrl,
-  includeWriteRequests: openApiConfig.includeWriteRequests
-});
+  mcpServer.registerTool('logout', staticTools.logout.bind(staticTools), {
+    name: 'logout',
+    description: 'Logout from the current OAuth session. Clears access and refresh tokens for the current session.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  });
 
-mcpServer.registerTool('search-apis', openApiTools.searchApis.bind(openApiTools), {
+  // Register OpenAPI-derived tools
+  openApiTools = new OpenApiTools({
+    specsDir: openApiConfig.specsDir,
+    defaultSearchLimit: openApiConfig.defaultSearchLimit,
+    defaultServerUrl: openApiConfig.defaultServerUrl,
+    includeWriteRequests: openApiConfig.includeWriteRequests
+  });
+
+  mcpServer.registerTool('search-apis', openApiTools.searchApis.bind(openApiTools), {
   name: 'search-apis',
   description: 'Search across OpenAPI operations loaded from the configured specifications directory.',
   inputSchema: {
@@ -211,7 +270,7 @@ mcpServer.registerTool('run-apis', openApiTools.runApi.bind(openApiTools), {
   }
 });
 
-
+} // End of if (!oauthOnly)
 
 // OAuth 2.0 Authorization Server Metadata endpoint (RFC 8414)
 app.get('/.well-known/oauth-authorization-server', (req, res) => {
@@ -232,7 +291,7 @@ app.get('/.well-known/oauth-authorization-server', (req, res) => {
     authorization_endpoint: oauthConfig.authorizationUrl,
     token_endpoint: oauthConfig.tokenUrl,
     jwks_uri: oidcConfig.jwksUri,
-    scopes_supported: ['openid', 'profile', 'email'],
+    scopes_supported: ['commerce', 'account', 'social', 'publishing', 'analytics'],
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code', 'refresh_token'],
     code_challenge_methods_supported: ['S256'],
@@ -263,7 +322,7 @@ app.get('/.well-known/openid-configuration', (req, res) => {
     authorization_endpoint: oauthConfig.authorizationUrl,
     token_endpoint: oauthConfig.tokenUrl,
     jwks_uri: oidcConfig.jwksUri,
-    scopes_supported: ['openid', 'profile', 'email'],
+    scopes_supported: ['commerce', 'account', 'social', 'publishing', 'analytics'],
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code', 'refresh_token'],
     code_challenge_methods_supported: ['S256'],
@@ -289,7 +348,7 @@ app.get('/.well-known/oauth-protected-resource', (req, res) => {
     ip: req.ip
   }, 'OAuth Protected Resource Metadata request received');
 
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const baseUrl = serverConfig.baseUrl;
   const metadata = {
     resource: baseUrl,
     authorization_servers: [
@@ -298,15 +357,14 @@ app.get('/.well-known/oauth-protected-resource', (req, res) => {
         authorization_endpoint: oauthConfig.authorizationUrl,
         token_endpoint: oauthConfig.tokenUrl,
         jwks_uri: oidcConfig.jwksUri,
-        scopes_supported: ['openid', 'profile', 'email'],
+        scopes_supported: ['commerce', 'account', 'social', 'publishing', 'analytics'],
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code', 'refresh_token'],
         code_challenge_methods_supported: ['S256'],
-        token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post'],
-        registration_endpoint: `${baseUrl}/oauth/register`
+        token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post']
       }
     ],
-    scopes_supported: ['openid', 'profile', 'email'],
+    scopes_supported: ['commerce', 'account', 'social', 'publishing', 'analytics'],
     bearer_methods_supported: ['header'],
     resource_documentation: `${baseUrl}/.well-known/oauth-authorization-server`
   };
@@ -316,10 +374,16 @@ app.get('/.well-known/oauth-protected-resource', (req, res) => {
 });
 
 // Note: Dynamic Client Registration removed - using static OAuth client credentials
-// Note: OAuth routes (/auth/login, /oauth/callback) removed - using session token authentication
+// Use pre-configured client_id and client_secret
 
-// Protected MCP endpoint
-app.post('/mcp', oauthMiddleware.authenticate.bind(oauthMiddleware), (req, res) => {
+// OAuth routes (always available)
+app.get('/auth/login', oauthMiddleware.initiateOAuth.bind(oauthMiddleware));
+app.get('/oauth/callback', oauthMiddleware.handleCallback.bind(oauthMiddleware));
+
+// MCP endpoints (only in full HTTP mode, not in OAuth-only mode)
+if (!oauthOnly) {
+// Streamable HTTP MCP endpoint - POST
+app.post('/mcp', oauthMiddleware.authenticate.bind(oauthMiddleware), async (req, res) => {
   logger.debug({
     method: req.method,
     url: req.url,
@@ -327,6 +391,8 @@ app.post('/mcp', oauthMiddleware.authenticate.bind(oauthMiddleware), (req, res) 
       'user-agent': req.get('User-Agent'),
       'content-type': req.get('Content-Type'),
       'authorization': req.get('Authorization') ? '***REDACTED***' : undefined,
+      'mcp-protocol-version': req.get('MCP-Protocol-Version'),
+      'mcp-session-id': req.get('Mcp-Session-Id'),
       'x-forwarded-for': req.get('X-Forwarded-For'),
       'x-real-ip': req.get('X-Real-IP')
     },
@@ -335,25 +401,94 @@ app.post('/mcp', oauthMiddleware.authenticate.bind(oauthMiddleware), (req, res) 
     user: req.user
   }, 'MCP POST request received');
   
-  mcpServer.handleRequest(req, res);
+  // Extract user context
+  const userContext = {
+    accessToken: req.accessToken || req.get('Authorization')?.replace('Bearer ', ''),
+    user: req.user,
+    sub: req.user?.sub,
+    client_id: req.user?.client_id,
+    scope: req.user?.scope,
+    namespace: req.user?.namespace
+  };
+  
+  await streamableHttp!.handlePost(req, res, userContext);
 });
 
-// Root endpoint for MCP clients that expect it
-app.get('/', (req, res) => {
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
-  res.json({
-    message: 'MCP Server is running',
-    endpoints: {
-      mcp: `${baseUrl}/mcp`,
-      health: `${baseUrl}/health`
+// Streamable HTTP MCP endpoint - GET (for SSE streams)
+app.get('/mcp', oauthMiddleware.authenticate.bind(oauthMiddleware), async (req, res) => {
+  logger.debug({
+    method: req.method,
+    url: req.url,
+    headers: {
+      'user-agent': req.get('User-Agent'),
+      'accept': req.get('Accept'),
+      'mcp-protocol-version': req.get('MCP-Protocol-Version'),
+      'mcp-session-id': req.get('Mcp-Session-Id'),
+      'last-event-id': req.get('Last-Event-Id'),
+      'x-forwarded-for': req.get('X-Forwarded-For'),
+      'x-real-ip': req.get('X-Real-IP')
     },
-    version: '1.0.0',
-    authentication: {
-      required: true,
-      type: 'OIDC',
-      flow: 'Session token authentication via OAuth client credentials'
-    }
-  });
+    ip: req.ip,
+    user: req.user
+  }, 'MCP GET request received');
+  
+  await streamableHttp!.handleGet(req, res);
+});
+
+// Streamable HTTP MCP endpoint - DELETE (for session termination)
+app.delete('/mcp', oauthMiddleware.authenticate.bind(oauthMiddleware), async (req, res) => {
+  logger.debug({
+    method: req.method,
+    url: req.url,
+    headers: {
+      'mcp-session-id': req.get('Mcp-Session-Id')
+    },
+    ip: req.ip,
+    user: req.user
+  }, 'MCP DELETE request received');
+
+  await streamableHttp!.handleDelete(req, res);
+});
+
+} // End of if (!oauthOnly) - MCP endpoints
+
+// Root endpoint (always available)
+app.get('/', (req, res) => {
+  const baseUrl = serverConfig.baseUrl;
+  
+  if (oauthOnly) {
+    res.json({ 
+      message: 'OAuth Authentication Server',
+      mode: 'oauth-only',
+      note: 'This server is running in OAuth-only mode to support stdio MCP client authentication',
+      endpoints: {
+        login: `${baseUrl}/auth/login`,
+        callback: `${baseUrl}/oauth/callback`,
+        health: `${baseUrl}/health`
+      },
+      version: '1.0.0',
+      authentication: {
+        type: 'OAuth 2.1 with PKCE',
+        flow: 'Visit /auth/login with session_token parameter to authenticate'
+      }
+    });
+  } else {
+    res.json({ 
+      message: 'MCP Server is running',
+      mode: 'full-http',
+      endpoints: {
+        mcp: `${baseUrl}/mcp`,
+        health: `${baseUrl}/health`,
+        auth: `${baseUrl}/auth/login`
+      },
+      version: '1.0.0',
+      authentication: {
+        required: true,
+        type: 'OIDC',
+        flow: 'Visit /auth/login to authenticate and get a token for MCP clients'
+      }
+    });
+  }
 });
 
 
@@ -368,11 +503,53 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   res.status(500).json({ error: 'Internal server error' });
 });
 
-const server = app.listen(port, () => {
-  logger.info({ port }, 'HTTP MCP Server started');
-  logger.info(`Health check: http://localhost:${port}/health`);
-  logger.info(`MCP endpoint: http://localhost:${port}/mcp`);
+// Create server but don't listen yet
+const server = http.createServer(app);
+
+// Attach error handler BEFORE calling listen
+server.on('error', (error: any) => {
+  if (oauthOnly) {
+    // In stdio mode with OAuth-only server, this is a non-fatal error
+    const errorMessage = error.code === 'EADDRINUSE'
+      ? `Port ${port} is already in use`
+      : error.message || 'Unknown error';
+
+    httpServerStatus.error = errorMessage;
+    httpServerStatus.available = false;
+
+    logger.warn({
+      error: errorMessage,
+      port
+    }, '⚠️  HTTP OAuth server failed to start in stdio mode - OAuth authentication will not work');
+    logger.warn(`To fix: Either free up port ${port} or set PORT environment variable to use a different port`);
+  } else {
+    // In HTTP mode, this is fatal
+    logger.fatal({ error }, 'Failed to start HTTP MCP server');
+    process.exit(1);
+  }
 });
+
+server.on('listening', () => {
+  if (oauthOnly) {
+    // Mark HTTP server as available for stdio mode
+    httpServerStatus.available = true;
+    httpServerStatus.port = port;
+
+    logger.info({ port, mode: 'oauth-only' }, 'HTTP OAuth Server started (OAuth routes only)');
+    logger.info(`OAuth login: http://localhost:${port}/auth/login`);
+    logger.info(`OAuth callback: http://localhost:${port}/oauth/callback`);
+    logger.info(`Health check: http://localhost:${port}/health`);
+  } else {
+    logger.info({ port, mode: 'full-http' }, 'HTTP MCP Server started (full mode)');
+    logger.info(`Health check: http://localhost:${port}/health`);
+    logger.info(`OAuth login: http://localhost:${port}/auth/login`);
+    logger.info(`OAuth callback: http://localhost:${port}/oauth/callback`);
+    logger.info(`MCP endpoint: http://localhost:${port}/mcp`);
+  }
+});
+
+// Now call listen - error handler is already attached
+server.listen(port);
 
 return server;
 }
