@@ -318,7 +318,7 @@ export class OpenApiTools {
     }
 
     const startedAt = Date.now();
-    logger.info(
+    logger.debug(
       {
         tool: 'run-apis',
         operationId: operation.id,
@@ -335,7 +335,7 @@ export class OpenApiTools {
     try {
       const response = await axios(config);
       const durationMs = Date.now() - startedAt;
-      logger.info(
+      logger.debug(
         {
           tool: 'run-apis',
           operationId: operation.id,
