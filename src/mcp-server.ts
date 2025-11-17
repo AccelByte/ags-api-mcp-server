@@ -37,6 +37,8 @@ export interface UserContext {
   scope?: string;
   namespace?: string;
   isFromCache?: boolean;
+  stdioSessionToken?: string;
+  mcpSessionId?: string;
 }
 
 export class MCPServer {
