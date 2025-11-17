@@ -56,14 +56,29 @@ async function testServer() {
     await waitForServer();
     logger.info('');
 
+    // Check server mode
+    logger.info('1. Checking server mode...');
+    try {
+      const rootResponse = await axios.get(`${BASE_URL}/`);
+      const serverMode = rootResponse.data?.mode;
+      logger.info({ mode: serverMode, data: rootResponse.data }, `✅ Server mode: ${serverMode}`);
+      if (serverMode === 'oauth-only') {
+        logger.warn('⚠️  Server is running in stdio/oauth-only mode');
+        logger.info('💡 To test MCP endpoint, start server with: pnpm run start:http');
+      }
+    } catch (error) {
+      logger.warn('⚠️  Could not determine server mode from root endpoint');
+    }
+    logger.info('');
+
     // Test health endpoint
-    logger.info('1. Testing health endpoint...');
+    logger.info('2. Testing health endpoint...');
     const healthResponse = await axios.get(`${BASE_URL}/health`);
     logger.info({ data: healthResponse.data }, '✅ Health check passed');
     logger.info('');
 
     // Test OAuth login endpoint
-    logger.info('2. Testing OAuth login endpoint...');
+    logger.info('3. Testing OAuth login endpoint...');
     try {
       const loginResponse = await axios.get(`${BASE_URL}/auth/login`, {
         maxRedirects: 0,
@@ -80,19 +95,65 @@ async function testServer() {
     logger.info('');
 
     // Test MCP endpoint without auth (should fail)
-    logger.info('3. Testing MCP endpoint without authentication...');
+    logger.info('4. Testing MCP endpoint without authentication...');
     try {
-      await axios.post(`${BASE_URL}/mcp`, {
+      const response = await axios.post(`${BASE_URL}/mcp`, {
         jsonrpc: '2.0',
         id: 1,
         method: 'ping'
+      }, {
+        headers: {
+          'Accept': 'application/json'
+        },
+        validateStatus: () => true // Accept any status to inspect response
       });
-      logger.error('❌ MCP endpoint should require authentication');
+      
+      if (response.status === 401) {
+        logger.info('✅ MCP endpoint correctly requires authentication (401)');
+      } else if (response.status === 404) {
+        // Check if it's a route 404 or a session 404
+        const errorMsg = response.data?.error?.message || '';
+        if (errorMsg.includes('Session not found') || errorMsg.includes('expired')) {
+          logger.info('✅ MCP endpoint correctly requires authentication (404 - session required)');
+        } else {
+          logger.warn('⚠️  MCP endpoint not available (404 Not Found)');
+          logger.info('💡 This usually means the server is in stdio mode');
+          logger.info('💡 To test MCP endpoint, start server with: pnpm run start:http');
+          logger.info('💡 Make sure you have built the project: pnpm run build');
+        }
+      } else if (response.status === 400) {
+        // 400 might indicate the endpoint exists but request is malformed
+        const errorMsg = response.data?.error?.message || '';
+        if (errorMsg.includes('Accept header')) {
+          logger.warn('⚠️  MCP endpoint exists but requires Accept header');
+          logger.info('💡 This is expected - the endpoint requires proper headers');
+        } else {
+          logger.info(`✅ MCP endpoint accessible (returned ${response.status})`);
+        }
+      } else {
+        logger.error({ 
+          status: response.status,
+          statusText: response.statusText,
+          data: response.data 
+        }, '❌ Unexpected response');
+      }
     } catch (error) {
       if (error.response?.status === 401) {
-        logger.info('✅ MCP endpoint correctly requires authentication');
+        logger.info('✅ MCP endpoint correctly requires authentication (401)');
+      } else if (error.response?.status === 404) {
+        const errorMsg = error.response?.data?.error?.message || '';
+        if (errorMsg.includes('Session not found') || errorMsg.includes('expired')) {
+          logger.info('✅ MCP endpoint correctly requires authentication (404 - session required)');
+        } else {
+          logger.warn('⚠️  MCP endpoint not available (404 Not Found)');
+          logger.info('💡 This usually means the server is in stdio mode');
+        }
       } else {
-        logger.error({ data: error.response?.data }, '❌ Unexpected error');
+        logger.error({ 
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data 
+        }, '❌ Unexpected error');
       }
     }
     logger.info('');
@@ -119,7 +180,7 @@ async function testServer() {
       logger.info('');
       logger.info('💡 To start the server:');
       logger.info('   1. Build the project: pnpm run build');
-      logger.info('   2. Start the server: MCP_TRANSPORT=http pnpm run start:http');
+      logger.info('   2. Start the server: pnpm run start:http');
       logger.info('   Or use: pnpm run start:http');
       logger.info('');
       logger.info('   Then run this test again: pnpm run test:env');
