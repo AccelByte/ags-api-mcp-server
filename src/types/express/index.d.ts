@@ -1,5 +1,5 @@
-import 'express';
-import type { User } from '../../oauth-middleware';
+import "express";
+import type { User } from "../../oauth-middleware";
 
 declare global {
   namespace Express {

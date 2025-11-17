@@ -1,9 +1,9 @@
-import crypto from 'crypto';
-import { logger } from './logger.js';
+import crypto from "crypto";
+import { logger } from "./logger.js";
 
 /**
  * One-Time Password (OTP) Token Manager
- * 
+ *
  * Maps temporary OTP tokens to session tokens for secure OAuth flows.
  * OTP tokens are short-lived and single-use, preventing exposure of actual session tokens in URLs.
  */
@@ -23,10 +23,10 @@ export class OTPManager {
 
   constructor() {
     // Skip cleanup interval in test mode to prevent hanging
-    if (process.env.NODE_ENV !== 'test') {
+    if (process.env.NODE_ENV !== "test") {
       this.startCleanup();
     }
-    logger.info('OTPManager initialized');
+    logger.info("OTPManager initialized");
   }
 
   /**
@@ -35,19 +35,22 @@ export class OTPManager {
    */
   generateOTP(sessionToken: string): string {
     const otpToken = crypto.randomUUID();
-    
+
     this.otpMappings.set(otpToken, {
       sessionToken,
       createdAt: Date.now(),
       used: false,
-      expiresAt: Date.now() + this.OTP_EXPIRY_MS
+      expiresAt: Date.now() + this.OTP_EXPIRY_MS,
     });
 
-    logger.debug({
-      otpToken: otpToken.substring(0, 8) + '...',
-      sessionToken: sessionToken.substring(0, 8) + '...',
-      expiresIn: this.OTP_EXPIRY_MS / 1000
-    }, 'OTP token generated');
+    logger.debug(
+      {
+        otpToken: otpToken.substring(0, 8) + "...",
+        sessionToken: sessionToken.substring(0, 8) + "...",
+        expiresIn: this.OTP_EXPIRY_MS / 1000,
+      },
+      "OTP token generated",
+    );
 
     return otpToken;
   }
@@ -60,36 +63,48 @@ export class OTPManager {
     const mapping = this.otpMappings.get(otpToken);
 
     if (!mapping) {
-      logger.warn({ otpToken: otpToken.substring(0, 8) + '...' }, 'OTP token not found');
+      logger.warn(
+        { otpToken: otpToken.substring(0, 8) + "..." },
+        "OTP token not found",
+      );
       return null;
     }
 
     // Check if expired
     if (Date.now() > mapping.expiresAt) {
-      logger.warn({ 
-        otpToken: otpToken.substring(0, 8) + '...',
-        age: Math.round((Date.now() - mapping.createdAt) / 1000)
-      }, 'OTP token expired');
+      logger.warn(
+        {
+          otpToken: otpToken.substring(0, 8) + "...",
+          age: Math.round((Date.now() - mapping.createdAt) / 1000),
+        },
+        "OTP token expired",
+      );
       this.otpMappings.delete(otpToken);
       return null;
     }
 
     // Check if already used
     if (mapping.used) {
-      logger.warn({ 
-        otpToken: otpToken.substring(0, 8) + '...' 
-      }, 'OTP token already used (replay attempt?)');
+      logger.warn(
+        {
+          otpToken: otpToken.substring(0, 8) + "...",
+        },
+        "OTP token already used (replay attempt?)",
+      );
       return null;
     }
 
     // Mark as used
     mapping.used = true;
-    
-    logger.debug({
-      otpToken: otpToken.substring(0, 8) + '...',
-      sessionToken: mapping.sessionToken.substring(0, 8) + '...',
-      age: Math.round((Date.now() - mapping.createdAt) / 1000)
-    }, 'OTP token exchanged successfully');
+
+    logger.debug(
+      {
+        otpToken: otpToken.substring(0, 8) + "...",
+        sessionToken: mapping.sessionToken.substring(0, 8) + "...",
+        age: Math.round((Date.now() - mapping.createdAt) / 1000),
+      },
+      "OTP token exchanged successfully",
+    );
 
     // Delete after use (single-use)
     this.otpMappings.delete(otpToken);
@@ -112,10 +127,13 @@ export class OTPManager {
     }
 
     if (cleaned > 0) {
-      logger.debug({ 
-        cleaned,
-        remaining: this.otpMappings.size 
-      }, 'OTP token cleanup completed');
+      logger.debug(
+        {
+          cleaned,
+          remaining: this.otpMappings.size,
+        },
+        "OTP token cleanup completed",
+      );
     }
   }
 
@@ -127,7 +145,7 @@ export class OTPManager {
       this.cleanup();
     }, this.CLEANUP_INTERVAL_MS);
 
-    logger.debug('OTP token cleanup scheduled');
+    logger.debug("OTP token cleanup scheduled");
   }
 
   /**
@@ -137,7 +155,7 @@ export class OTPManager {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
       this.cleanupInterval = null;
-      logger.info('OTPManager stopped');
+      logger.info("OTPManager stopped");
     }
   }
 
@@ -157,11 +175,10 @@ export class OTPManager {
     return {
       total: this.otpMappings.size,
       used,
-      expired
+      expired,
     };
   }
 }
 
 // Singleton instance
 export const otpManager = new OTPManager();
-

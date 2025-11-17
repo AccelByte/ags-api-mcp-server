@@ -1,25 +1,25 @@
-import dotenv from 'dotenv';
-import path from 'path';
-import { logger } from './logger.js';
+import dotenv from "dotenv";
+import path from "path";
+import { logger } from "./logger.js";
 
 // Determine project root directory
 // In development (src/), __dirname is the src directory
 // In production (dist/), __dirname is the dist directory
 // We need to go up one level from dist or stay at src's parent
-const isCompiledCode = __dirname.endsWith('dist');
-const projectRoot = isCompiledCode 
-  ? path.resolve(__dirname, '..') 
-  : path.resolve(__dirname, '..');
+const isCompiledCode = __dirname.endsWith("dist");
+const projectRoot = isCompiledCode
+  ? path.resolve(__dirname, "..")
+  : path.resolve(__dirname, "..");
 
 // Load environment variables from project root
-dotenv.config({ path: path.join(projectRoot, '.env') });
+dotenv.config({ path: path.join(projectRoot, ".env") });
 
 export interface Config {
   // Server Configuration
   port: number;
   nodeEnv: string;
   logLevel: string;
-  transport: 'http' | 'stdio';
+  transport: "http" | "stdio";
   baseUrl: string;
 
   // OpenAPI configuration
@@ -29,7 +29,7 @@ export interface Config {
     defaultServerUrl?: string;
     includeWriteRequests: boolean;
   };
-  
+
   // OAuth Configuration
   oauth: {
     clientId: string;
@@ -39,7 +39,7 @@ export interface Config {
     tokenUrl: string;
     enableClientCredentialsFallback: boolean;
   };
-  
+
   // OIDC Configuration
   oidc: {
     jwksUri: string;
@@ -50,45 +50,62 @@ export interface Config {
 }
 
 // Environment variable validation
-function validateEnvVar(name: string, value: string | undefined, required: boolean = true): string {
-  if (required && (!value || value.trim() === '')) {
+function validateEnvVar(
+  name: string,
+  value: string | undefined,
+  required: boolean = true,
+): string {
+  if (required && (!value || value.trim() === "")) {
     throw new Error(`Required environment variable ${name} is not set`);
   }
-  return value || '';
+  return value || "";
 }
 
 function validatePort(portStr: string | undefined): number {
-  const port = parseInt(portStr || '3000', 10);
+  const port = parseInt(portStr || "3000", 10);
   if (isNaN(port) || port < 1 || port > 65535) {
-    throw new Error(`Invalid port number: ${portStr}. Must be between 1 and 65535`);
+    throw new Error(
+      `Invalid port number: ${portStr}. Must be between 1 and 65535`,
+    );
   }
   return port;
 }
 
 function validateLogLevel(level: string | undefined): string {
-  const validLevels = ['fatal', 'error', 'warn', 'info', 'debug', 'trace'];
-  const logLevel = level || 'info';
+  const validLevels = ["fatal", "error", "warn", "info", "debug", "trace"];
+  const logLevel = level || "info";
   if (!validLevels.includes(logLevel)) {
-    throw new Error(`Invalid log level: ${logLevel}. Must be one of: ${validLevels.join(', ')}`);
+    throw new Error(
+      `Invalid log level: ${logLevel}. Must be one of: ${validLevels.join(", ")}`,
+    );
   }
   return logLevel;
 }
 
-function validateBoolean(value: string | undefined, defaultValue: boolean = false): boolean {
+function validateBoolean(
+  value: string | undefined,
+  defaultValue: boolean = false,
+): boolean {
   if (!value) return defaultValue;
   const lowerValue = value.toLowerCase();
-  return lowerValue === 'true' || lowerValue === '1' || lowerValue === 'yes';
+  return lowerValue === "true" || lowerValue === "1" || lowerValue === "yes";
 }
 
-function validateTransport(value: string | undefined): 'http' | 'stdio' {
-  const transport = (value || 'stdio').toLowerCase();
-  if (transport !== 'http' && transport !== 'stdio') {
-    throw new Error(`Invalid transport: ${transport}. Must be 'http' or 'stdio'`);
+function validateTransport(value: string | undefined): "http" | "stdio" {
+  const transport = (value || "stdio").toLowerCase();
+  if (transport !== "http" && transport !== "stdio") {
+    throw new Error(
+      `Invalid transport: ${transport}. Must be 'http' or 'stdio'`,
+    );
   }
-  return transport as 'http' | 'stdio';
+  return transport as "http" | "stdio";
 }
 
-function validatePositiveInteger(name: string, value: string | undefined, defaultValue: number): number {
+function validatePositiveInteger(
+  name: string,
+  value: string | undefined,
+  defaultValue: number,
+): number {
   if (!value) {
     return defaultValue;
   }
@@ -103,23 +120,29 @@ function validatePositiveInteger(name: string, value: string | undefined, defaul
 function loadConfig(): Config {
   try {
     // Get AB_BASE_URL for building default URLs
-    const abBaseUrl = validateEnvVar('AB_BASE_URL', process.env.AB_BASE_URL, false) || 'https://yourgame.accelbyte.io';
-    
+    const abBaseUrl =
+      validateEnvVar("AB_BASE_URL", process.env.AB_BASE_URL, false) ||
+      "https://yourgame.accelbyte.io";
+
     // Construct baseUrl from ADVERTISED_* env variables
-    const advertisedProtocol = process.env.ADVERTISED_PROTOCOL || 'http';
-    const advertisedHostname = process.env.ADVERTISED_HOSTNAME || 'localhost';
-    const advertisedPort = process.env.ADVERTISED_PORT || process.env.PORT || '3000';
-    const baseUrl = advertisedPort !== '80' && advertisedPort !== '443'
-      ? `${advertisedProtocol}://${advertisedHostname}:${advertisedPort}`
-      : `${advertisedProtocol}://${advertisedHostname}`;
-    
+    const advertisedProtocol = process.env.ADVERTISED_PROTOCOL || "http";
+    const advertisedHostname = process.env.ADVERTISED_HOSTNAME || "localhost";
+    const advertisedPort =
+      process.env.ADVERTISED_PORT || process.env.PORT || "3000";
+    const baseUrl =
+      advertisedPort !== "80" && advertisedPort !== "443"
+        ? `${advertisedProtocol}://${advertisedHostname}:${advertisedPort}`
+        : `${advertisedProtocol}://${advertisedHostname}`;
+
     // Determine transport mode first so we can use it for other config values
     const transport = validateTransport(process.env.TRANSPORT);
-    
+
     const config: Config = {
       // Server Configuration
       port: validatePort(process.env.PORT),
-      nodeEnv: validateEnvVar('NODE_ENV', process.env.NODE_ENV, false) || 'development',
+      nodeEnv:
+        validateEnvVar("NODE_ENV", process.env.NODE_ENV, false) ||
+        "development",
       logLevel: validateLogLevel(process.env.LOG_LEVEL),
       transport,
       baseUrl,
@@ -127,68 +150,130 @@ function loadConfig(): Config {
       // OpenAPI configuration
       openapi: {
         specsDir: (() => {
-          const specsDirEnv = validateEnvVar('OPENAPI_SPECS_DIR', process.env.OPENAPI_SPECS_DIR, false) || 'openapi-specs';
+          const specsDirEnv =
+            validateEnvVar(
+              "OPENAPI_SPECS_DIR",
+              process.env.OPENAPI_SPECS_DIR,
+              false,
+            ) || "openapi-specs";
           // If it's already an absolute path, use it as is, otherwise resolve relative to project root
-          return path.isAbsolute(specsDirEnv) 
-            ? specsDirEnv 
+          return path.isAbsolute(specsDirEnv)
+            ? specsDirEnv
             : path.resolve(projectRoot, specsDirEnv);
         })(),
-        defaultSearchLimit: validatePositiveInteger('OPENAPI_DEFAULT_SEARCH_LIMIT', process.env.OPENAPI_DEFAULT_SEARCH_LIMIT, 5),
+        defaultSearchLimit: validatePositiveInteger(
+          "OPENAPI_DEFAULT_SEARCH_LIMIT",
+          process.env.OPENAPI_DEFAULT_SEARCH_LIMIT,
+          5,
+        ),
         defaultServerUrl: abBaseUrl,
-        includeWriteRequests: validateBoolean(process.env.INCLUDE_WRITE_REQUESTS, true)
+        includeWriteRequests: validateBoolean(
+          process.env.INCLUDE_WRITE_REQUESTS,
+          true,
+        ),
       },
-      
+
       // OAuth Configuration
       oauth: {
-        clientId: validateEnvVar('OAUTH_CLIENT_ID', process.env.OAUTH_CLIENT_ID, false),
-        clientSecret: validateEnvVar('OAUTH_CLIENT_SECRET', process.env.OAUTH_CLIENT_SECRET, false),
-        redirectUri: validateEnvVar('OAUTH_REDIRECT_URI', process.env.OAUTH_REDIRECT_URI, false) || `${baseUrl}/oauth/callback`,
-        authorizationUrl: validateEnvVar('OAUTH_AUTHORIZATION_URL', process.env.OAUTH_AUTHORIZATION_URL, false) || `${abBaseUrl}/iam/v3/oauth/authorize`,
-        tokenUrl: validateEnvVar('OAUTH_TOKEN_URL', process.env.OAUTH_TOKEN_URL, false) || `${abBaseUrl}/iam/v3/oauth/token`,
+        clientId: validateEnvVar(
+          "OAUTH_CLIENT_ID",
+          process.env.OAUTH_CLIENT_ID,
+          false,
+        ),
+        clientSecret: validateEnvVar(
+          "OAUTH_CLIENT_SECRET",
+          process.env.OAUTH_CLIENT_SECRET,
+          false,
+        ),
+        redirectUri:
+          validateEnvVar(
+            "OAUTH_REDIRECT_URI",
+            process.env.OAUTH_REDIRECT_URI,
+            false,
+          ) || `${baseUrl}/oauth/callback`,
+        authorizationUrl:
+          validateEnvVar(
+            "OAUTH_AUTHORIZATION_URL",
+            process.env.OAUTH_AUTHORIZATION_URL,
+            false,
+          ) || `${abBaseUrl}/iam/v3/oauth/authorize`,
+        tokenUrl:
+          validateEnvVar(
+            "OAUTH_TOKEN_URL",
+            process.env.OAUTH_TOKEN_URL,
+            false,
+          ) || `${abBaseUrl}/iam/v3/oauth/token`,
         // Always enable client credentials fallback in stdio mode, respect flag in HTTP mode (default: true)
-        enableClientCredentialsFallback: transport === 'stdio' 
-          ? true 
-          : validateBoolean(process.env.ENABLE_CLIENT_CREDENTIALS_FALLBACK, true),
+        enableClientCredentialsFallback:
+          transport === "stdio"
+            ? true
+            : validateBoolean(
+                process.env.ENABLE_CLIENT_CREDENTIALS_FALLBACK,
+                true,
+              ),
       },
-      
+
       // OIDC Configuration
       oidc: {
-        jwksUri: validateEnvVar('JWKS_URI', process.env.JWKS_URI, false) || `${abBaseUrl}/iam/v3/oauth/jwks`,
-        issuer: validateEnvVar('JWT_ISSUER', process.env.JWT_ISSUER, false) || abBaseUrl,
-        audience: validateEnvVar('JWT_AUDIENCE', process.env.JWT_AUDIENCE, false) || 'NOT_SET',
-        algorithms: process.env.JWT_ALGORITHMS ? process.env.JWT_ALGORITHMS.split(',') : ['RS256']
-      }
+        jwksUri:
+          validateEnvVar("JWKS_URI", process.env.JWKS_URI, false) ||
+          `${abBaseUrl}/iam/v3/oauth/jwks`,
+        issuer:
+          validateEnvVar("JWT_ISSUER", process.env.JWT_ISSUER, false) ||
+          abBaseUrl,
+        audience:
+          validateEnvVar("JWT_AUDIENCE", process.env.JWT_AUDIENCE, false) ||
+          "NOT_SET",
+        algorithms: process.env.JWT_ALGORITHMS
+          ? process.env.JWT_ALGORITHMS.split(",")
+          : ["RS256"],
+      },
     };
 
     // Log configuration status
-    logger.info({ 
-      projectRoot,
-      port: config.port,
-      nodeEnv: config.nodeEnv,
-      logLevel: config.logLevel,
-      transport: config.transport,
-      openapiSpecsDir: config.openapi.specsDir,
-      openapiDefaultServerUrl: config.openapi.defaultServerUrl,
-      includeWriteRequests: config.openapi.includeWriteRequests,
-      oauthConfigured: !!(config.oauth.clientId && config.oauth.authorizationUrl),
-      enableClientCredentialsFallback: config.oauth.enableClientCredentialsFallback,
-      oidcConfigured: !!(config.oidc.jwksUri && config.oidc.issuer)
-    }, 'Configuration loaded');
+    logger.info(
+      {
+        projectRoot,
+        port: config.port,
+        nodeEnv: config.nodeEnv,
+        logLevel: config.logLevel,
+        transport: config.transport,
+        openapiSpecsDir: config.openapi.specsDir,
+        openapiDefaultServerUrl: config.openapi.defaultServerUrl,
+        includeWriteRequests: config.openapi.includeWriteRequests,
+        oauthConfigured: !!(
+          config.oauth.clientId && config.oauth.authorizationUrl
+        ),
+        enableClientCredentialsFallback:
+          config.oauth.enableClientCredentialsFallback,
+        oidcConfigured: !!(config.oidc.jwksUri && config.oidc.issuer),
+      },
+      "Configuration loaded",
+    );
 
     // Warn about missing OAuth configuration
     if (!config.oauth.clientId || !config.oauth.authorizationUrl) {
-      logger.warn('OAuth configuration is incomplete. Authentication will be disabled.');
-      logger.warn('Set OAUTH_CLIENT_ID and OAUTH_AUTHORIZATION_URL to enable OAuth.');
+      logger.warn(
+        "OAuth configuration is incomplete. Authentication will be disabled.",
+      );
+      logger.warn(
+        "Set OAUTH_CLIENT_ID and OAUTH_AUTHORIZATION_URL to enable OAuth.",
+      );
     }
 
     // Warn about missing OIDC configuration
     if (!config.oidc.jwksUri || !config.oidc.issuer) {
-      logger.warn('OIDC configuration is incomplete. Set JWKS_URI and JWT_ISSUER environment variables.');
+      logger.warn(
+        "OIDC configuration is incomplete. Set JWKS_URI and JWT_ISSUER environment variables.",
+      );
     }
 
     return config;
   } catch (error) {
-    logger.fatal({ error: error instanceof Error ? error.message : 'Unknown error' }, 'Failed to load configuration');
+    logger.fatal(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      "Failed to load configuration",
+    );
     process.exit(1);
   }
 }
@@ -201,7 +286,7 @@ export const serverConfig = {
   port: config.port,
   nodeEnv: config.nodeEnv,
   logLevel: config.logLevel,
-  baseUrl: config.baseUrl
+  baseUrl: config.baseUrl,
 };
 
 export const oauthConfig = config.oauth;

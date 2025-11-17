@@ -1,15 +1,15 @@
-import { Request, Response } from 'express';
-import { logger } from './logger.js';
+import { Request, Response } from "express";
+import { logger } from "./logger.js";
 
 export interface MCPRequest {
-  jsonrpc: '2.0';
+  jsonrpc: "2.0";
   id: string | number;
   method: string;
   params?: any;
 }
 
 export interface MCPResponse {
-  jsonrpc: '2.0';
+  jsonrpc: "2.0";
   id: string | number;
   result?: any;
   error?: {
@@ -23,7 +23,7 @@ export interface Tool {
   name: string;
   description: string;
   inputSchema: {
-    type: 'object';
+    type: "object";
     properties: Record<string, any>;
     required?: string[];
   };
@@ -56,75 +56,79 @@ export class MCPServer {
     try {
       const mcpRequest: MCPRequest = req.body;
 
-      if (!mcpRequest.jsonrpc || mcpRequest.jsonrpc !== '2.0') {
-        this.sendError(res, mcpRequest.id, -32600, 'Invalid Request');
+      if (!mcpRequest.jsonrpc || mcpRequest.jsonrpc !== "2.0") {
+        this.sendError(res, mcpRequest.id, -32600, "Invalid Request");
         return;
       }
 
       // Extract user context from request
       const userContext: UserContext = {
-        accessToken: req.accessToken || req.get('Authorization')?.replace('Bearer ', ''),
+        accessToken:
+          req.accessToken || req.get("Authorization")?.replace("Bearer ", ""),
         user: req.user,
         sub: req.user?.sub,
         client_id: req.user?.client_id,
         scope: req.user?.scope,
-        namespace: req.user?.namespace
+        namespace: req.user?.namespace,
       };
 
       const response = await this.processRequest(mcpRequest, userContext);
       res.json(response);
     } catch (error) {
-      logger.error({ error }, 'Error processing MCP request');
-      this.sendError(res, req.body?.id || 'unknown', -32603, 'Internal error');
+      logger.error({ error }, "Error processing MCP request");
+      this.sendError(res, req.body?.id || "unknown", -32603, "Internal error");
     }
   }
 
-  async processRequest(request: MCPRequest, userContext?: UserContext): Promise<MCPResponse> {
+  async processRequest(
+    request: MCPRequest,
+    userContext?: UserContext,
+  ): Promise<MCPResponse> {
     const { method, params, id } = request;
 
     try {
       switch (method) {
-        case 'initialize':
+        case "initialize":
           return this.handleInitialize(id, params);
-        
-        case 'tools/list':
+
+        case "tools/list":
           return this.handleListTools(id);
-        
-        case 'tools/call':
+
+        case "tools/call":
           return await this.handleCallTool(id, params, userContext);
-        
-        case 'ping':
+
+        case "ping":
           return this.handlePing(id);
-        
+
         default:
-          return this.createErrorResponse(id, -32601, 'Method not found');
+          return this.createErrorResponse(id, -32601, "Method not found");
       }
     } catch (error) {
-      logger.error({ error, method }, 'Error processing MCP method');
-      return this.createErrorResponse(id, -32603, 'Internal error');
+      logger.error({ error, method }, "Error processing MCP method");
+      return this.createErrorResponse(id, -32603, "Internal error");
     }
   }
 
   private handleInitialize(id: string | number, params: any): MCPResponse {
     return {
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id,
       result: {
-        protocolVersion: '2025-06-18',
+        protocolVersion: "2025-06-18",
         capabilities: {
-          tools: {}
+          tools: {},
         },
         serverInfo: {
-          name: 'ags-api-mcp-server',
-          version: '1.0.0'
-        }
-      }
+          name: "ags-api-mcp-server",
+          version: "1.0.0",
+        },
+      },
     };
   }
 
   private handleListTools(id: string | number): MCPResponse {
     const tools: Tool[] = [];
-    
+
     // First, add tools with explicit schemas
     for (const [name, schema] of this.toolSchemas) {
       tools.push(schema);
@@ -139,41 +143,48 @@ export class MCPServer {
     }
 
     return {
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id,
       result: {
-        tools
-      }
+        tools,
+      },
     };
   }
 
   private generateDefaultToolSchema(name: string): Tool {
     const toolSchemas: Record<string, Tool> = {
-      'get_token_info': {
-        name: 'get_token_info',
-        description: 'Get information about the authenticated token and user from the access token. Returns the namespace that should be used as the implicit default namespace for all subsequent API requests when a namespace parameter is not explicitly specified.',
+      get_token_info: {
+        name: "get_token_info",
+        description:
+          "Get information about the authenticated token and user from the access token. Returns the namespace that should be used as the implicit default namespace for all subsequent API requests when a namespace parameter is not explicitly specified.",
         inputSchema: {
-          type: 'object',
-          properties: {}
-        }
-      }
+          type: "object",
+          properties: {},
+        },
+      },
     };
 
-    return toolSchemas[name] || {
-      name,
-      description: `Execute ${name} tool`,
-      inputSchema: {
-        type: 'object',
-        properties: {}
+    return (
+      toolSchemas[name] || {
+        name,
+        description: `Execute ${name} tool`,
+        inputSchema: {
+          type: "object",
+          properties: {},
+        },
       }
-    };
+    );
   }
 
-  private async handleCallTool(id: string | number, params: any, userContext?: UserContext): Promise<MCPResponse> {
+  private async handleCallTool(
+    id: string | number,
+    params: any,
+    userContext?: UserContext,
+  ): Promise<MCPResponse> {
     const { name, arguments: args } = params;
 
     if (!name) {
-      return this.createErrorResponse(id, -32602, 'Tool name is required');
+      return this.createErrorResponse(id, -32602, "Tool name is required");
     }
 
     const tool = this.tools.get(name);
@@ -184,58 +195,77 @@ export class MCPServer {
     try {
       const result = await tool(args || {}, userContext);
       return {
-        jsonrpc: '2.0',
+        jsonrpc: "2.0",
         id,
         result: {
           content: [
             {
-              type: 'text',
-              text: typeof result === 'string' ? result : JSON.stringify(result, null, 2)
-            }
-          ]
-        }
+              type: "text",
+              text:
+                typeof result === "string"
+                  ? result
+                  : JSON.stringify(result, null, 2),
+            },
+          ],
+        },
       };
     } catch (error) {
-      logger.error({ 
-        error, 
-        toolName: name,
-        errorType: error?.constructor?.name || typeof error,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : undefined
-      }, 'Error executing MCP tool');
-      return this.createErrorResponse(id, -32603, `Tool execution failed: ${error}`);
+      logger.error(
+        {
+          error,
+          toolName: name,
+          errorType: error?.constructor?.name || typeof error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+        "Error executing MCP tool",
+      );
+      return this.createErrorResponse(
+        id,
+        -32603,
+        `Tool execution failed: ${error}`,
+      );
     }
   }
 
   private handlePing(id: string | number): MCPResponse {
     return {
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id,
       result: {
-        message: 'pong'
-      }
+        message: "pong",
+      },
     };
   }
 
-  private createErrorResponse(id: string | number, code: number, message: string): MCPResponse {
+  private createErrorResponse(
+    id: string | number,
+    code: number,
+    message: string,
+  ): MCPResponse {
     return {
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id,
       error: {
         code,
-        message
-      }
+        message,
+      },
     };
   }
 
-  private sendError(res: Response, id: string | number, code: number, message: string): void {
+  private sendError(
+    res: Response,
+    id: string | number,
+    code: number,
+    message: string,
+  ): void {
     const response: MCPResponse = {
-      jsonrpc: '2.0',
+      jsonrpc: "2.0",
       id,
       error: {
         code,
-        message
-      }
+        message,
+      },
     };
     res.status(400).json(response);
   }

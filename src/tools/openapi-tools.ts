@@ -1,19 +1,19 @@
-import fs from 'fs';
-import path from 'path';
-import axios, { AxiosError, AxiosRequestConfig, Method } from 'axios';
-import { parse as parseYaml } from 'yaml';
-import { UserContext } from '../mcp-server.js';
-import { logger } from '../logger.js';
+import fs from "fs";
+import path from "path";
+import axios, { AxiosError, AxiosRequestConfig, Method } from "axios";
+import { parse as parseYaml } from "yaml";
+import { UserContext } from "../mcp-server.js";
+import { logger } from "../logger.js";
 
 type HttpMethod =
-  | 'GET'
-  | 'PUT'
-  | 'POST'
-  | 'DELETE'
-  | 'PATCH'
-  | 'HEAD'
-  | 'OPTIONS'
-  | 'TRACE';
+  | "GET"
+  | "PUT"
+  | "POST"
+  | "DELETE"
+  | "PATCH"
+  | "HEAD"
+  | "OPTIONS"
+  | "TRACE";
 
 interface ParameterSummary {
   name: string;
@@ -117,7 +117,16 @@ interface OpenApiToolsOptions {
   includeWriteRequests?: boolean;
 }
 
-const HTTP_METHODS: HttpMethod[] = ['GET', 'PUT', 'POST', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS', 'TRACE'];
+const HTTP_METHODS: HttpMethod[] = [
+  "GET",
+  "PUT",
+  "POST",
+  "DELETE",
+  "PATCH",
+  "HEAD",
+  "OPTIONS",
+  "TRACE",
+];
 
 export class OpenApiTools {
   private readonly operationsById = new Map<string, ApiOperation>();
@@ -135,8 +144,10 @@ export class OpenApiTools {
     this.options = {
       specsDir: options.specsDir,
       defaultSearchLimit: options.defaultSearchLimit ?? 5,
-      defaultServerUrl: options.defaultServerUrl ? this.normalizeServerUrl(options.defaultServerUrl) : undefined,
-      includeWriteRequests: options.includeWriteRequests ?? false
+      defaultServerUrl: options.defaultServerUrl
+        ? this.normalizeServerUrl(options.defaultServerUrl)
+        : undefined,
+      includeWriteRequests: options.includeWriteRequests ?? false,
     };
 
     this.loadSpecs();
@@ -144,12 +155,19 @@ export class OpenApiTools {
 
   async searchApis(args: SearchApisArgs = {}): Promise<object> {
     if (this.operations.length === 0) {
-      throw new Error('No OpenAPI specifications were loaded. Ensure the specs directory is configured correctly.');
+      throw new Error(
+        "No OpenAPI specifications were loaded. Ensure the specs directory is configured correctly.",
+      );
     }
 
-    const query = (args.query || '').trim().toLowerCase();
-    const limit = Math.min(Math.max(args.limit ?? this.options.defaultSearchLimit, 1), 50);
-    const methodFilter = args.method ? this.normalizeMethod(args.method) : undefined;
+    const query = (args.query || "").trim().toLowerCase();
+    const limit = Math.min(
+      Math.max(args.limit ?? this.options.defaultSearchLimit, 1),
+      50,
+    );
+    const methodFilter = args.method
+      ? this.normalizeMethod(args.method)
+      : undefined;
     const specFilter = args.spec ? this.resolveSpecName(args.spec) : undefined;
     const tagFilter = args.tag ? args.tag.toLowerCase() : undefined;
 
@@ -163,14 +181,17 @@ export class OpenApiTools {
         if (specFilter && operation.specName !== specFilter) {
           return false;
         }
-        if (tagFilter && !operation.tags.some((tag) => tag.toLowerCase() === tagFilter)) {
+        if (
+          tagFilter &&
+          !operation.tags.some((tag) => tag.toLowerCase() === tagFilter)
+        ) {
           return false;
         }
         return true;
       })
       .map((operation) => ({
         operation,
-        score: this.computeSearchScore(operation, queryTerms)
+        score: this.computeSearchScore(operation, queryTerms),
       }))
       .filter(({ score }) => queryTerms.length === 0 || score > 0);
 
@@ -195,14 +216,14 @@ export class OpenApiTools {
         servers: operation.servers,
         parameterCount: operation.parameters.length,
         hasRequestBody: Boolean(operation.requestBody),
-        score
+        score,
       })),
       availableSpecs: Array.from(this.specs.values()).map((spec) => ({
         spec: spec.name,
         title: spec.title,
         version: spec.version,
-        servers: spec.servers
-      }))
+        servers: spec.servers,
+      })),
     };
   }
 
@@ -224,49 +245,70 @@ export class OpenApiTools {
       servers: operation.servers,
       parameters: operation.parameters,
       requestBody: operation.requestBody,
-      responses: operation.responses
+      responses: operation.responses,
     };
   }
 
-  async runApi(args: RunApiArgs = {}, userContext?: UserContext): Promise<object> {
+  async runApi(
+    args: RunApiArgs = {},
+    userContext?: UserContext,
+  ): Promise<object> {
     const operation = this.findOperation(args);
 
     logger.debug(
       {
-        tool: 'run-apis',
+        tool: "run-apis",
         operationId: operation.id,
         suppliedServerUrl: args.serverUrl,
         availableServers: operation.servers,
         defaultServerUrl: this.options.defaultServerUrl,
-        hasAccessToken: Boolean(userContext?.accessToken)
+        hasAccessToken: Boolean(userContext?.accessToken),
       },
-      'Preparing to execute run-apis operation'
+      "Preparing to execute run-apis operation",
     );
 
-    if (!operation.servers.length && !args.serverUrl && !this.options.defaultServerUrl) {
-      throw new Error(`No server URL available for ${operation.id}. Provide serverUrl explicitly.`);
+    if (
+      !operation.servers.length &&
+      !args.serverUrl &&
+      !this.options.defaultServerUrl
+    ) {
+      throw new Error(
+        `No server URL available for ${operation.id}. Provide serverUrl explicitly.`,
+      );
     }
 
-    const baseUrl = (args.serverUrl || operation.servers[0] || this.options.defaultServerUrl || '').replace(/\/$/, '');
+    const baseUrl = (
+      args.serverUrl ||
+      operation.servers[0] ||
+      this.options.defaultServerUrl ||
+      ""
+    ).replace(/\/$/, "");
     let resolvedPath: string;
     try {
       resolvedPath = this.buildPath(operation.path, args.pathParams);
     } catch (error) {
       logger.error(
         {
-          tool: 'run-apis',
+          tool: "run-apis",
           operationId: operation.id,
-          message: 'Failed to resolve path template',
+          message: "Failed to resolve path template",
           pathTemplate: operation.path,
           pathParams: args.pathParams,
-          error: error instanceof Error ? error.message : error
+          error: error instanceof Error ? error.message : error,
         },
-        'run-apis path resolution failure'
+        "run-apis path resolution failure",
       );
       throw error;
     }
-    resolvedPath = this.applyBasePath(baseUrl, resolvedPath, operation.basePath);
-    const url = new URL(baseUrl + (resolvedPath.startsWith('/') ? resolvedPath : `/${resolvedPath}`));
+    resolvedPath = this.applyBasePath(
+      baseUrl,
+      resolvedPath,
+      operation.basePath,
+    );
+    const url = new URL(
+      baseUrl +
+        (resolvedPath.startsWith("/") ? resolvedPath : `/${resolvedPath}`),
+    );
     if (args.query) {
       const params = new URLSearchParams(url.search);
       for (const [key, value] of Object.entries(args.query)) {
@@ -279,12 +321,12 @@ export class OpenApiTools {
       url.search = params.toString();
       logger.debug(
         {
-          tool: 'run-apis',
+          tool: "run-apis",
           operationId: operation.id,
           query: args.query,
-          encodedQuery: url.search
+          encodedQuery: url.search,
         },
-        'run-apis applied query parameters'
+        "run-apis applied query parameters",
       );
     }
 
@@ -297,8 +339,12 @@ export class OpenApiTools {
       }
     }
 
-    if (args.useAccessToken !== false && userContext?.accessToken && !this.hasHeader(headers, 'authorization')) {
-      headers['Authorization'] = `Bearer ${userContext.accessToken}`;
+    if (
+      args.useAccessToken !== false &&
+      userContext?.accessToken &&
+      !this.hasHeader(headers, "authorization")
+    ) {
+      headers["Authorization"] = `Bearer ${userContext.accessToken}`;
     }
 
     const method = operation.method as Method;
@@ -307,29 +353,36 @@ export class OpenApiTools {
       url: url.toString(),
       headers,
       timeout: args.timeoutMs && args.timeoutMs > 0 ? args.timeoutMs : 15000,
-      validateStatus: () => true
+      validateStatus: () => true,
     };
 
-    if (args.body !== undefined && !['GET', 'HEAD'].includes(operation.method)) {
+    if (
+      args.body !== undefined &&
+      !["GET", "HEAD"].includes(operation.method)
+    ) {
       config.data = args.body;
-      if (typeof args.body === 'object' && !Buffer.isBuffer(args.body) && !this.hasHeader(headers, 'content-type')) {
-        headers['Content-Type'] = 'application/json';
+      if (
+        typeof args.body === "object" &&
+        !Buffer.isBuffer(args.body) &&
+        !this.hasHeader(headers, "content-type")
+      ) {
+        headers["Content-Type"] = "application/json";
       }
     }
 
     const startedAt = Date.now();
     logger.debug(
       {
-        tool: 'run-apis',
+        tool: "run-apis",
         operationId: operation.id,
         request: {
           method: operation.method,
           url: url.toString(),
           headers: this.sanitizeHeaders(headers),
-          body: args.body ?? null
-        }
+          body: args.body ?? null,
+        },
       },
-      'Executing API request via run-apis tool'
+      "Executing API request via run-apis tool",
     );
 
     try {
@@ -337,52 +390,52 @@ export class OpenApiTools {
       const durationMs = Date.now() - startedAt;
       logger.debug(
         {
-          tool: 'run-apis',
+          tool: "run-apis",
           operationId: operation.id,
           response: {
             status: response.status,
             statusText: response.statusText,
             headers: this.sanitizeHeaders(response.headers),
             data: response.data,
-            durationMs
-          }
+            durationMs,
+          },
         },
-        'run-apis request completed'
+        "run-apis request completed",
       );
       return {
         request: {
           method: operation.method,
           url: url.toString(),
           headers,
-          body: args.body ?? null
+          body: args.body ?? null,
         },
         response: {
           status: response.status,
           statusText: response.statusText,
           headers: response.headers,
           data: response.data,
-          durationMs
-        }
+          durationMs,
+        },
       };
     } catch (error) {
       const durationMs = Date.now() - startedAt;
       logger.error(
         {
-          tool: 'run-apis',
+          tool: "run-apis",
           operationId: operation.id,
           errorType: error?.constructor?.name || typeof error,
           errorMessage: error instanceof Error ? error.message : String(error),
           errorStack: error instanceof Error ? error.stack : undefined,
-          durationMs
+          durationMs,
         },
-        'run-apis caught error in try-catch block'
+        "run-apis caught error in try-catch block",
       );
 
       if (axios.isAxiosError(error)) {
         const axiosError = error as AxiosError;
         logger.error(
           {
-            tool: 'run-apis',
+            tool: "run-apis",
             operationId: operation.id,
             error: {
               message: axiosError.message,
@@ -390,17 +443,17 @@ export class OpenApiTools {
               status: axiosError.response?.status,
               headers: this.sanitizeHeaders(axiosError.response?.headers ?? {}),
               data: axiosError.response?.data,
-              durationMs
-            }
+              durationMs,
+            },
           },
-          'run-apis request failed (Axios error)'
+          "run-apis request failed (Axios error)",
         );
         return {
           request: {
             method: operation.method,
             url: url.toString(),
             headers,
-            body: args.body ?? null
+            body: args.body ?? null,
           },
           error: {
             message: axiosError.message,
@@ -408,19 +461,19 @@ export class OpenApiTools {
             status: axiosError.response?.status,
             headers: axiosError.response?.headers,
             data: axiosError.response?.data,
-            durationMs
-          }
+            durationMs,
+          },
         };
       }
 
       logger.error(
         {
-          tool: 'run-apis',
+          tool: "run-apis",
           operationId: operation.id,
           error: error instanceof Error ? error.message : error,
-          errorStack: error instanceof Error ? error.stack : undefined
+          errorStack: error instanceof Error ? error.stack : undefined,
         },
-        'run-apis request failed with non-Axios error - rethrowing'
+        "run-apis request failed with non-Axios error - rethrowing",
       );
       throw error;
     }
@@ -431,7 +484,10 @@ export class OpenApiTools {
     const specsPath = this.options.specsDir;
 
     if (!fs.existsSync(specsPath)) {
-      logger.warn({ specsPath }, 'OpenAPI specs directory not found. Skipping OpenAPI tool registration.');
+      logger.warn(
+        { specsPath },
+        "OpenAPI specs directory not found. Skipping OpenAPI tool registration.",
+      );
       return;
     }
 
@@ -447,19 +503,26 @@ export class OpenApiTools {
       }
 
       const ext = path.extname(entry.name).toLowerCase();
-      if (!['.yaml', '.yml', '.json'].includes(ext)) {
+      if (![".yaml", ".yml", ".json"].includes(ext)) {
         continue;
       }
 
       const filePath = path.join(specsPath, entry.name);
       try {
-        const raw = fs.readFileSync(filePath, 'utf-8');
-        const document = ext === '.json' ? JSON.parse(raw) : parseYaml(raw);
-        if (!document || typeof document !== 'object') {
-          logger.warn({ filePath }, 'Skipping OpenAPI spec because parsed document is empty.');
+        const raw = fs.readFileSync(filePath, "utf-8");
+        const document = ext === ".json" ? JSON.parse(raw) : parseYaml(raw);
+        if (!document || typeof document !== "object") {
+          logger.warn(
+            { filePath },
+            "Skipping OpenAPI spec because parsed document is empty.",
+          );
           continue;
         }
-        const { operationCount, skippedDeprecated } = this.registerSpec(entry.name, filePath, document as Record<string, any>);
+        const { operationCount, skippedDeprecated } = this.registerSpec(
+          entry.name,
+          filePath,
+          document as Record<string, any>,
+        );
         operationsPerSpec[filePath] = operationCount;
         if (skippedDeprecated > 0) {
           deprecatedOperationsPerSpec[filePath] = skippedDeprecated;
@@ -467,28 +530,55 @@ export class OpenApiTools {
         }
         loadedSpecs += 1;
       } catch (error) {
-        logger.error({ filePath, error }, 'Failed to parse OpenAPI specification');
+        logger.error(
+          { filePath, error },
+          "Failed to parse OpenAPI specification",
+        );
       }
     }
 
-    logger.info({ specsPath, loadedSpecs, operations: this.operations.length }, 'OpenAPI specifications processed');
+    logger.info(
+      { specsPath, loadedSpecs, operations: this.operations.length },
+      "OpenAPI specifications processed",
+    );
     if (loadedSpecs > 0) {
-      logger.info({ operationsPerSpec }, 'OpenAPI operations loaded per specification');
+      logger.info(
+        { operationsPerSpec },
+        "OpenAPI operations loaded per specification",
+      );
       if (totalDeprecatedOperations > 0) {
-        logger.info({ deprecatedOperationsPerSpec, totalDeprecatedOperations }, 'Deprecated OpenAPI operations skipped');
+        logger.info(
+          { deprecatedOperationsPerSpec, totalDeprecatedOperations },
+          "Deprecated OpenAPI operations skipped",
+        );
       }
     }
   }
 
-  private registerSpec(fileName: string, filePath: string, document: Record<string, any>): { operationCount: number; skippedDeprecated: number } {
+  private registerSpec(
+    fileName: string,
+    filePath: string,
+    document: Record<string, any>,
+  ): { operationCount: number; skippedDeprecated: number } {
     const baseName = path.parse(fileName).name;
-    const title = typeof document?.info?.title === 'string' ? document.info.title : undefined;
-    const version = typeof document?.info?.version === 'string' ? document.info.version : undefined;
-    const description = typeof document?.info?.description === 'string' ? document.info.description : undefined;
-    const specName = this.slugify(title || baseName || `spec-${this.specs.size + 1}`);
+    const title =
+      typeof document?.info?.title === "string"
+        ? document.info.title
+        : undefined;
+    const version =
+      typeof document?.info?.version === "string"
+        ? document.info.version
+        : undefined;
+    const description =
+      typeof document?.info?.description === "string"
+        ? document.info.description
+        : undefined;
+    const specName = this.slugify(
+      title || baseName || `spec-${this.specs.size + 1}`,
+    );
     const rawServers = [
       ...this.extractServers(document),
-      ...this.extractSwagger2Servers(document)
+      ...this.extractSwagger2Servers(document),
     ];
     const specServers = this.ensureServers(rawServers);
     const basePath = this.extractBasePath(document);
@@ -498,17 +588,17 @@ export class OpenApiTools {
         {
           specName,
           filePath,
-          defaultServerUrl: this.options.defaultServerUrl
+          defaultServerUrl: this.options.defaultServerUrl,
         },
-        'OpenAPI document lacks server definitions; using configured default server URL'
+        "OpenAPI document lacks server definitions; using configured default server URL",
       );
     } else if (specServers.length === 0) {
       logger.warn(
         {
           specName,
-          filePath
+          filePath,
         },
-        'No servers defined in OpenAPI document and no default server configured; run-apis will require serverUrl input'
+        "No servers defined in OpenAPI document and no default server configured; run-apis will require serverUrl input",
       );
     }
 
@@ -521,7 +611,7 @@ export class OpenApiTools {
       servers: specServers,
       basePath,
       filePath,
-      document
+      document,
     };
 
     this.specs.set(specName, metadata);
@@ -535,20 +625,22 @@ export class OpenApiTools {
     let operationCount = 0;
     let skippedDeprecated = 0;
     for (const [pathKey, pathItem] of Object.entries(paths)) {
-      if (!pathItem || typeof pathItem !== 'object') {
+      if (!pathItem || typeof pathItem !== "object") {
         continue;
       }
 
-      const pathParameters = Array.isArray((pathItem as any).parameters) ? (pathItem as any).parameters : [];
+      const pathParameters = Array.isArray((pathItem as any).parameters)
+        ? (pathItem as any).parameters
+        : [];
       const pathServers = this.extractServers(pathItem);
 
       for (const method of HTTP_METHODS) {
-        if (!this.options.includeWriteRequests && method !== 'GET') {
+        if (!this.options.includeWriteRequests && method !== "GET") {
           continue;
         }
         const lowerMethod = method.toLowerCase();
         const operation = (pathItem as Record<string, any>)[lowerMethod];
-        if (!operation || typeof operation !== 'object') {
+        if (!operation || typeof operation !== "object") {
           continue;
         }
 
@@ -556,24 +648,41 @@ export class OpenApiTools {
         const combinedServers = this.ensureServers([
           ...operationServers,
           ...pathServers,
-          ...specServers
+          ...specServers,
         ]);
-        const combinedParameters = this.combineParameters(pathParameters, operation.parameters);
+        const combinedParameters = this.combineParameters(
+          pathParameters,
+          operation.parameters,
+        );
         const normalizedMethod = method;
         const id = `${specName}:${normalizedMethod}:${pathKey}`;
         if (operation.deprecated) {
           skippedDeprecated += 1;
           continue;
         }
-        const operationId = this.buildOperationId(basePath, operation.operationId);
+        const operationId = this.buildOperationId(
+          basePath,
+          operation.operationId,
+        );
         const tags = Array.isArray(operation.tags)
-          ? (operation.tags as unknown[]).filter((tag): tag is string => typeof tag === 'string')
+          ? (operation.tags as unknown[]).filter(
+              (tag): tag is string => typeof tag === "string",
+            )
           : [];
-        const summary = typeof operation.summary === 'string' ? operation.summary : undefined;
-        const description = typeof operation.description === 'string' ? operation.description : undefined;
+        const summary =
+          typeof operation.summary === "string" ? operation.summary : undefined;
+        const description =
+          typeof operation.description === "string"
+            ? operation.description
+            : undefined;
 
-        const parameters = combinedParameters.map((parameter) => this.summarizeParameter(parameter, document));
-        const requestBody = this.extractRequestBody(operation.requestBody, document);
+        const parameters = combinedParameters.map((parameter) =>
+          this.summarizeParameter(parameter, document),
+        );
+        const requestBody = this.extractRequestBody(
+          operation.requestBody,
+          document,
+        );
         const responses = this.extractResponses(operation.responses, document);
 
         const searchTextParts = [
@@ -581,14 +690,14 @@ export class OpenApiTools {
           description,
           pathKey,
           operationId,
-          tags.join(' '),
+          tags.join(" "),
           title,
-          specName
+          specName,
         ];
 
         const searchText = searchTextParts
           .filter((part): part is string => Boolean(part))
-          .join(' ')
+          .join(" ")
           .toLowerCase();
 
         const apiOperation: ApiOperation = {
@@ -608,7 +717,7 @@ export class OpenApiTools {
           requestBody,
           responses,
           searchText,
-          document
+          document,
         };
 
         this.operationsById.set(id, apiOperation);
@@ -623,7 +732,9 @@ export class OpenApiTools {
     if (args.apiId) {
       const operation = this.operationsById.get(args.apiId);
       if (!operation) {
-        throw new Error(`API operation '${args.apiId}' was not found in the loaded OpenAPI specifications.`);
+        throw new Error(
+          `API operation '${args.apiId}' was not found in the loaded OpenAPI specifications.`,
+        );
       }
       return operation;
     }
@@ -633,7 +744,9 @@ export class OpenApiTools {
     const pathValue = args.path;
 
     if (!specName || !method || !pathValue) {
-      throw new Error('Provide either apiId or spec/method/path to reference an API operation.');
+      throw new Error(
+        "Provide either apiId or spec/method/path to reference an API operation.",
+      );
     }
 
     const id = `${specName}:${method}:${pathValue}`;
@@ -680,39 +793,57 @@ export class OpenApiTools {
     const key = name.trim().toLowerCase();
     const resolved = this.specLookup.get(key);
     if (!resolved) {
-      throw new Error(`Unknown OpenAPI spec identifier '${name}'. Available specs: ${Array.from(this.specs.keys()).join(', ')}`);
+      throw new Error(
+        `Unknown OpenAPI spec identifier '${name}'. Available specs: ${Array.from(this.specs.keys()).join(", ")}`,
+      );
     }
     return resolved;
   }
 
   private extractServers(entity: any): string[] {
-    if (!entity || typeof entity !== 'object' || !Array.isArray(entity.servers)) {
+    if (
+      !entity ||
+      typeof entity !== "object" ||
+      !Array.isArray(entity.servers)
+    ) {
       return [];
     }
 
     return entity.servers
-      .map((server: any) => (typeof server?.url === 'string' ? server.url : undefined))
-      .filter((url: string | undefined): url is string => typeof url === 'string');
+      .map((server: any) =>
+        typeof server?.url === "string" ? server.url : undefined,
+      )
+      .filter(
+        (url: string | undefined): url is string => typeof url === "string",
+      );
   }
 
   private extractSwagger2Servers(document: Record<string, any>): string[] {
-    if (!document || typeof document !== 'object') {
+    if (!document || typeof document !== "object") {
       return [];
     }
 
-    const host = typeof document.host === 'string' ? document.host.trim() : '';
+    const host = typeof document.host === "string" ? document.host.trim() : "";
     if (!host) {
       return [];
     }
 
     const schemes = Array.isArray(document.schemes)
-      ? document.schemes.filter((scheme): scheme is string => typeof scheme === 'string' && scheme.length > 0)
+      ? document.schemes.filter(
+          (scheme): scheme is string =>
+            typeof scheme === "string" && scheme.length > 0,
+        )
       : [];
 
-    const basePathRaw = typeof document.basePath === 'string' ? document.basePath : '';
-    const basePath = basePathRaw ? (basePathRaw.startsWith('/') ? basePathRaw : `/${basePathRaw}`) : '';
+    const basePathRaw =
+      typeof document.basePath === "string" ? document.basePath : "";
+    const basePath = basePathRaw
+      ? basePathRaw.startsWith("/")
+        ? basePathRaw
+        : `/${basePathRaw}`
+      : "";
 
-    const scheme = schemes[0] || 'https';
+    const scheme = schemes[0] || "https";
     const urlCandidate = `${scheme}://${host}${basePath}`;
 
     try {
@@ -724,7 +855,10 @@ export class OpenApiTools {
     }
   }
 
-  private combineParameters(pathParameters: any[], operationParameters: any[]): any[] {
+  private combineParameters(
+    pathParameters: any[],
+    operationParameters: any[],
+  ): any[] {
     const combined: any[] = [];
     const seen = new Set<string>();
 
@@ -733,12 +867,14 @@ export class OpenApiTools {
         return;
       }
       for (const parameter of parameters) {
-        if (!parameter || typeof parameter !== 'object') {
+        if (!parameter || typeof parameter !== "object") {
           continue;
         }
         const key = `${parameter.in}:${parameter.name}`;
         if (seen.has(key)) {
-          const index = combined.findIndex((existing) => `${existing.in}:${existing.name}` === key);
+          const index = combined.findIndex(
+            (existing) => `${existing.in}:${existing.name}` === key,
+          );
           if (index >= 0) {
             combined[index] = parameter;
           }
@@ -755,27 +891,42 @@ export class OpenApiTools {
     return combined;
   }
 
-  private summarizeParameter(parameter: any, document: Record<string, any>): ParameterSummary {
-    const resolved = parameter?.$ref ? this.resolveRef(parameter.$ref, document) ?? parameter : parameter;
-    const schema = resolved?.schema ? this.summarizeSchema(resolved.schema, document) : undefined;
+  private summarizeParameter(
+    parameter: any,
+    document: Record<string, any>,
+  ): ParameterSummary {
+    const resolved = parameter?.$ref
+      ? (this.resolveRef(parameter.$ref, document) ?? parameter)
+      : parameter;
+    const schema = resolved?.schema
+      ? this.summarizeSchema(resolved.schema, document)
+      : undefined;
 
     return {
       name: resolved?.name,
       in: resolved?.in,
-      required: Boolean(resolved?.required) || resolved?.in === 'path',
+      required: Boolean(resolved?.required) || resolved?.in === "path",
       description: resolved?.description,
       schema,
-      example: resolved?.example ?? resolved?.schema?.example ?? resolved?.schema?.default,
-      deprecated: Boolean(resolved?.deprecated)
+      example:
+        resolved?.example ??
+        resolved?.schema?.example ??
+        resolved?.schema?.default,
+      deprecated: Boolean(resolved?.deprecated),
     };
   }
 
-  private extractRequestBody(requestBody: any, document: Record<string, any>): RequestBodySummary | undefined {
+  private extractRequestBody(
+    requestBody: any,
+    document: Record<string, any>,
+  ): RequestBodySummary | undefined {
     if (!requestBody) {
       return undefined;
     }
 
-    const resolved = requestBody.$ref ? this.resolveRef(requestBody.$ref, document) : requestBody;
+    const resolved = requestBody.$ref
+      ? this.resolveRef(requestBody.$ref, document)
+      : requestBody;
     if (!resolved) {
       return undefined;
     }
@@ -783,62 +934,76 @@ export class OpenApiTools {
     const contents: RequestBodyContentSummary[] = [];
     const content = resolved.content ?? {};
     for (const [contentType, rawMediaTypeObject] of Object.entries(content)) {
-      if (!rawMediaTypeObject || typeof rawMediaTypeObject !== 'object') {
+      if (!rawMediaTypeObject || typeof rawMediaTypeObject !== "object") {
         continue;
       }
       const mediaTypeObject = rawMediaTypeObject as Record<string, any>;
       contents.push({
         contentType,
-        schema: mediaTypeObject.schema ? this.summarizeSchema(mediaTypeObject.schema, document) : undefined,
-        example: mediaTypeObject.example ?? mediaTypeObject.examples
+        schema: mediaTypeObject.schema
+          ? this.summarizeSchema(mediaTypeObject.schema, document)
+          : undefined,
+        example: mediaTypeObject.example ?? mediaTypeObject.examples,
       });
     }
 
     return {
       description: resolved.description,
       required: resolved.required,
-      contents
+      contents,
     };
   }
 
-  private extractResponses(responses: any, document: Record<string, any>): ResponseSummary[] {
-    if (!responses || typeof responses !== 'object') {
+  private extractResponses(
+    responses: any,
+    document: Record<string, any>,
+  ): ResponseSummary[] {
+    if (!responses || typeof responses !== "object") {
       return [];
     }
 
     const summaries: ResponseSummary[] = [];
     for (const [status, response] of Object.entries(responses)) {
-      const resolved = (response as any)?.$ref ? this.resolveRef((response as any).$ref, document) : response;
-      if (!resolved || typeof resolved !== 'object') {
+      const resolved = (response as any)?.$ref
+        ? this.resolveRef((response as any).$ref, document)
+        : response;
+      if (!resolved || typeof resolved !== "object") {
         continue;
       }
 
       const contents: ResponseContentSummary[] = [];
       const content = (resolved as any).content ?? {};
       for (const [contentType, rawMediaTypeObject] of Object.entries(content)) {
-        if (!rawMediaTypeObject || typeof rawMediaTypeObject !== 'object') {
+        if (!rawMediaTypeObject || typeof rawMediaTypeObject !== "object") {
           continue;
         }
         const mediaTypeObject = rawMediaTypeObject as Record<string, any>;
         contents.push({
           contentType,
-          schema: mediaTypeObject.schema ? this.summarizeSchema(mediaTypeObject.schema, document) : undefined,
-          example: mediaTypeObject.example ?? mediaTypeObject.examples
+          schema: mediaTypeObject.schema
+            ? this.summarizeSchema(mediaTypeObject.schema, document)
+            : undefined,
+          example: mediaTypeObject.example ?? mediaTypeObject.examples,
         });
       }
 
       summaries.push({
         status,
         description: (resolved as any).description,
-        contents
+        contents,
       });
     }
 
     return summaries;
   }
 
-  private summarizeSchema(schema: any, document: Record<string, any>, depth = 0, seen = new Set<string>()): any {
-    if (!schema || typeof schema !== 'object') {
+  private summarizeSchema(
+    schema: any,
+    document: Record<string, any>,
+    depth = 0,
+    seen = new Set<string>(),
+  ): any {
+    if (!schema || typeof schema !== "object") {
       return undefined;
     }
 
@@ -858,19 +1023,19 @@ export class OpenApiTools {
     const summary: Record<string, any> = {};
 
     const copyKeys = [
-      'type',
-      'format',
-      'description',
-      'enum',
-      'default',
-      'example',
-      'pattern',
-      'minimum',
-      'maximum',
-      'minLength',
-      'maxLength',
-      'minItems',
-      'maxItems'
+      "type",
+      "format",
+      "description",
+      "enum",
+      "default",
+      "example",
+      "pattern",
+      "minimum",
+      "maximum",
+      "minLength",
+      "maxLength",
+      "minItems",
+      "maxItems",
     ];
 
     for (const key of copyKeys) {
@@ -879,38 +1044,46 @@ export class OpenApiTools {
       }
     }
 
-    if (schema.type === 'object' && schema.properties && depth < 2) {
+    if (schema.type === "object" && schema.properties && depth < 2) {
       summary.properties = Object.fromEntries(
-        Object.entries(schema.properties).map(([key, value]) => [key, this.summarizeSchema(value, document, depth + 1)])
+        Object.entries(schema.properties).map(([key, value]) => [
+          key,
+          this.summarizeSchema(value, document, depth + 1),
+        ]),
       );
       if (Array.isArray(schema.required)) {
         summary.required = schema.required;
       }
     }
 
-    if (schema.type === 'array' && schema.items && depth < 2) {
+    if (schema.type === "array" && schema.items && depth < 2) {
       summary.items = this.summarizeSchema(schema.items, document, depth + 1);
     }
 
-    const compositeKeywords = ['oneOf', 'anyOf', 'allOf'];
+    const compositeKeywords = ["oneOf", "anyOf", "allOf"];
     for (const keyword of compositeKeywords) {
       if (Array.isArray(schema[keyword]) && depth < 2) {
-        summary[keyword] = schema[keyword].map((item: any) => this.summarizeSchema(item, document, depth + 1));
+        summary[keyword] = schema[keyword].map((item: any) =>
+          this.summarizeSchema(item, document, depth + 1),
+        );
       }
     }
 
     return summary;
   }
 
-  private resolveRef(ref: string, document: Record<string, any>): any | undefined {
-    if (typeof ref !== 'string' || !ref.startsWith('#/')) {
+  private resolveRef(
+    ref: string,
+    document: Record<string, any>,
+  ): any | undefined {
+    if (typeof ref !== "string" || !ref.startsWith("#/")) {
       return undefined;
     }
 
-    const pathSegments = ref.replace(/^#\//, '').split('/');
+    const pathSegments = ref.replace(/^#\//, "").split("/");
     let current: any = document;
     for (const segment of pathSegments) {
-      if (!current || typeof current !== 'object') {
+      if (!current || typeof current !== "object") {
         return undefined;
       }
       current = current[segment];
@@ -918,7 +1091,10 @@ export class OpenApiTools {
     return current;
   }
 
-  private buildPath(template: string, params?: Record<string, string | number>): string {
+  private buildPath(
+    template: string,
+    params?: Record<string, string | number>,
+  ): string {
     if (!params) {
       return template;
     }
@@ -926,13 +1102,19 @@ export class OpenApiTools {
     return template.replace(/\{([^}]+)\}/g, (match, group) => {
       const key = String(group);
       if (!(key in params)) {
-        throw new Error(`Missing path parameter '${key}' for URL template ${template}`);
+        throw new Error(
+          `Missing path parameter '${key}' for URL template ${template}`,
+        );
       }
       return encodeURIComponent(String(params[key]));
     });
   }
 
-  private applyBasePath(baseUrl: string, path: string, basePath?: string): string {
+  private applyBasePath(
+    baseUrl: string,
+    path: string,
+    basePath?: string,
+  ): string {
     if (!basePath) {
       return path;
     }
@@ -942,7 +1124,7 @@ export class OpenApiTools {
       return path;
     }
 
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     if (
       normalizedPath === normalizedBasePath ||
       normalizedPath.startsWith(`${normalizedBasePath}/`)
@@ -952,23 +1134,33 @@ export class OpenApiTools {
 
     try {
       const parsed = new URL(baseUrl);
-      const baseUrlPath = parsed.pathname.replace(/\/+$/, '');
-      if (baseUrlPath && (baseUrlPath === normalizedBasePath || baseUrlPath.endsWith(normalizedBasePath))) {
+      const baseUrlPath = parsed.pathname.replace(/\/+$/, "");
+      if (
+        baseUrlPath &&
+        (baseUrlPath === normalizedBasePath ||
+          baseUrlPath.endsWith(normalizedBasePath))
+      ) {
         return path;
       }
     } catch (error) {
-      logger.debug({ baseUrl, error }, 'Unable to parse baseUrl when applying basePath; assuming basePath is missing');
+      logger.debug(
+        { baseUrl, error },
+        "Unable to parse baseUrl when applying basePath; assuming basePath is missing",
+      );
     }
 
     return this.joinPaths(normalizedBasePath, path);
   }
 
   private extractBasePath(document: Record<string, any>): string | undefined {
-    if (!document || typeof document !== 'object') {
+    if (!document || typeof document !== "object") {
       return undefined;
     }
 
-    const rawBasePath = typeof (document as any).basePath === 'string' ? (document as any).basePath.trim() : '';
+    const rawBasePath =
+      typeof (document as any).basePath === "string"
+        ? (document as any).basePath.trim()
+        : "";
     if (!rawBasePath) {
       return undefined;
     }
@@ -978,37 +1170,45 @@ export class OpenApiTools {
 
   private normalizeBasePath(basePath: string): string {
     if (!basePath) {
-      return '';
+      return "";
     }
-    const prefixed = basePath.startsWith('/') ? basePath : `/${basePath}`;
-    const normalized = prefixed.replace(/\/+$/, '');
-    return normalized || '/';
+    const prefixed = basePath.startsWith("/") ? basePath : `/${basePath}`;
+    const normalized = prefixed.replace(/\/+$/, "");
+    return normalized || "/";
   }
 
   private joinPaths(...parts: string[]): string {
     const cleaned = parts
-      .filter((part): part is string => typeof part === 'string' && part.length > 0)
-      .map((part) => part.replace(/^\/+|\/+$/g, ''))
+      .filter(
+        (part): part is string => typeof part === "string" && part.length > 0,
+      )
+      .map((part) => part.replace(/^\/+|\/+$/g, ""))
       .filter((part) => part.length > 0);
 
     if (cleaned.length === 0) {
-      return '/';
+      return "/";
     }
 
-    return `/${cleaned.join('/')}`.replace(/\/+$/, '').replace(/\/+/g, '/');
+    return `/${cleaned.join("/")}`.replace(/\/+$/, "").replace(/\/+/g, "/");
   }
 
-  private buildOperationId(basePath: string | undefined, operationId: any): string | undefined {
-    if (typeof operationId !== 'string' || operationId.length === 0) {
+  private buildOperationId(
+    basePath: string | undefined,
+    operationId: any,
+  ): string | undefined {
+    if (typeof operationId !== "string" || operationId.length === 0) {
       return undefined;
     }
 
-    if (!basePath || basePath === '/' || basePath.trim().length === 0) {
+    if (!basePath || basePath === "/" || basePath.trim().length === 0) {
       return operationId;
     }
 
     const normalizedBasePath = this.normalizeBasePath(basePath);
-    const sanitizedBasePath = normalizedBasePath === '/' ? '' : normalizedBasePath.replace(/^\//, '').replace(/\//g, '_');
+    const sanitizedBasePath =
+      normalizedBasePath === "/"
+        ? ""
+        : normalizedBasePath.replace(/^\//, "").replace(/\//g, "_");
 
     if (!sanitizedBasePath) {
       return operationId;
@@ -1018,14 +1218,21 @@ export class OpenApiTools {
   }
 
   private slugify(value: string): string {
-    return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/-{2,}/g, '-');
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .replace(/-{2,}/g, "-");
   }
 
   private unique(values: string[]): string[] {
     return Array.from(
       new Set(
-        values.filter((value): value is string => typeof value === 'string' && value.length > 0)
-      )
+        values.filter(
+          (value): value is string =>
+            typeof value === "string" && value.length > 0,
+        ),
+      ),
     );
   }
 
@@ -1037,14 +1244,18 @@ export class OpenApiTools {
   private sanitizeHeaders(headers: Record<string, any>): Record<string, any> {
     const sanitized: Record<string, any> = {};
     for (const [key, value] of Object.entries(headers)) {
-      sanitized[key] = key.toLowerCase() === 'authorization' ? '***REDACTED***' : value;
+      sanitized[key] =
+        key.toLowerCase() === "authorization" ? "***REDACTED***" : value;
     }
     return sanitized;
   }
 
   private ensureServers(servers: string[]): string[] {
     const normalized = servers
-      .filter((server): server is string => typeof server === 'string' && server.length > 0)
+      .filter(
+        (server): server is string =>
+          typeof server === "string" && server.length > 0,
+      )
       .map((server) => this.normalizeServerUrl(server));
     const uniqueServers = this.unique(normalized);
     if (uniqueServers.length === 0 && this.options.defaultServerUrl) {
@@ -1059,11 +1270,14 @@ export class OpenApiTools {
     }
     try {
       const parsed = new URL(url);
-      const pathname = parsed.pathname && parsed.pathname !== '/' ? parsed.pathname.replace(/\/+$/, '') : '';
+      const pathname =
+        parsed.pathname && parsed.pathname !== "/"
+          ? parsed.pathname.replace(/\/+$/, "")
+          : "";
       const normalized = `${parsed.protocol}//${parsed.host}${pathname}`;
-      return normalized.replace(/\/+$/, '');
+      return normalized.replace(/\/+$/, "");
     } catch {
-      return url.replace(/\/+$/, '');
+      return url.replace(/\/+$/, "");
     }
   }
 }
