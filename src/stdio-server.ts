@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { pathToFileURL } from "url";
 import { StaticTools } from "./tools/static-tools.js";
 import { OpenApiTools } from "./tools/openapi-tools.js";
 import { logger } from "./logger.js";
@@ -551,7 +552,8 @@ export class StdioMCPServer {
 }
 
 // Start the stdio server if this file is run directly
-if (require.main === module) {
+// ES module equivalent of require.main === module
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const server = new StdioMCPServer();
 
   server.start().catch((error) => {

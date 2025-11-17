@@ -17,21 +17,14 @@ import {
 } from "./config.js";
 import { StdioMCPServer } from "./stdio-server.js";
 import { StreamableHTTPTransport } from "./streamable-http.js";
+import { httpServerStatus } from "./http-server-status.js";
 
 let stdioServer: StdioMCPServer | null = null;
 let httpServer: any = null;
 let globalStreamableHttp: StreamableHTTPTransport | undefined;
 
-// HTTP server status tracking (for stdio mode)
-export let httpServerStatus: {
-  available: boolean;
-  error: string | null;
-  port: number | null;
-} = {
-  available: false,
-  error: null,
-  port: null,
-};
+// Re-export httpServerStatus for backward compatibility
+export { httpServerStatus };
 
 // Start server based on transport configuration
 if (config.transport === "stdio") {

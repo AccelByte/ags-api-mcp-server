@@ -1,8 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { OpenApiTools } from '../src/tools/openapi-tools';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const specsDir = path.join(__dirname, 'fixtures');
 
 const createTools = (options: Partial<ConstructorParameters<typeof OpenApiTools>[0]> = {}) =>

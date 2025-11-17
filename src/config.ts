@@ -1,6 +1,11 @@
 import dotenv from "dotenv";
 import path from "path";
+import { fileURLToPath } from "url";
 import { logger } from "./logger.js";
+
+// Get __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Determine project root directory
 // In development (src/), __dirname is the src directory

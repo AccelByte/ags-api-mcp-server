@@ -4,7 +4,7 @@ import { logger } from "../logger.js";
 import { sessionManager } from "../session-manager.js";
 import { otpManager } from "../otp-manager.js";
 import { config, serverConfig } from "../config.js";
-import { httpServerStatus } from "../index.js";
+import { httpServerStatus } from "../http-server-status.js";
 import open from "open";
 
 export class StaticTools {
