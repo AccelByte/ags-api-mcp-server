@@ -32,8 +32,8 @@ function setupEnvironment() {
     console.log('\n🎉 Environment setup complete!');
     console.log('\nNext steps:');
     console.log('1. Edit .env file with your OAuth provider settings');
-    console.log('2. Run: npm run dev');
-    console.log('3. Or run: npm run build && npm start');
+    console.log('2. Run: pnpm run dev');
+    console.log('3. Or run: pnpm run build && pnpm start');
 
   } catch (error) {
     console.error('❌ Error setting up environment:', error.message);

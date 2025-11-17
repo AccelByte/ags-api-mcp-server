@@ -489,7 +489,7 @@ axios.get(`${BASE_URL}/health`)
   .then(() => runTests())
   .catch(error => {
     console.error('❌ Server is not running at', BASE_URL);
-    console.error('   Please start the server first: npm run dev');
+    console.error('   Please start the server first: pnpm run dev');
     process.exit(1);
   });
 

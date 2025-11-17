@@ -2,12 +2,15 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 COPY package.json pnpm-lock.yaml ./
-RUN npm install
+RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN npm run build
-RUN npm prune --omit=dev
+RUN pnpm run build
+RUN pnpm prune --prod
 
 # Runtime stage
 FROM node:20-alpine
@@ -17,7 +20,7 @@ RUN apk add --no-cache curl
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/package-lock.json ./package-lock.json
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/openapi-specs ./openapi-specs
 

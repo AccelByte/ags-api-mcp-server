@@ -74,7 +74,7 @@ async function testServer() {
   } catch (error) {
     logger.error({ error: error.message }, '❌ Test failed');
     if (error.code === 'ECONNREFUSED') {
-      logger.info('💡 Make sure the server is running: npm run dev');
+      logger.info('💡 Make sure the server is running: pnpm run dev');
     }
   }
 }
