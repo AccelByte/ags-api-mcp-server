@@ -4,6 +4,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import { randomUUID } from 'crypto';
 import { StaticTools } from './tools/static-tools';
 import { OpenApiTools } from './tools/openapi-tools';
 import { logger } from './logger';
@@ -15,8 +16,14 @@ export class StdioMCPServer {
   private staticTools: StaticTools;
   private openApiTools: OpenApiTools;
   private oauthMiddleware: OAuthMiddleware;
+  private sessionToken: string; // Auto-generated session token for stdio mode only
 
   constructor() {
+    // Generate a session token for this stdio session (only valid for stdio mode)
+    this.sessionToken = randomUUID();
+    logger.info({
+      sessionToken: this.sessionToken.substring(0, 8) + '...'
+    }, 'Generated session token for stdio mode OAuth authentication');
     this.server = new Server(
       {
         name: 'ags-api-mcp-server',
@@ -165,6 +172,24 @@ export class StdioMCPServer {
                 }
               }
             }
+          },
+          {
+            name: 'start_oauth_login',
+            description: 'Start OAuth login flow and get a session token. Returns a URL to open in a browser for authentication.',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+              required: []
+            }
+          },
+          {
+            name: 'logout',
+            description: 'Logout from the current OAuth session. Clears access and refresh tokens for the current session.',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+              required: []
+            }
           }
         ]
       };
@@ -178,13 +203,25 @@ export class StdioMCPServer {
 
       try {
         let result: any;
-        
+
         // Get access token from client credentials if available
         const userContext = await this.getUserContext();
 
+        // Add stdio session token to userContext (only for stdio mode)
+        const userContextWithStdioToken = {
+          ...userContext,
+          stdioSessionToken: this.sessionToken  // SECURITY: Only used in stdio mode
+        };
+
         switch (name) {
           case 'get_token_info':
-            result = await this.staticTools.getTokenInfo(args || {}, userContext);
+            result = await this.staticTools.getTokenInfo(args || {}, userContextWithStdioToken);
+            break;
+          case 'start_oauth_login':
+            result = await this.staticTools.startOAuthLogin(args, userContextWithStdioToken);
+            break;
+          case 'logout':
+            result = await this.staticTools.logout(args, userContextWithStdioToken);
             break;
           case 'search-apis':
             result = await this.openApiTools.searchApis(args || {});
@@ -193,7 +230,7 @@ export class StdioMCPServer {
             result = await this.openApiTools.describeApi(args || {});
             break;
           case 'run-apis':
-            result = await this.openApiTools.runApi(args || {}, userContext);
+            result = await this.openApiTools.runApi(args || {}, userContextWithStdioToken);
             break;
           default:
             throw new Error(`Unknown tool: ${name}`);
@@ -215,17 +252,127 @@ export class StdioMCPServer {
   }
 
   private async getUserContext() {
+    // Import sessionManager
+    const { sessionManager } = await import('./session-manager');
+
+    // Use the auto-generated session token for this stdio session
+    const sessionToken = this.sessionToken;
+
+    logger.debug({
+      sessionToken: sessionToken.substring(0, 8) + '...'
+    }, 'Using auto-generated session token for stdio mode, checking session');
+
+    const sessionResult = sessionManager.getAccessToken(sessionToken);
+
+    if (sessionResult) {
+      const session = sessionManager.getSession(sessionToken);
+
+      // If token is expired, attempt synchronous refresh before proceeding
+      if (sessionResult.isExpired && session?.refresh_token && oauthConfig.tokenUrl) {
+        logger.info({
+          sessionToken: sessionToken.substring(0, 8) + '...',
+          userId: session?.user_id
+        }, 'Access token expired in stdio mode, attempting synchronous refresh with refresh token');
+
+        try {
+          const refreshed = await sessionManager.refreshToken(
+            sessionToken,
+            oauthConfig.tokenUrl,
+            oauthConfig.clientId,
+            oauthConfig.clientSecret || ''
+          );
+
+          if (refreshed) {
+            // Successfully refreshed - get new token
+            const newSessionResult = sessionManager.getAccessToken(sessionToken);
+            if (newSessionResult) {
+              logger.info({
+                sessionToken: sessionToken.substring(0, 8) + '...',
+                userId: session?.user_id
+              }, 'Token refreshed successfully in stdio mode, proceeding with request');
+
+              return {
+                accessToken: newSessionResult.accessToken,
+                user: {
+                  id: session?.user_id || 'unknown',
+                  email: session?.user_email,
+                  name: session?.user_name
+                }
+              };
+            }
+          }
+
+          // Refresh failed - log and fall through to client credentials
+          logger.warn({
+            sessionToken: sessionToken.substring(0, 8) + '...',
+            userId: session?.user_id
+          }, 'Refresh token failed or expired in stdio mode - session marked as expired');
+        } catch (error) {
+          logger.error({
+            error,
+            sessionToken: sessionToken.substring(0, 8) + '...'
+          }, 'Exception during token refresh in stdio mode');
+        }
+
+        // Refresh failed, fall through to check for expired session and client credentials
+      } else {
+        // Token is valid (not expired)
+        logger.debug({
+          sessionToken: sessionToken.substring(0, 8) + '...',
+          userId: session?.user_id,
+          isExpired: sessionResult.isExpired
+        }, 'Using token from session for stdio request');
+
+        return {
+          accessToken: sessionResult.accessToken,
+          user: {
+            id: session?.user_id || 'unknown',
+            email: session?.user_email,
+            name: session?.user_name
+          }
+        };
+      }
+    }
+
+    // Session not found or refresh failed - check for expired session
+    {
+      // Check if session exists but is expired
+      const session = sessionManager.getSession(sessionToken);
+
+      if (session && session.status === 'expired') {
+        logger.warn({
+          sessionToken: sessionToken.substring(0, 8) + '...',
+          fallbackEnabled: oauthConfig.enableClientCredentialsFallback
+        }, 'USER SESSION EXPIRED in stdio mode');
+      } else {
+        logger.warn({
+          sessionToken: sessionToken.substring(0, 8) + '...'
+        }, 'Auto-generated session token has no valid session - user needs to authenticate via start_oauth_login');
+      }
+    }
+    
     // Try to get client credentials token if configured and enabled
     const clientCredentialsManager = (this.oauthMiddleware as any).clientCredentialsManager;
+    const sessionExpired = sessionToken && sessionManager.getSession(sessionToken)?.status === 'expired';
     
     if (clientCredentialsManager && oauthConfig.clientId && oauthConfig.enableClientCredentialsFallback) {
-      logger.debug('Attempting to get client credentials token for stdio request');
+      if (sessionExpired) {
+        logger.warn('⚠️  USER SESSION EXPIRED - Falling back to client credentials (app-level permissions) in stdio mode');
+      } else {
+        logger.debug('Attempting to get client credentials token for stdio request');
+      }
       const tokenResult = await clientCredentialsManager.getAccessToken();
       
       if (tokenResult) {
-        logger.debug({ 
-          isFromCache: tokenResult.isFromCache 
-        }, 'Using client credentials token for stdio request');
+        if (sessionExpired) {
+          logger.warn({ 
+            isFromCache: tokenResult.isFromCache 
+          }, '⚠️  Using CLIENT CREDENTIALS as fallback in stdio mode - User now has APP-LEVEL permissions (not user-specific). Re-authenticate with start_oauth_login tool to restore user permissions.');
+        } else {
+          logger.debug({ 
+            isFromCache: tokenResult.isFromCache 
+          }, 'Using client credentials token for stdio request');
+        }
         return {
           accessToken: tokenResult.accessToken,
           isFromCache: tokenResult.isFromCache,
@@ -236,7 +383,11 @@ export class StdioMCPServer {
         };
       }
     } else if (clientCredentialsManager && !oauthConfig.enableClientCredentialsFallback) {
-      logger.debug('Client credentials fallback is disabled for stdio mode');
+      if (sessionExpired) {
+        logger.warn('🔒 USER SESSION EXPIRED in stdio mode - Client credentials fallback is disabled, requests will fail');
+      } else {
+        logger.debug('Client credentials fallback is disabled for stdio mode');
+      }
     }
 
     return {};
@@ -252,6 +403,14 @@ export class StdioMCPServer {
   async stop(): Promise<void> {
     await this.server.close();
     logger.info('Stdio MCP Server stopped');
+  }
+
+  /**
+   * Get the auto-generated session token for this stdio session
+   * SECURITY: This token should ONLY be used in stdio mode
+   */
+  getSessionToken(): string {
+    return this.sessionToken;
   }
 }
 
