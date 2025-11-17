@@ -77,7 +77,7 @@ export class MCPServer {
     }
   }
 
-  private async processRequest(request: MCPRequest, userContext?: UserContext): Promise<MCPResponse> {
+  async processRequest(request: MCPRequest, userContext?: UserContext): Promise<MCPResponse> {
     const { method, params, id } = request;
 
     try {
