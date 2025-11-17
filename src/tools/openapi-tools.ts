@@ -2,8 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import axios, { AxiosError, AxiosRequestConfig, Method } from 'axios';
 import { parse as parseYaml } from 'yaml';
-import { UserContext } from '../mcp-server';
-import { logger } from '../logger';
+import { UserContext } from '../mcp-server.js';
+import { logger } from '../logger.js';
 
 type HttpMethod =
   | 'GET'

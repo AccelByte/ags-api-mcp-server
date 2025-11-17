@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
-import { logger } from './logger';
-import { MCPServer, MCPRequest, MCPResponse, UserContext } from './mcp-server';
-import { sessionManager } from './session-manager';
+import { logger } from './logger.js';
+import { MCPServer, MCPRequest, MCPResponse, UserContext } from './mcp-server.js';
+import { sessionManager } from './session-manager.js';
 
 const PROTOCOL_VERSION = '2025-06-18';
 const FALLBACK_PROTOCOL_VERSION = '2025-03-26';

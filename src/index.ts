@@ -3,14 +3,14 @@ import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import { MCPServer } from './mcp-server';
-import { OAuthMiddleware } from './oauth-middleware';
-import { StaticTools } from './tools/static-tools';
-import { OpenApiTools } from './tools/openapi-tools';
-import { logger } from './logger';
-import { config, serverConfig, oauthConfig, oidcConfig, openApiConfig } from './config';
-import { StdioMCPServer } from './stdio-server';
-import { StreamableHTTPTransport } from './streamable-http';
+import { MCPServer } from './mcp-server.js';
+import { OAuthMiddleware } from './oauth-middleware.js';
+import { StaticTools } from './tools/static-tools.js';
+import { OpenApiTools } from './tools/openapi-tools.js';
+import { logger } from './logger.js';
+import { config, serverConfig, oauthConfig, oidcConfig, openApiConfig } from './config.js';
+import { StdioMCPServer } from './stdio-server.js';
+import { StreamableHTTPTransport } from './streamable-http.js';
 
 let stdioServer: StdioMCPServer | null = null;
 let httpServer: any = null;
@@ -32,7 +32,7 @@ if (config.transport === 'stdio') {
   logger.info('Starting MCP Server in stdio mode');
   stdioServer = new StdioMCPServer();
 
-  stdioServer.start().catch((error) => {
+  stdioServer.start().catch((error: unknown) => {
     logger.fatal({ error }, 'Failed to start stdio MCP server');
     process.exit(1);
   });

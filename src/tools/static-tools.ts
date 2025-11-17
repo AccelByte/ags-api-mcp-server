@@ -1,9 +1,11 @@
 import jwt from 'jsonwebtoken';
-import { UserContext } from '../mcp-server';
-import { logger } from '../logger';
-import { sessionManager } from '../session-manager';
-import { otpManager } from '../otp-manager';
-import { config, serverConfig } from '../config';
+import { UserContext } from '../mcp-server.js';
+import { logger } from '../logger.js';
+import { sessionManager } from '../session-manager.js';
+import { otpManager } from '../otp-manager.js';
+import { config, serverConfig } from '../config.js';
+import { httpServerStatus } from '../index.js';
+import open from 'open';
 
 export class StaticTools {
   /**
@@ -25,8 +27,6 @@ export class StaticTools {
     let timeUntilExpiry = 'unknown';
     let isFromCache = userContext.isFromCache || false;
     
-    // Try to get session info for refresh token expiry
-    const { sessionManager } = await import('../session-manager');
     // Use stdio session token if available (stdio mode only), otherwise fall back to env var (legacy/HTTP mode)
     const sessionToken = userContext.stdioSessionToken || userContext.mcpSessionId;
     let refreshTokenInfo: any = null;
@@ -259,7 +259,6 @@ export class StaticTools {
 
     // In stdio mode, check if HTTP server is actually available
     if (isStdioMode) {
-      const { httpServerStatus } = await import('../index');
 
       logger.debug({
         available: httpServerStatus.available,
@@ -301,7 +300,6 @@ export class StaticTools {
     if (isStdioMode) {
       // stdio mode: Try to launch browser (server is on user's machine)
       try {
-        const open = (await import('open')).default;
         await open(loginUrl);
         logger.debug({ 
           sessionToken: sessionToken.substring(0, 8) + '...',

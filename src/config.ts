@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
-import { logger } from './logger';
+import { logger } from './logger.js';
 
 // Determine project root directory
 // In development (src/), __dirname is the src directory

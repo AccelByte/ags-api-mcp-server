@@ -1,5 +1,6 @@
 import crypto from 'crypto';
-import { logger } from './logger';
+import axios from 'axios';
+import { logger } from './logger.js';
 
 export interface SessionData {
   status: 'pending' | 'authenticated' | 'expired';
@@ -181,7 +182,6 @@ export class SessionManager {
     try {
       logger.info({ sessionToken }, 'Attempting to refresh token');
 
-      const axios = (await import('axios')).default;
       const response = await axios.post(tokenUrl, 
         new URLSearchParams({
           grant_type: 'refresh_token',

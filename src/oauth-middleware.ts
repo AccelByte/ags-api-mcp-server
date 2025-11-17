@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import axios from 'axios';
-import jwksClient from 'jwks-client';
 import crypto from 'crypto';
-import { logger } from './logger';
-import { oauthConfig, oidcConfig } from './config';
-import { sessionManager } from './session-manager';
-import { otpManager } from './otp-manager';
+import jwksClient from 'jwks-client';
+import { logger } from './logger.js';
+import { oauthConfig, oidcConfig } from './config.js';
+import { sessionManager } from './session-manager.js';
+import { otpManager } from './otp-manager.js';
 
 export interface OAuthConfig {
   clientId: string;
@@ -120,6 +120,7 @@ class ClientCredentialsManager {
 export class OAuthMiddleware {
   private config: OAuthConfig;
   private jwksClient: any;
+  private jwksClientPromise: Promise<any> | null = null;
   private rateLimitMap: Map<string, number[]>;
   private clientCredentialsManager: ClientCredentialsManager | null = null;
 
@@ -127,11 +128,8 @@ export class OAuthMiddleware {
     this.config = oauthConfig;
     this.rateLimitMap = new Map();
 
-    // Initialize JWKS client for OIDC token verification
-    this.jwksClient = jwksClient({
-      jwksUri: oidcConfig.jwksUri
-    });
-    logger.info({ jwksUri: oidcConfig.jwksUri }, 'JWKS client initialized');
+    // JWKS client will be lazily initialized using dynamic import
+    // This is necessary because jwks-client is an ES Module
 
     // Initialize client credentials manager if configured
     if (this.config.clientId && this.config.tokenUrl) {
@@ -144,6 +142,32 @@ export class OAuthMiddleware {
     }
 
     this.validateConfig();
+  }
+
+  private async initializeJwksClient(): Promise<any> {
+    if (this.jwksClient) {
+      return this.jwksClient;
+    }
+
+    if (this.jwksClientPromise) {
+      return this.jwksClientPromise;
+    }
+
+    this.jwksClientPromise = (async () => {
+      try {
+        this.jwksClient = jwksClient({
+          jwksUri: oidcConfig.jwksUri
+        });
+        
+        logger.info({ jwksUri: oidcConfig.jwksUri }, 'JWKS client initialized');
+        return this.jwksClient;
+      } catch (error) {
+        logger.error({ error }, 'Failed to initialize JWKS client');
+        throw error;
+      }
+    })();
+
+    return this.jwksClientPromise;
   }
 
   private validateConfig(): void {
@@ -972,7 +996,10 @@ export class OAuthMiddleware {
   }
 
   private async verifyTokenWithJWKS(token: string): Promise<any> {
-    if (!this.jwksClient) {
+    // Ensure JWKS client is initialized
+    const jwksClient = await this.initializeJwksClient();
+    
+    if (!jwksClient) {
       throw new Error('JWKS client not initialized');
     }
 
@@ -982,7 +1009,7 @@ export class OAuthMiddleware {
     
     return new Promise((resolve, reject) => {
       jwt.verify(token, (header, callback) => {
-        this.jwksClient!.getSigningKey(header.kid, (err: any, key: any) => {
+        jwksClient.getSigningKey(header.kid, (err: any, key: any) => {
           if (err) {
             logger.error({ 
               error: err,

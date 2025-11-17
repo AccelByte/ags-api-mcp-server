@@ -1,18 +1,17 @@
+import { randomUUID } from 'crypto';
+import { StaticTools } from './tools/static-tools.js';
+import { OpenApiTools } from './tools/openapi-tools.js';
+import { logger } from './logger.js';
+import { openApiConfig, oauthConfig } from './config.js';
+import { OAuthMiddleware } from './oauth-middleware.js';
+import { sessionManager } from './session-manager.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
-import { randomUUID } from 'crypto';
-import { StaticTools } from './tools/static-tools';
-import { OpenApiTools } from './tools/openapi-tools';
-import { logger } from './logger';
-import { openApiConfig, oauthConfig } from './config';
-import { OAuthMiddleware } from './oauth-middleware';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
 export class StdioMCPServer {
-  private server: Server;
+  private server: Server | null = null;
+  private serverPromise: Promise<Server> | null = null;
   private staticTools: StaticTools;
   private openApiTools: OpenApiTools;
   private oauthMiddleware: OAuthMiddleware;
@@ -24,17 +23,9 @@ export class StdioMCPServer {
     logger.info({
       sessionToken: this.sessionToken.substring(0, 8) + '...'
     }, 'Generated session token for stdio mode OAuth authentication');
-    this.server = new Server(
-      {
-        name: 'ags-api-mcp-server',
-        version: '1.0.0',
-      },
-      {
-        capabilities: {
-          tools: {},
-        },
-      }
-    );
+    
+    // Server will be lazily initialized using dynamic import
+    // This is necessary because @modelcontextprotocol/sdk is an ES Module
 
     this.staticTools = new StaticTools();
     this.openApiTools = new OpenApiTools({
@@ -45,11 +36,51 @@ export class StdioMCPServer {
     });
     this.oauthMiddleware = new OAuthMiddleware();
 
-    this.setupHandlers();
-    logger.info('Stdio MCP Server initialized');
+    logger.info('Stdio MCP Server initialized (server will be created on first use)');
   }
 
-  private setupHandlers(): void {
+  private async initializeServer(): Promise<Server> {
+    if (this.server) {
+      return this.server;
+    }
+
+    if (this.serverPromise) {
+      return this.serverPromise;
+    }
+
+    this.serverPromise = (async () => {
+      try {
+        this.server = new Server(
+          {
+            name: 'ags-api-mcp-server',
+            version: '1.0.0',
+          },
+          {
+            capabilities: {
+              tools: {},
+            },
+          }
+        );
+        
+        // Setup handlers after server is created
+        await this.setupHandlers();
+        
+        logger.info('MCP Server instance created');
+        return this.server;
+      } catch (error) {
+        logger.error({ error }, 'Failed to initialize MCP Server');
+        throw error;
+      }
+    })();
+
+    return this.serverPromise;
+  }
+
+  private async setupHandlers(): Promise<void> {
+    if (!this.server) {
+      throw new Error('Server must be initialized before setting up handlers');
+    }
+
     // Handle list tools request
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       logger.debug('Handling tools/list request via stdio');
@@ -196,7 +227,7 @@ export class StdioMCPServer {
     });
 
     // Handle call tool request
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    this.server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
       const { name, arguments: args } = request.params;
       
       logger.info({ tool: name, args }, 'Handling tools/call request via stdio');
@@ -252,8 +283,6 @@ export class StdioMCPServer {
   }
 
   private async getUserContext() {
-    // Import sessionManager
-    const { sessionManager } = await import('./session-manager');
 
     // Use the auto-generated session token for this stdio session
     const sessionToken = this.sessionToken;
@@ -394,15 +423,20 @@ export class StdioMCPServer {
   }
 
   async start(): Promise<void> {
+    // Ensure server is initialized
+    const server = await this.initializeServer();
+    
     const transport = new StdioServerTransport();
-    await this.server.connect(transport);
+    await server.connect(transport);
     
     logger.info('Stdio MCP Server started - listening on stdin/stdout');
   }
 
   async stop(): Promise<void> {
-    await this.server.close();
-    logger.info('Stdio MCP Server stopped');
+    if (this.server) {
+      await this.server.close();
+      logger.info('Stdio MCP Server stopped');
+    }
   }
 
   /**
