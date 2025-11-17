@@ -20,6 +20,7 @@ export interface Config {
   nodeEnv: string;
   logLevel: string;
   transport: 'http' | 'stdio';
+  baseUrl: string;
 
   // OpenAPI configuration
   openapi: {
@@ -102,7 +103,15 @@ function validatePositiveInteger(name: string, value: string | undefined, defaul
 function loadConfig(): Config {
   try {
     // Get AB_BASE_URL for building default URLs
-    const abBaseUrl = validateEnvVar('AB_BASE_URL', process.env.AB_BASE_URL, false) || 'https://test.accelbyte.io';
+    const abBaseUrl = validateEnvVar('AB_BASE_URL', process.env.AB_BASE_URL, false) || 'https://yourgame.accelbyte.io';
+    
+    // Construct baseUrl from ADVERTISED_* env variables
+    const advertisedProtocol = process.env.ADVERTISED_PROTOCOL || 'http';
+    const advertisedHostname = process.env.ADVERTISED_HOSTNAME || 'localhost';
+    const advertisedPort = process.env.ADVERTISED_PORT || process.env.PORT || '3000';
+    const baseUrl = advertisedPort !== '80' && advertisedPort !== '443'
+      ? `${advertisedProtocol}://${advertisedHostname}:${advertisedPort}`
+      : `${advertisedProtocol}://${advertisedHostname}`;
     
     // Determine transport mode first so we can use it for other config values
     const transport = validateTransport(process.env.TRANSPORT);
@@ -113,6 +122,7 @@ function loadConfig(): Config {
       nodeEnv: validateEnvVar('NODE_ENV', process.env.NODE_ENV, false) || 'development',
       logLevel: validateLogLevel(process.env.LOG_LEVEL),
       transport,
+      baseUrl,
 
       // OpenAPI configuration
       openapi: {
@@ -132,13 +142,13 @@ function loadConfig(): Config {
       oauth: {
         clientId: validateEnvVar('OAUTH_CLIENT_ID', process.env.OAUTH_CLIENT_ID, false),
         clientSecret: validateEnvVar('OAUTH_CLIENT_SECRET', process.env.OAUTH_CLIENT_SECRET, false),
-        redirectUri: validateEnvVar('OAUTH_REDIRECT_URI', process.env.OAUTH_REDIRECT_URI, false) || '', // Not used with session token auth
+        redirectUri: validateEnvVar('OAUTH_REDIRECT_URI', process.env.OAUTH_REDIRECT_URI, false) || `${baseUrl}/oauth/callback`,
         authorizationUrl: validateEnvVar('OAUTH_AUTHORIZATION_URL', process.env.OAUTH_AUTHORIZATION_URL, false) || `${abBaseUrl}/iam/v3/oauth/authorize`,
         tokenUrl: validateEnvVar('OAUTH_TOKEN_URL', process.env.OAUTH_TOKEN_URL, false) || `${abBaseUrl}/iam/v3/oauth/token`,
-        // Always enable client credentials fallback in stdio mode, respect flag in HTTP mode (default: false)
-        enableClientCredentialsFallback: transport === 'stdio'
-          ? true
-          : validateBoolean(process.env.ENABLE_CLIENT_CREDENTIALS_FALLBACK, false),
+        // Always enable client credentials fallback in stdio mode, respect flag in HTTP mode (default: true)
+        enableClientCredentialsFallback: transport === 'stdio' 
+          ? true 
+          : validateBoolean(process.env.ENABLE_CLIENT_CREDENTIALS_FALLBACK, true),
       },
       
       // OIDC Configuration
@@ -190,7 +200,8 @@ export const config = loadConfig();
 export const serverConfig = {
   port: config.port,
   nodeEnv: config.nodeEnv,
-  logLevel: config.logLevel
+  logLevel: config.logLevel,
+  baseUrl: config.baseUrl
 };
 
 export const oauthConfig = config.oauth;
