@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import crypto from 'crypto';
 import { logger } from './logger';
 
 /**
@@ -34,7 +34,7 @@ export class OTPManager {
    * OTP tokens are UUIDs, short-lived, and single-use
    */
   generateOTP(sessionToken: string): string {
-    const otpToken = randomUUID();
+    const otpToken = crypto.randomUUID();
     
     this.otpMappings.set(otpToken, {
       sessionToken,

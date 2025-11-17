@@ -26,6 +26,7 @@ export class StaticTools {
     let isFromCache = userContext.isFromCache || false;
     
     // Try to get session info for refresh token expiry
+    const { sessionManager } = await import('../session-manager');
     // Use stdio session token if available (stdio mode only), otherwise fall back to env var (legacy/HTTP mode)
     const sessionToken = userContext.stdioSessionToken || userContext.mcpSessionId;
     let refreshTokenInfo: any = null;

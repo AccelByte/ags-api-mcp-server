@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import crypto from 'crypto';
 import { logger } from './logger';
 
 export interface SessionData {
@@ -41,7 +41,7 @@ export class SessionManager {
    * Creates a new pending session and returns login URL
    */
   createSession(baseUrl: string): SessionInfo {
-    const sessionToken = randomUUID();
+    const sessionToken = crypto.randomUUID();
     
     this.sessions.set(sessionToken, {
       status: 'pending',

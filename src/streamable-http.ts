@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { randomBytes } from 'crypto';
+import crypto from 'crypto';
 import { logger } from './logger';
 import { MCPServer, MCPRequest, MCPResponse, UserContext } from './mcp-server';
 import { sessionManager } from './session-manager';
@@ -141,14 +141,14 @@ export class StreamableHTTPTransport {
    * Generates a cryptographically secure session ID
    */
   private generateSessionId(): string {
-    return randomBytes(32).toString('hex');
+    return crypto.randomBytes(32).toString('hex');
   }
 
   /**
    * Generates a unique stream ID
    */
   private generateStreamId(): string {
-    return randomBytes(16).toString('hex');
+    return crypto.randomBytes(16).toString('hex');
   }
 
   /**
@@ -313,22 +313,6 @@ export class StreamableHTTPTransport {
         // Process the request with session ID in context
         const response = await this.processRequest(message, session, contextWithSession);
 
-        // If this is initialize, set session ID header and create OAuth session
-        if (isInitialize && response.result) {
-          res.setHeader('Mcp-Session-Id', session.id);
-          session.initialized = true;
-          session.protocolVersion = protocolVersion;
-          
-          // Create a session in SessionManager so the MCP session ID can be used for OAuth
-          // This allows clients to use: /auth/login?session_token=<Mcp-Session-Id>
-          const baseUrl = `${req.protocol}://${req.get('host')}`;
-          sessionManager.createSessionWithToken(session.id, baseUrl);
-          logger.debug({ 
-            mcpSessionId: session.id.substring(0, 8) + '...',
-            oauthLoginUrl: `${baseUrl}/auth/login?session_token=${session.id}`
-          }, 'MCP session created - can be used for OAuth authentication');
-        }
-
         // Check if client accepts SSE
         if (accept.includes('text/event-stream')) {
           // Create SSE stream
@@ -341,6 +325,22 @@ export class StreamableHTTPTransport {
           
           stream.requestId = message.id;
 
+      // If this is initialize, set session ID header and create OAuth session
+      if (isInitialize && response.result) {
+        res.setHeader('Mcp-Session-Id', session.id);
+        session.initialized = true;
+        session.protocolVersion = protocolVersion;
+        
+        // Create a session in SessionManager so the MCP session ID can be used for OAuth
+        // This allows clients to use: /auth/login?session_token=<Mcp-Session-Id>
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        sessionManager.createSessionWithToken(session.id, baseUrl);
+        logger.debug({ 
+          mcpSessionId: session.id.substring(0, 8) + '...',
+          oauthLoginUrl: `${baseUrl}/auth/login?session_token=${session.id}`
+        }, 'MCP session created - can be used for OAuth authentication');
+      }
+
           // Send the response
           this.sendSSEEvent(stream, response);
 
@@ -348,6 +348,20 @@ export class StreamableHTTPTransport {
           stream.res.end();
         } else {
           // Return JSON response
+          if (isInitialize && response.result) {
+            res.setHeader('Mcp-Session-Id', session.id);
+            session.initialized = true;
+            session.protocolVersion = protocolVersion;
+            
+            // Create a session in SessionManager so the MCP session ID can be used for OAuth
+            const baseUrl = `${req.protocol}://${req.get('host')}`;
+            sessionManager.createSessionWithToken(session.id, baseUrl);
+            logger.debug({ 
+              mcpSessionId: session.id.substring(0, 8) + '...',
+              oauthLoginUrl: `${baseUrl}/auth/login?session_token=${session.id}`
+            }, 'MCP session created - can be used for OAuth authentication');
+          }
+          
           res.json(response);
         }
 

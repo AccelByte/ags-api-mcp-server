@@ -677,7 +677,7 @@ export class OAuthMiddleware {
     const hasProvidedToken = !!token;
 
     // Check for session token (priority: MCP session ID > SESSION_TOKEN env)
-    const sessionToken = (req.headers['mcp-session-id'] as string) || process.env.SESSION_TOKEN;
+    const sessionToken = (req.headers['mcp-session-id'] as string)
 
     // If session token is provided, try to get access token from session
     if (sessionToken && !token) {
