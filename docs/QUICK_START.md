@@ -78,6 +78,8 @@ pnpm install
 
 #### 2.3 Configure AccelByte OAuth Client
 
+**Note**: The redirect URI configuration below is only required if you intend to use user token authentication (OAuth Authorization Code flow). If you only need application-level authentication using client credentials flow, you can skip the redirect URI configuration.
+
 1. **Log into your AccelByte Admin Portal**
    - Navigate to your target environment (e.g., yourgame.accelbyte.io/admin)
    - Go to **Game Setup** → **Games and Apps** → **IAM Clients**
@@ -86,7 +88,10 @@ pnpm install
    - **Client ID**: Note this down (you'll need it later)
    - **Client Types**: Confidential
    - **Client Secret**: Generate and save securely
-   - **Redirect URI**: `http://localhost:3000/oauth/callback`
+   - **Redirect URI** (required for user authentication): `http://localhost:3000/oauth/callback`
+     - **Important**: This redirect URI must exactly match what you configure in AccelByte IAM. If they don't match, the OAuth flow will fail.
+     - The default redirect URI is `http://localhost:3000/oauth/callback` (or your configured `OAUTH_REDIRECT_URI` if set)
+     - If you change `OAUTH_REDIRECT_URI` in your environment variables, you must update the redirect URI in AccelByte IAM to match
    - **Scopes**: Add required scopes (e.g., `openid`, `account`, etc.)
 
 3. **Adjust Token Timeouts** (Optional)
@@ -215,7 +220,9 @@ netstat -ano | findstr :3000  # Windows
 #### Authentication Fails
 1. Verify your OAuth client credentials in Claude Desktop config
 2. Check that `AB_BASE_URL` is correct in `.env`
-3. Ensure redirect URI matches: `http://localhost:3334/oauth/callback`
+3. **Redirect URI Mismatch**: Ensure the redirect URI configured in AccelByte IAM exactly matches your `OAUTH_REDIRECT_URI` (default: `http://localhost:3000/oauth/callback`)
+   - If they don't match, AccelByte will reject the OAuth callback and authentication will fail
+   - Check your AccelByte IAM client settings: **Game Setup** → **Games and Apps** → **IAM Clients** → Your Client → Redirect URI
 
 #### MCP Server Not Appearing in Claude
 1. Restart Claude Desktop completely

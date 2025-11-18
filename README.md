@@ -58,7 +58,10 @@ OAUTH_CLIENT_SECRET=your-client-secret
 
 📖 **For detailed setup instructions**, see [docs/QUICK_START.md](docs/QUICK_START.md)
 
-**Note**: OAuth URLs and OIDC configuration are automatically derived from `AB_BASE_URL` if not explicitly set. See [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) for complete configuration reference.
+**Note**: 
+- OAuth URLs and OIDC configuration are automatically derived from `AB_BASE_URL` if not explicitly set
+- **Redirect URI**: If you plan to use user token authentication, you must register the redirect URI (`http://localhost:3000/oauth/callback` by default) in your AccelByte IAM client settings. This is not required if you only use client credentials flow
+- See [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) for complete configuration reference
 
 ## Usage
 

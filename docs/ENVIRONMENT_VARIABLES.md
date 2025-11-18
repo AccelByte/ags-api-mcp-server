@@ -34,6 +34,17 @@ The server uses environment variables for configuration. These can be set in a `
 - **Required**: No
 - **Note**: Automatically derived from `AB_BASE_URL` if not explicitly set
 
+### `OAUTH_REDIRECT_URI`
+- **Description**: OAuth redirect URI for authorization code callback
+- **Default**: `{baseUrl}/oauth/callback` (where `baseUrl` is derived from `ADVERTISED_*` variables or defaults to `http://localhost:3000`)
+- **Required**: No (only required if using user token authentication)
+- **Note**: 
+  - This is only needed if you intend to use user token authentication (OAuth Authorization Code flow with PKCE)
+  - If you only use client credentials flow, this can be omitted
+  - **Important**: The redirect URI configured here must exactly match what's registered in your AccelByte IAM client settings
+  - If they don't match, AccelByte will reject the OAuth callback and authentication will fail
+  - To configure in AccelByte: **Game Setup** → **Games and Apps** → **IAM Clients** → Your Client → Redirect URI
+
 ### `ENABLE_CLIENT_CREDENTIALS_FALLBACK`
 - **Description**: Enable automatic client credentials fallback when no user token is provided
 - **Default**: `true` for HTTP mode, always enabled for stdio mode

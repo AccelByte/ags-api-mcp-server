@@ -98,7 +98,10 @@ OAuth callback handler for receiving authorization codes.
 
 **Response**: Redirects to success page or error page
 
-**Note**: This endpoint is automatically called by the OAuth provider after user authorization. It should be configured as the redirect URI in your OAuth client settings.
+**Note**: 
+- This endpoint is automatically called by the OAuth provider after user authorization
+- **Only required for user token authentication**: This redirect URI configuration is only needed if you intend to use user token authentication (OAuth Authorization Code flow with PKCE). If you only use client credentials flow, this endpoint is not needed
+- **Must match IAM configuration**: The redirect URI configured here (via `OAUTH_REDIRECT_URI`, default: `http://localhost:3000/oauth/callback`) must exactly match what's registered in your AccelByte IAM client settings. If they don't match, AccelByte will reject the OAuth callback and authentication will fail
 
 ## Health Check
 
