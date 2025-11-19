@@ -1,0 +1,115 @@
+library(
+  identifier: 'jenkins-shared-library@master',
+  retriever: modernSCM(
+    [
+      $class: 'GitSCMSource',
+      remote: 'https://github.com/dhanarab/jenkins-pipeline-library.git'
+    ]
+  )
+)
+
+imageName = 'ags-api-mcp-server'
+
+pipeline {
+    agent none
+    stages {
+        stage('Scan') {
+            parallel {
+                stage('Scan AMD64') {
+                    agent {
+                        label "extend-builder-ci && linux-amd64"
+                    }
+                    steps {
+                        script {
+                            sh "rm -f ${imageName}.tar.gz"
+
+                            sh "docker build -t ${imageName}:wiz ."
+                            sh "docker save -o ${imageName}.tar ags-api-mcp-server:wiz"
+
+                            withCredentials([
+                                usernamePassword(
+                                    credentialsId: "wiz-ags-mcp-scan", 
+                                    usernameVariable: 'WIZ_CLIENT_ID', 
+                                    passwordVariable: 'WIZ_CLIENT_SECRET'
+                                )
+                            ]) {
+                               sh """
+                                   docker run --rm -t \\
+                                     -v \$(pwd):/data \\
+                                     -e WIZ_CLIENT_ID \\
+                                     -e WIZ_CLIENT_SECRET \\
+                                     --entrypoint /bin/sh \\
+                                     public-registry.wiz.io/wiz-app/wizcli:0 \\
+                                     -c '/entrypoint auth && /entrypoint docker scan -i /data/${imageName}.tar -o /data/result-amd64.txt,human -o /data/result-amd64.json,json'
+                               """
+                            }
+                        }
+                    }
+                    post {
+                        always {
+                            archiveArtifacts artifacts: 'result-amd64.txt'
+                            archiveArtifacts artifacts: 'result-amd64.json'
+                        }
+                    }
+                }
+                stage('Scan ARM64') {
+                    agent {
+                        label "extend-builder-ci && linux-arm64"
+                    }
+                    steps {
+                        script {
+                            sh "rm -f ${imageName}.tar.gz"
+
+                            sh "docker build -t ${imageName}:wiz ."
+                            sh "docker save -o ${imageName}.tar ags-api-mcp-server:wiz"
+
+                            withCredentials([
+                                usernamePassword(
+                                    credentialsId: "wiz-ags-mcp-scan", 
+                                    usernameVariable: 'WIZ_CLIENT_ID', 
+                                    passwordVariable: 'WIZ_CLIENT_SECRET'
+                                )
+                            ]) {
+                               sh """
+                                   docker run --rm -t \\
+                                     -v \$(pwd):/data \\
+                                     -e WIZ_CLIENT_ID \\
+                                     -e WIZ_CLIENT_SECRET \\
+                                     --entrypoint /bin/sh \\
+                                     public-registry.wiz.io/wiz-app/wizcli:0 \\
+                                     -c '/entrypoint auth && /entrypoint docker scan -i /data/${imageName}.tar -o /data/result-arm64.txt,human -o /data/result-arm64.json,json'
+                               """
+                            }
+                        }
+                    }
+                    post {
+                        always {
+                            archiveArtifacts artifacts: 'result-arm64.txt'
+                            archiveArtifacts artifacts: 'result-arm64.json'
+                        }
+                    }
+                }
+            }
+        }
+    }
+    post {
+        success {
+            script {
+                message = """
+                    :white_check_mark: <${env.BUILD_URL}|${env.JOB_NAME}-${env.BUILD_NUMBER}> *successful*
+                
+                    |""".stripMargin()
+                slackSend(channel: "#activity-extend-engineering", color: '#36B37E', message: message)
+            }
+        }
+        failure {
+            script {
+                message = """
+                    :no_entry: <${env.BUILD_URL}|${env.JOB_NAME}-${env.BUILD_NUMBER}> *failed*
+
+                    |""".stripMargin()
+                slackSend(channel: "#activity-extend-engineering", color: '#FF0000', message: message)
+            }
+        }
+    }
+}
