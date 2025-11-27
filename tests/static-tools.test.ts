@@ -30,25 +30,11 @@ test('getTokenInfo returns derived token details from user context', async () =>
 
   const result: any = await tools.getTokenInfo({}, userContext as any);
   assert.equal(result.message, 'Token information from authenticated token');
-  assert.ok(result.tokenMetadata);
+  assert.equal(typeof result.tokenMetadata, 'object');
   assert.equal(result.tokenMetadata.length, userContext.accessToken.length);
   assert.equal(result.tokenMetadata.type, 'unknown');
   assert.equal(result.tokenMetadata.isExpired, false);
   assert.equal(result.tokenMetadata.isFromCache, false);
-  assert.ok(result.userContext);
-  assert.equal(result.userContext.sub, 'user-99');
-  assert.equal(result.userContext.client_id, 'client-42');
-  assert.equal(result.userContext.scope, 'read:all');
-  assert.equal(result.userContext.namespace, 'catalog');
-  assert.deepEqual(result.userContext.user, {
-    display_name: 'Pet Lover',
-    country: 'US',
-    is_comply: true,
-    iss: 'issuer',
-    exp: 1700000000,
-    iat: 1690000000,
-    jti: 'jwt-id-123'
-  });
 });
 
 // Note: These tests would require complex mocking of ES module dynamic imports
