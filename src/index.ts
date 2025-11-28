@@ -3,7 +3,7 @@ import http from "http";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
-import { MCPServer } from "./mcp-server.js";
+import { MCPServer, Resource } from "./mcp-server.js";
 import { OAuthMiddleware } from "./oauth-middleware.js";
 import { StaticTools } from "./tools/static-tools.js";
 import { OpenApiTools } from "./tools/openapi-tools.js";
@@ -19,6 +19,7 @@ import { StdioMCPServer } from "./stdio-server.js";
 import { StreamableHTTPTransport } from "./streamable-http.js";
 import { httpServerStatus } from "./http-server-status.js";
 
+
 let stdioServer: StdioMCPServer | null = null;
 let httpServer: any = null;
 let globalStreamableHttp: StreamableHTTPTransport | undefined;
@@ -30,6 +31,9 @@ export { httpServerStatus };
 if (config.transport === "stdio") {
   logger.info("Starting MCP Server in stdio mode");
   stdioServer = new StdioMCPServer();
+
+  // Register resources for stdio mode
+  registerResources(stdioServer);
 
   stdioServer.start().catch((error: unknown) => {
     logger.fatal({ error }, "Failed to start stdio MCP server");
@@ -95,6 +99,15 @@ process.on("SIGTERM", async () => {
   process.exit(0);
 });
 
+/**
+ * Unified resource registration helper that works for both MCPServer and StdioMCPServer
+ */
+function registerResources(mcpServer: MCPServer | StdioMCPServer): void {
+  // Register resources here
+  // Example: mcpServer.registerResource("file://config", handler, { uri: "file://config", name: "Configuration", description: "Server configuration", mimeType: "application/json" });
+  // Resources can be added as needed
+}
+
 function startHttpServer(
   oauthOnly: boolean = false,
   stdioSessionToken?: string,
@@ -120,6 +133,9 @@ function startHttpServer(
   if (!oauthOnly) {
     // Initialize MCP server
     mcpServer = new MCPServer();
+
+    // Register resources for HTTP mode
+    registerResources(mcpServer);
 
     // Initialize Streamable HTTP transport
     streamableHttp = new StreamableHTTPTransport(mcpServer);

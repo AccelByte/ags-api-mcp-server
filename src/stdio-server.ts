@@ -11,7 +11,10 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { Resource } from "./mcp-server.js";
 
 export class StdioMCPServer {
   private server: Server | null = null;
@@ -20,6 +23,8 @@ export class StdioMCPServer {
   private openApiTools: OpenApiTools;
   private oauthMiddleware: OAuthMiddleware;
   private sessionToken: string; // Auto-generated session token for stdio mode only
+  private resources: Map<string, Resource> = new Map();
+  private resourceHandlers: Map<string, Function> = new Map();
 
   constructor() {
     // Generate a session token for this stdio session (only valid for stdio mode)
@@ -67,6 +72,7 @@ export class StdioMCPServer {
           {
             capabilities: {
               tools: {},
+              resources: {},
             },
           },
         );
@@ -257,6 +263,79 @@ export class StdioMCPServer {
         ],
       };
     });
+
+    // Handle list resources request
+    this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
+      logger.debug("Handling resources/list request via stdio");
+
+      const resources: Resource[] = [];
+      for (const [uri, resource] of this.resources) {
+        resources.push(resource);
+      }
+
+      return {
+        resources,
+      };
+    });
+
+    // Handle read resource request
+    this.server.setRequestHandler(
+      ReadResourceRequestSchema,
+      async (request: any) => {
+        if (!request.params || !request.params.uri) {
+          throw new Error("Resource URI is required");
+        }
+
+        const { uri } = request.params;
+
+        logger.info(
+          { resource: uri },
+          "Handling resources/read request via stdio",
+        );
+
+        const handler = this.resourceHandlers.get(uri);
+        if (!handler) {
+          throw new Error(`Resource '${uri}' not found`);
+        }
+
+        try {
+          const userContext = await this.getUserContext();
+          const userContextWithStdioToken = {
+            ...userContext,
+            stdioSessionToken: this.sessionToken,
+          };
+
+          const result = await handler(
+            request.params || {},
+            userContextWithStdioToken,
+          );
+
+          // Format result according to MCP spec
+          const contents = Array.isArray(result)
+            ? result
+            : [
+                {
+                  uri,
+                  mimeType: this.resources.get(uri)?.mimeType || "text/plain",
+                  text:
+                    typeof result === "string"
+                      ? result
+                      : JSON.stringify(result, null, 2),
+                },
+              ];
+
+          return {
+            contents,
+          };
+        } catch (error) {
+          logger.error(
+            { error, resource: uri },
+            "Error reading resource via stdio",
+          );
+          throw error;
+        }
+      },
+    );
 
     // Handle call tool request
     this.server.setRequestHandler(
@@ -549,11 +628,22 @@ export class StdioMCPServer {
   getSessionToken(): string {
     return this.sessionToken;
   }
+
+  /**
+   * Register a resource handler for stdio mode
+   */
+  registerResource(resource: Resource, handler: Function): void {
+    this.resourceHandlers.set(resource.uri, handler);
+    this.resources.set(resource.uri, resource);
+  }
 }
 
 // Start the stdio server if this file is run directly
 // ES module equivalent of require.main === module
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   const server = new StdioMCPServer();
 
   server.start().catch((error) => {

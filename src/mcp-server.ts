@@ -29,6 +29,13 @@ export interface Tool {
   };
 }
 
+export interface Resource {
+  uri: string;
+  name: string;
+  description?: string;
+  mimeType?: string;
+}
+
 export interface UserContext {
   accessToken?: string;
   user?: any;
@@ -44,12 +51,19 @@ export interface UserContext {
 export class MCPServer {
   private tools: Map<string, Function> = new Map();
   private toolSchemas: Map<string, Tool> = new Map();
+  private resources: Map<string, Resource> = new Map();
+  private resourceHandlers: Map<string, Function> = new Map();
 
   registerTool(name: string, handler: Function, schema?: Tool) {
     this.tools.set(name, handler);
     if (schema) {
       this.toolSchemas.set(name, schema);
     }
+  }
+
+  registerResource(resource: Resource, handler: Function) {
+    this.resourceHandlers.set(resource.uri, handler);
+    this.resources.set(resource.uri, resource);
   }
 
   async handleRequest(req: Request, res: Response): Promise<void> {
@@ -97,6 +111,12 @@ export class MCPServer {
         case "tools/call":
           return await this.handleCallTool(id, params, userContext);
 
+        case "resources/list":
+          return this.handleListResources(id);
+
+        case "resources/read":
+          return await this.handleReadResource(id, params, userContext);
+
         case "ping":
           return this.handlePing(id);
 
@@ -117,6 +137,7 @@ export class MCPServer {
         protocolVersion: "2025-06-18",
         capabilities: {
           tools: {},
+          resources: {},
         },
         serverInfo: {
           name: "ags-api-mcp-server",
@@ -224,6 +245,82 @@ export class MCPServer {
         id,
         -32603,
         `Tool execution failed: ${error}`,
+      );
+    }
+  }
+
+  private handleListResources(id: string | number): MCPResponse {
+    const resources: Resource[] = [];
+
+    // Return all registered resources
+    for (const [uri, resource] of this.resources) {
+      resources.push(resource);
+    }
+
+    return {
+      jsonrpc: "2.0",
+      id,
+      result: {
+        resources,
+      },
+    };
+  }
+
+  private async handleReadResource(
+    id: string | number,
+    params: any,
+    userContext?: UserContext,
+  ): Promise<MCPResponse> {
+    if (!params || !params.uri) {
+      return this.createErrorResponse(id, -32602, "Resource URI is required");
+    }
+
+    const { uri } = params;
+
+    const handler = this.resourceHandlers.get(uri);
+    if (!handler) {
+      return this.createErrorResponse(
+        id,
+        -32601,
+        `Resource '${uri}' not found`,
+      );
+    }
+
+    try {
+      const result = await handler(params || {}, userContext);
+      return {
+        jsonrpc: "2.0",
+        id,
+        result: {
+          contents: Array.isArray(result)
+            ? result
+            : [
+                {
+                  uri,
+                  mimeType: this.resources.get(uri)?.mimeType || "text/plain",
+                  text:
+                    typeof result === "string"
+                      ? result
+                      : JSON.stringify(result, null, 2),
+                },
+              ],
+        },
+      };
+    } catch (error) {
+      logger.error(
+        {
+          error,
+          resourceUri: uri,
+          errorType: error?.constructor?.name || typeof error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+        "Error reading MCP resource",
+      );
+      return this.createErrorResponse(
+        id,
+        -32603,
+        `Resource read failed: ${error}`,
       );
     }
   }
