@@ -15,6 +15,7 @@ import {
   ReadResourceRequestSchema,
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
+  CompleteRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { Resource, Prompt } from "./mcp-server.js";
 
@@ -493,6 +494,94 @@ export class StdioMCPServer {
         }
       },
     );
+
+    this.server.setRequestHandler(
+      CompleteRequestSchema,
+      async (request: any) => {
+        const { ref, argument, context } = request.params || {};
+        if (!ref || !argument) {
+          throw new Error("Completion reference and argument are required");
+        }
+
+        let suggestions: string[] = [];
+
+        if (ref.type === "ref/prompt") {
+          suggestions = await this.getPromptCompletionSuggestions(
+            ref.name,
+            argument.name,
+            argument.value ?? "",
+            context,
+          );
+        } else {
+          logger.warn(
+            { refType: ref.type },
+            "Unsupported completion reference type via stdio",
+          );
+        }
+
+        return {
+          completion: this.formatCompletionResult(suggestions),
+        };
+      },
+    );
+  }
+
+  private formatCompletionResult(suggestions: string[]) {
+    const limited = suggestions.slice(0, 100);
+    const result: {
+      values: string[];
+      total?: number;
+      hasMore?: boolean;
+    } = {
+      values: limited,
+    };
+
+    if (suggestions.length !== limited.length) {
+      result.hasMore = true;
+      result.total = suggestions.length;
+    } else if (suggestions.length > 0) {
+      result.total = suggestions.length;
+    }
+
+    return result;
+  }
+
+  private async getPromptCompletionSuggestions(
+    promptName: string,
+    argumentName: string,
+    value: string,
+    context?: { arguments?: Record<string, string> },
+  ): Promise<string[]> {
+    const prompt = this.prompts.get(promptName);
+    if (!prompt?.argsSchema) {
+      return [];
+    }
+
+    const field = (prompt.argsSchema as Record<string, any>)[argumentName];
+    const completer =
+      field?._def?.complete && typeof field._def.complete === "function"
+        ? field._def.complete
+        : undefined;
+
+    if (!completer) {
+      return [];
+    }
+
+    try {
+      const suggestions = await Promise.resolve(completer(value, context));
+      if (Array.isArray(suggestions)) {
+        return suggestions.filter(
+          (suggestion) => typeof suggestion === "string",
+        );
+      }
+    } catch (error) {
+      logger.error(
+        { error, promptName, argumentName },
+        "Error generating prompt completions (stdio)",
+      );
+    }
+
+    return [];
   }
 
   private async getUserContext() {

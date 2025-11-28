@@ -36,14 +36,17 @@ export interface Resource {
   mimeType?: string;
 }
 
+export interface PromptArgument {
+  name: string;
+  description?: string;
+  required?: boolean;
+}
+
 export interface Prompt {
   name: string;
   description?: string;
-  arguments?: Array<{
-    name: string;
-    description?: string;
-    required?: boolean;
-  }>;
+  arguments?: PromptArgument[];
+  argsSchema?: Record<string, unknown>;
 }
 
 export interface UserContext {
@@ -140,6 +143,9 @@ export class MCPServer {
         case "prompts/get":
           return await this.handleGetPrompt(id, params, userContext);
 
+        case "completion/complete":
+          return await this.handleCompletionRequest(id, params, userContext);
+
         case "ping":
           return this.handlePing(id);
 
@@ -162,6 +168,7 @@ export class MCPServer {
           tools: {},
           resources: {},
           prompts: {},
+          completions: {},
         },
         serverInfo: {
           name: "ags-api-mcp-server",
@@ -364,6 +371,97 @@ export class MCPServer {
         prompts,
       },
     };
+  }
+
+  private formatCompletionResult(suggestions: string[]) {
+    const limited = suggestions.slice(0, 100);
+    const baseResult: {
+      values: string[];
+      total?: number;
+      hasMore?: boolean;
+    } = {
+      values: limited,
+    };
+
+    if (suggestions.length !== limited.length) {
+      baseResult.hasMore = true;
+      baseResult.total = suggestions.length;
+    } else if (suggestions.length > 0) {
+      baseResult.total = suggestions.length;
+    }
+
+    return { completion: baseResult };
+  }
+
+  private async handleCompletionRequest(
+    id: string | number,
+    params: any,
+    userContext?: UserContext,
+  ): Promise<MCPResponse> {
+    if (!params?.ref || !params?.argument) {
+      return this.createErrorResponse(
+        id,
+        -32602,
+        "Completion reference and argument are required",
+      );
+    }
+
+    const { ref, argument, context } = params;
+    let suggestions: string[] = [];
+
+    if (ref.type === "ref/prompt") {
+      suggestions = await this.getPromptCompletionSuggestions(
+        ref.name,
+        argument.name,
+        argument.value ?? "",
+        context,
+      );
+    } else {
+      logger.warn({ ref }, "Unsupported completion reference type");
+    }
+
+    return {
+      jsonrpc: "2.0",
+      id,
+      result: this.formatCompletionResult(suggestions),
+    };
+  }
+
+  private async getPromptCompletionSuggestions(
+    promptName: string,
+    argumentName: string,
+    value: string,
+    context?: { arguments?: Record<string, string> },
+  ): Promise<string[]> {
+    const prompt = this.prompts.get(promptName);
+    if (!prompt?.argsSchema) {
+      return [];
+    }
+
+    const field = (prompt.argsSchema as Record<string, any>)[argumentName];
+    const completer =
+      field?._def?.complete && typeof field._def.complete === "function"
+        ? field._def.complete
+        : undefined;
+
+    if (!completer) {
+      return [];
+    }
+
+    try {
+      const suggestions = await Promise.resolve(completer(value, context));
+      if (Array.isArray(suggestions)) {
+        return suggestions.filter(
+          (suggestion) => typeof suggestion === "string",
+        );
+      }
+    } catch (error) {
+      logger.error(
+        { error, promptName, argumentName },
+        "Error generating prompt completions",
+      );
+    }
+    return [];
   }
 
   private async handleGetPrompt(

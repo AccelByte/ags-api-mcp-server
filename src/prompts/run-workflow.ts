@@ -1,11 +1,13 @@
 import { readFile } from "fs/promises";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { z } from "zod/v3";
+import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
 import { logger } from "../logger.js";
 import { Prompt, MCPServer } from "../mcp-server.js";
 import { StdioMCPServer } from "../stdio-server.js";
 
 // Cache for workflows loaded from YAML file
-let workflowsCache: any = null;
+let workflowsCache: Record<string, any> | null = null;
 
 /**
  * Load workflows from YAML file and cache them
@@ -15,7 +17,7 @@ export async function loadWorkflows(): Promise<void> {
     const filePath = "dist/assets/workflows/workflows.yaml";
     const content = await readFile(filePath, "utf-8");
     const parsed = parseYaml(content);
-    workflowsCache = parsed?.workflows || {};
+    workflowsCache = (parsed?.workflows ?? {}) as Record<string, any>;
     logger.info(
       {
         workflowCount: Object.keys(workflowsCache).length,
@@ -77,6 +79,17 @@ For each item in \`steps\` (in order, waiting for declared dependencies):
 /**
  * Get the run-workflow prompt definition
  */
+const workflowArgumentCompletable = completable(
+  z.string(),
+  async (value: string = "") => {
+    const normalized = value.toLowerCase();
+    return Object.keys(workflowsCache || {})
+      .filter((name) => name.toLowerCase().startsWith(normalized))
+      .sort()
+      .slice(0, 100);
+  },
+);
+
 function getRunWorkflowPrompt(): Prompt {
   return {
     name: "run-workflow",
@@ -88,6 +101,9 @@ function getRunWorkflowPrompt(): Prompt {
         required: true,
       },
     ],
+    argsSchema: {
+      workflow: workflowArgumentCompletable,
+    },
   };
 }
 
@@ -107,9 +123,9 @@ function getRunWorkflowHandler(): (args: any, userContext?: any) => Promise<stri
     }
 
     // Search for the workflow in the workflows object
-    const workflow = workflowsCache[workflowName];
+    const workflow = workflowsCache?.[workflowName];
     if (!workflow) {
-      const availableWorkflows = Object.keys(workflowsCache);
+      const availableWorkflows = Object.keys(workflowsCache || {});
       throw new Error(
         `Workflow '${workflowName}' not found. Available workflows: ${availableWorkflows.join(", ") || "none"}`,
       );
