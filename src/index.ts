@@ -4,7 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { readFile } from "fs/promises";
-import { MCPServer, Resource } from "./mcp-server.js";
+import { MCPServer, Resource, Prompt } from "./mcp-server.js";
 import { OAuthMiddleware } from "./oauth-middleware.js";
 import { StaticTools } from "./tools/static-tools.js";
 import { OpenApiTools } from "./tools/openapi-tools.js";
@@ -35,6 +35,9 @@ if (config.transport === "stdio") {
 
   // Register resources for stdio mode
   registerResources(stdioServer);
+
+  // Register prompts for stdio mode
+  registerPrompts(stdioServer);
 
   stdioServer.start().catch((error: unknown) => {
     logger.fatal({ error }, "Failed to start stdio MCP server");
@@ -147,6 +150,38 @@ function registerResources(mcpServer: MCPServer | StdioMCPServer): void {
   );
 }
 
+/**
+ * Unified prompt registration helper that works for both MCPServer and StdioMCPServer
+ */
+function registerPrompts(mcpServer: MCPServer | StdioMCPServer): void {
+  // Example prompt - you can add more prompts here
+  // mcpServer.registerPrompt(
+  //   {
+  //     name: "example_prompt",
+  //     description: "An example prompt template",
+  //     arguments: [
+  //       {
+  //         name: "topic",
+  //         description: "The topic to generate a prompt about",
+  //         required: true,
+  //       },
+  //     ],
+  //   },
+  //   async (args: any, userContext?: any) => {
+  //     // Return an array of messages or a single message string
+  //     return [
+  //       {
+  //         role: "user",
+  //         content: {
+  //           type: "text",
+  //           text: `Generate a prompt about ${args.topic}`,
+  //         },
+  //       },
+  //     ];
+  //   },
+  // );
+}
+
 function startHttpServer(
   oauthOnly: boolean = false,
   stdioSessionToken?: string,
@@ -175,6 +210,9 @@ function startHttpServer(
 
     // Register resources for HTTP mode
     registerResources(mcpServer);
+
+    // Register prompts for HTTP mode
+    registerPrompts(mcpServer);
 
     // Initialize Streamable HTTP transport
     streamableHttp = new StreamableHTTPTransport(mcpServer);

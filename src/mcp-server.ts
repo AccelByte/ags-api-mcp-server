@@ -36,6 +36,16 @@ export interface Resource {
   mimeType?: string;
 }
 
+export interface Prompt {
+  name: string;
+  description?: string;
+  arguments?: Array<{
+    name: string;
+    description?: string;
+    required?: boolean;
+  }>;
+}
+
 export interface UserContext {
   accessToken?: string;
   user?: any;
@@ -53,6 +63,8 @@ export class MCPServer {
   private toolSchemas: Map<string, Tool> = new Map();
   private resources: Map<string, Resource> = new Map();
   private resourceHandlers: Map<string, Function> = new Map();
+  private prompts: Map<string, Prompt> = new Map();
+  private promptHandlers: Map<string, Function> = new Map();
 
   registerTool(name: string, handler: Function, schema?: Tool) {
     this.tools.set(name, handler);
@@ -64,6 +76,11 @@ export class MCPServer {
   registerResource(resource: Resource, handler: Function) {
     this.resourceHandlers.set(resource.uri, handler);
     this.resources.set(resource.uri, resource);
+  }
+
+  registerPrompt(prompt: Prompt, handler: Function) {
+    this.promptHandlers.set(prompt.name, handler);
+    this.prompts.set(prompt.name, prompt);
   }
 
   async handleRequest(req: Request, res: Response): Promise<void> {
@@ -117,6 +134,12 @@ export class MCPServer {
         case "resources/read":
           return await this.handleReadResource(id, params, userContext);
 
+        case "prompts/list":
+          return this.handleListPrompts(id);
+
+        case "prompts/get":
+          return await this.handleGetPrompt(id, params, userContext);
+
         case "ping":
           return this.handlePing(id);
 
@@ -138,6 +161,7 @@ export class MCPServer {
         capabilities: {
           tools: {},
           resources: {},
+          prompts: {},
         },
         serverInfo: {
           name: "ags-api-mcp-server",
@@ -321,6 +345,94 @@ export class MCPServer {
         id,
         -32603,
         `Resource read failed: ${error}`,
+      );
+    }
+  }
+
+  private handleListPrompts(id: string | number): MCPResponse {
+    const prompts: Prompt[] = [];
+
+    // Return all registered prompts
+    for (const [name, prompt] of this.prompts) {
+      prompts.push(prompt);
+    }
+
+    return {
+      jsonrpc: "2.0",
+      id,
+      result: {
+        prompts,
+      },
+    };
+  }
+
+  private async handleGetPrompt(
+    id: string | number,
+    params: any,
+    userContext?: UserContext,
+  ): Promise<MCPResponse> {
+    if (!params || !params.name) {
+      return this.createErrorResponse(id, -32602, "Prompt name is required");
+    }
+
+    const { name, arguments: args } = params;
+
+    const prompt = this.prompts.get(name);
+    if (!prompt) {
+      return this.createErrorResponse(
+        id,
+        -32601,
+        `Prompt '${name}' not found`,
+      );
+    }
+
+    const handler = this.promptHandlers.get(name);
+    if (!handler) {
+      return this.createErrorResponse(
+        id,
+        -32603,
+        `Prompt handler for '${name}' not found`,
+      );
+    }
+
+    try {
+      const result = await handler(args || {}, userContext);
+      return {
+        jsonrpc: "2.0",
+        id,
+        result: {
+          description: prompt.description,
+          messages: Array.isArray(result)
+            ? result
+            : [
+                {
+                  role: "user",
+                  content: {
+                    type: "text",
+                    text:
+                      typeof result === "string"
+                        ? result
+                        : JSON.stringify(result, null, 2),
+                  },
+                },
+              ],
+        },
+      };
+    } catch (error) {
+      logger.error(
+        {
+          error,
+          promptName: name,
+          errorType: error?.constructor?.name || typeof error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+        "Error getting MCP prompt",
+      );
+      return this.createErrorResponse(
+        id,
+        -32603,
+        `Prompt get failed: ${error}`,
       );
     }
   }

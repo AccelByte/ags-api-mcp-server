@@ -13,8 +13,10 @@ import {
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { Resource } from "./mcp-server.js";
+import { Resource, Prompt } from "./mcp-server.js";
 
 export class StdioMCPServer {
   private server: Server | null = null;
@@ -25,6 +27,8 @@ export class StdioMCPServer {
   private sessionToken: string; // Auto-generated session token for stdio mode only
   private resources: Map<string, Resource> = new Map();
   private resourceHandlers: Map<string, Function> = new Map();
+  private prompts: Map<string, Prompt> = new Map();
+  private promptHandlers: Map<string, Function> = new Map();
 
   constructor() {
     // Generate a session token for this stdio session (only valid for stdio mode)
@@ -73,6 +77,7 @@ export class StdioMCPServer {
             capabilities: {
               tools: {},
               resources: {},
+              prompts: {},
             },
           },
         );
@@ -412,6 +417,82 @@ export class StdioMCPServer {
         }
       },
     );
+
+    // Handle list prompts request
+    this.server.setRequestHandler(ListPromptsRequestSchema, async () => {
+      logger.debug("Handling prompts/list request via stdio");
+
+      const prompts: Prompt[] = [];
+      for (const [name, prompt] of this.prompts) {
+        prompts.push(prompt);
+      }
+
+      return {
+        prompts,
+      };
+    });
+
+    // Handle get prompt request
+    this.server.setRequestHandler(
+      GetPromptRequestSchema,
+      async (request: any) => {
+        if (!request.params || !request.params.name) {
+          throw new Error("Prompt name is required");
+        }
+
+        const { name, arguments: args } = request.params;
+
+        logger.info(
+          { prompt: name, args },
+          "Handling prompts/get request via stdio",
+        );
+
+        const handler = this.promptHandlers.get(name);
+        if (!handler) {
+          throw new Error(`Prompt '${name}' not found`);
+        }
+
+        try {
+          const userContext = await this.getUserContext();
+          const userContextWithStdioToken = {
+            ...userContext,
+            stdioSessionToken: this.sessionToken,
+          };
+
+          const result = await handler(
+            args || {},
+            userContextWithStdioToken,
+          );
+
+          const prompt = this.prompts.get(name);
+
+          // Format result according to MCP spec
+          return {
+            description: prompt?.description,
+            messages: Array.isArray(result)
+              ? result
+              : [
+                  {
+                    role: "user",
+                    content: {
+                      type: "text",
+                      text:
+                        typeof result === "string"
+                          ? result
+                          : JSON.stringify(result, null, 2),
+                    },
+                  },
+                ],
+          };
+        } catch (error) {
+          logger.error(
+            { error, prompt: name },
+            "Error getting prompt via stdio",
+          );
+          throw error;
+        }
+      },
+    );
   }
 
   private async getUserContext() {
@@ -635,6 +716,14 @@ export class StdioMCPServer {
   registerResource(resource: Resource, handler: Function): void {
     this.resourceHandlers.set(resource.uri, handler);
     this.resources.set(resource.uri, resource);
+  }
+
+  /**
+   * Register a prompt handler for stdio mode
+   */
+  registerPrompt(prompt: Prompt, handler: Function): void {
+    this.promptHandlers.set(prompt.name, handler);
+    this.prompts.set(prompt.name, prompt);
   }
 }
 
