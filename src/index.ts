@@ -19,6 +19,7 @@ import {
 import { StdioMCPServer } from "./stdio-server.js";
 import { StreamableHTTPTransport } from "./streamable-http.js";
 import { httpServerStatus } from "./http-server-status.js";
+import { loadWorkflows, registerRunWorkflowPrompt } from "./prompts/run-workflow.js";
 
 
 let stdioServer: StdioMCPServer | null = null;
@@ -27,6 +28,11 @@ let globalStreamableHttp: StreamableHTTPTransport | undefined;
 
 // Re-export httpServerStatus for backward compatibility
 export { httpServerStatus };
+
+// Load workflows at startup
+loadWorkflows().catch((error) => {
+  logger.error({ error }, "Error loading workflows at startup");
+});
 
 // Start server based on transport configuration
 if (config.transport === "stdio") {
@@ -154,32 +160,7 @@ function registerResources(mcpServer: MCPServer | StdioMCPServer): void {
  * Unified prompt registration helper that works for both MCPServer and StdioMCPServer
  */
 function registerPrompts(mcpServer: MCPServer | StdioMCPServer): void {
-  // Example prompt - you can add more prompts here
-  // mcpServer.registerPrompt(
-  //   {
-  //     name: "example_prompt",
-  //     description: "An example prompt template",
-  //     arguments: [
-  //       {
-  //         name: "topic",
-  //         description: "The topic to generate a prompt about",
-  //         required: true,
-  //       },
-  //     ],
-  //   },
-  //   async (args: any, userContext?: any) => {
-  //     // Return an array of messages or a single message string
-  //     return [
-  //       {
-  //         role: "user",
-  //         content: {
-  //           type: "text",
-  //           text: `Generate a prompt about ${args.topic}`,
-  //         },
-  //       },
-  //     ];
-  //   },
-  // );
+  registerRunWorkflowPrompt(mcpServer);
 }
 
 function startHttpServer(

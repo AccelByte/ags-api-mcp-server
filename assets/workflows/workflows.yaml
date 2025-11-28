@@ -42,23 +42,24 @@ workflows:
                   resource: { type: string }
                   action:
                     type: integer
-                    enum:
-                      - 0  # None
-                      - 1  # Create
-                      - 2  # Read
-                      - 3  # Create, Read
-                      - 4  # Update
-                      - 5  # Create, Update
-                      - 6  # Read, Update
-                      - 7  # Create, Read, Update
-                      - 8  # Delete
-                      - 9  # Create, Delete
-                      - 10  # Read, Delete
-                      - 11  # Create, Read, Delete
-                      - 12  # Update, Delete
-                      - 13  # Create, Update, Delete
-                      - 14  # Read, Update, Delete
-                      - 15  # Create, Read, Update, Delete
+                    enum: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 ]
+                    x-enum-mapping:
+                      '0': 'None'
+                      '1': 'Create'
+                      '2': 'Read'
+                      '3': 'Create, Read'
+                      '4': 'Update'
+                      '5': 'Create, Update'
+                      '6': 'Read, Update'
+                      '7': 'Create, Read, Update'
+                      '8': 'Delete'
+                      '9': 'Create, Delete'
+                      '10': 'Read, Delete'
+                      '11': 'Create, Read, Delete'
+                      '12': 'Update, Delete'
+                      '13': 'Create, Update, Delete'
+                      '14': 'Read, Update, Delete'
+                      '15': 'Create, Read, Update, Delete'
                 required: ['resource', 'action']
           required: ['permissions']
 
