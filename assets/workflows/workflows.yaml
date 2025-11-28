@@ -1,0 +1,163 @@
+schemaVersion: '1.0'
+
+sourceDescriptions:
+  - name: csm
+    url: ../../openapi-specs/csm.json
+    description: 'Custom Service Manager API'
+  - name: iam
+    url: ../../openapi-specs/iam.json
+    description: 'Identity and Access Management API'
+
+workflows:
+  setup-extend-app-with-iam:
+    name: 'Setup Extend App with IAM Permissions'
+    description: 'Creates an Extend App, finds the IAM Client ID from secrets, and adds permissions to the IAM client'
+
+    inputs:
+      namespace:
+        description: 'Game namespace'
+        required: true
+        schema: { type: string }
+      app:
+        description: 'App name. Expected format: (^[A-Za-z](?:[A-Za-z0-9\\-]*[A-Za-z0-9])?$)'
+        required: true
+        schema: { type: string }
+      scenario:
+        description: 'Scenario type (function-override, service-extension, or event-handler)'
+        required: true
+        schema:
+          type: string
+          enum: ['function-override', 'service-extension', 'event-handler']
+      permissionsBody:
+        description: 'IAM client permissions request body for updating permissions. Must include permissions array with objects containing action (integer) and resource (string) fields'
+        required: true
+        schema:
+          type: object
+          properties:
+            permissions:
+              type: array
+              items:
+                type: object
+                properties:
+                  resource: { type: string }
+                  action:
+                    type: integer
+                    enum:
+                      - 0  # None
+                      - 1  # Create
+                      - 2  # Read
+                      - 3  # Create, Read
+                      - 4  # Update
+                      - 5  # Create, Update
+                      - 6  # Read, Update
+                      - 7  # Create, Read, Update
+                      - 8  # Delete
+                      - 9  # Create, Delete
+                      - 10  # Read, Delete
+                      - 11  # Create, Read, Delete
+                      - 12  # Update, Delete
+                      - 13  # Create, Update, Delete
+                      - 14  # Read, Update, Delete
+                      - 15  # Create, Read, Update, Delete
+                required: ['resource', 'action']
+          required: ['permissions']
+
+    steps:
+      - id: create-app
+        description: 'Create new extend app with specified scenario type'
+        operationId: csm.CreateAppV2
+        inputs:
+          app: { from: workflow/app }
+          namespace: { from: workflow/namespace }
+          body:
+            const:
+              scenario: { from: workflow/scenario }
+        outputs:
+          appName: { source: responseBody, path: '$.app' }
+          appId: { source: responseBody, path: '$.id' }
+          status: { source: responseBody, path: '$.status' }
+
+      - id: get-secrets
+        description: 'Get list of secrets to find AB_CLIENT_ID'
+        operationId: csm.GetListOfSecretsV2
+        dependencies: [ step/create-app ]
+        inputs:
+          app: { from: workflow/app }
+          namespace: { from: workflow/namespace }
+        outputs:
+          secretsList: { source: responseBody, path: '$.data' }
+          clientId:
+            source: responseBody
+            path: "$.data[?(@.configName == 'AB_CLIENT_ID')][0].value"
+
+      - id: add-permissions
+        description: 'Update permissions for the IAM client'
+        operationId: iam.AdminUpdateClientPermissionV3
+        dependencies: [ step/get-secrets ]
+        inputs:
+          clientId: { from: step/get-secrets, output: clientId }
+          namespace: { from: workflow/namespace }
+          body: { from: workflow/permissionsBody }
+        outputs:
+          statusCode: { source: statusCode }
+
+    outputs:
+      appName: { from: step/create-app, output: appName }
+      appId: { from: step/create-app, output: appId }
+      clientId: { from: step/get-secrets, output: clientId }
+      statusCode: { from: step/add-permissions, output: statusCode }
+
+  provision-nosql-infrastructure:
+    name: 'Provision NoSQL Infrastructure'
+    description: 'Creates a NoSQL cluster and then creates a database within that cluster'
+
+    inputs:
+      namespace:
+        description: 'Studio/namespace name'
+        required: true
+        schema: { type: string }
+      app:
+        description: 'App name for the database'
+        required: true
+        schema: { type: string }
+      clusterConfig:
+        description: 'NoSQL cluster configuration'
+        required: true
+        schema: { type: object }
+      databaseConfig:
+        description: 'NoSQL database configuration'
+        required: true
+        schema: { type: object }
+
+    steps:
+      - id: create-cluster
+        description: 'Create NoSQL cluster'
+        operationId: csm.CreateNoSQLClusterV2
+        inputs:
+          namespace: { from: workflow/namespace }
+          body: { from: workflow/clusterConfig }
+        outputs:
+          clusterId: { source: responseBody, path: '$.id' }
+          status: { source: responseBody, path: '$.status' }
+          resourceStatus: { source: responseBody, path: '$.resourceStatus' }
+
+      - id: create-database
+        description: 'Create NoSQL database in the provisioned cluster'
+        operationId: csm.CreateNoSQLDatabaseV2
+        dependencies: [ step/create-cluster ]
+        inputs:
+          namespace: { from: workflow/namespace }
+          app: { from: workflow/app }
+          body: { from: workflow/databaseConfig }
+        outputs:
+          databaseId: { source: responseBody, path: '$.id' }
+          databaseName: { source: responseBody, path: '$.databaseName' }
+          status: { source: responseBody, path: '$.status' }
+          resourceStatus: { source: responseBody, path: '$.resourceStatus' }
+
+    outputs:
+      clusterId: { from: step/create-cluster, output: clusterId }
+      clusterStatus: { from: step/create-cluster, output: status }
+      databaseId: { from: step/create-database, output: databaseId }
+      databaseName: { from: step/create-database, output: databaseName }
+      databaseStatus: { from: step/create-database, output: status }

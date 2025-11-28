@@ -131,6 +131,20 @@ function registerResources(mcpServer: MCPServer | StdioMCPServer): void {
       return content;
     },
   );
+
+  mcpServer.registerResource(
+    {
+      uri: "resource://workflows",
+      name: "Workflows",
+      description: "AGS Workflow Definitions",
+      mimeType: "application/x-yaml",
+    },
+    async () => {
+      const filePath = "dist/assets/workflows/workflows.yaml";
+      const content = await readFile(filePath, "utf-8");
+      return content;
+    },
+  );
 }
 
 function startHttpServer(
