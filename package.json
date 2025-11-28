@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -r assets dist/ 2>/dev/null || true",
     "build+": "pnpm run format && pnpm run lint && pnpm run build",
     "start": "pnpm run start:stdio",
     "start:stdio": "TRANSPORT=stdio node dist/index.js",

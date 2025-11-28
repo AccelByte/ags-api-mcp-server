@@ -3,6 +3,7 @@ import http from "http";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import { readFile } from "fs/promises";
 import { MCPServer, Resource } from "./mcp-server.js";
 import { OAuthMiddleware } from "./oauth-middleware.js";
 import { StaticTools } from "./tools/static-tools.js";
@@ -103,9 +104,33 @@ process.on("SIGTERM", async () => {
  * Unified resource registration helper that works for both MCPServer and StdioMCPServer
  */
 function registerResources(mcpServer: MCPServer | StdioMCPServer): void {
-  // Register resources here
-  // Example: mcpServer.registerResource("file://config", handler, { uri: "file://config", name: "Configuration", description: "Server configuration", mimeType: "application/json" });
-  // Resources can be added as needed
+  mcpServer.registerResource(
+    {
+      uri: "resource://workflows/schema",
+      name: "Workflow Schema",
+      description: "JSON schema for workflow definitions in YAML format",
+      mimeType: "application/x-yaml",
+    },
+    async () => {
+      const filePath = "dist/assets/workflows/schema.yaml";
+      const content = await readFile(filePath, "utf-8");
+      return content;
+    },
+  );
+
+  mcpServer.registerResource(
+    {
+      uri: "resource://workflows/technical-specification",
+      name: "Workflow Specification",
+      description: "Specification document for workflow system",
+      mimeType: "text/markdown",
+    },
+    async () => {
+      const filePath = "dist/assets/workflows/SPECIFICATION.md";
+      const content = await readFile(filePath, "utf-8");
+      return content;
+    },
+  );
 }
 
 function startHttpServer(

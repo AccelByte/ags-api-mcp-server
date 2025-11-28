@@ -1,0 +1,462 @@
+$schema: 'http://json-schema.org/draft-07/schema#'
+
+type: object
+additionalProperties: false
+properties:
+  schemaVersion:
+    type: string
+    const: '1.0'
+    description: >
+      Version of this workflow schema specification. Must be '1.0' for this schema version.
+      This field is required to ensure explicit version declaration and enable proper
+      tooling compatibility, validation, and future migration support.
+  sourceDescriptions:
+    type: array
+    description: >
+      Global registry of OpenAPI specifications available to all workflows in this document.
+      Required to specify which API(s) the workflows will interact with. Even single-API
+      workflows must declare their source. Enables multi-API orchestration by providing a
+      central catalog of APIs. When multiple sources are defined, operationId values can use
+      qualified notation (e.g., 'api-name.operationId') to target operations from specific APIs.
+    items: { $ref: '#/definitions/SourceDescription' }
+    minItems: 1
+  workflows:
+    type: object
+    additionalProperties: { $ref: '#/definitions/Workflow' }
+    propertyNames:
+      pattern: '^[a-zA-Z0-9_.-]+$'
+required: [ 'schemaVersion', 'sourceDescriptions', 'workflows' ]
+
+definitions:
+  SourceDescription:
+    type: object
+    additionalProperties: false
+    description: >
+      References an OpenAPI specification document that provides operations for workflows.
+      Defined at the root level and available to all workflows in the document.
+      When multiple source descriptions are defined, operationId values must use qualified
+      notation (name.operationId) to disambiguate which API contains the operation.
+    properties:
+      name:
+        type: string
+        description: >
+          Unique identifier for this API source. Used as a namespace prefix when referencing
+          operations (e.g., 'user-service.getUser'). Must be unique within the workflow.
+        pattern: '^[a-zA-Z0-9_-]+$'
+      url:
+        type: string
+        description: >
+          URL or file path to the OpenAPI specification document (JSON or YAML).
+          Can be an HTTP(S) URL, relative file path, or absolute file path.
+        format: uri-reference
+      description:
+        type: string
+        description: Optional human-readable description of this API source
+    required: [ 'name', 'url' ]
+    examples:
+      - name: user-service
+        url: https://api.example.com/users/openapi.yaml
+        description: 'User management API'
+      - name: billing-service
+        url: ./specs/billing-api.json
+        description: 'Billing and payment processing'
+
+  Workflow:
+    type: object
+    additionalProperties: false
+    properties:
+      name:
+        type: string
+        description: Human-readable title shown to consumers of the workflow
+      description:
+        type: string
+        description: Explains the workflow purpose, behavior, and assumptions
+      inputs:
+        type: object
+        description: >
+          Declares workflow-level parameters that callers may override at runtime.
+          Each input defines a parameter name, description, whether it's required,
+          schema, and an optional default value. Steps reference these using InputReference with
+          from: 'workflow/<inputName>'.
+        additionalProperties: { $ref: '#/definitions/WorkflowInput' }
+      auth:
+        $ref: '#/definitions/Authentication'
+        description: >
+          Default authentication configuration for all steps in this workflow.
+          Individual steps inherit this authentication unless they specify their own auth property.
+          Steps can override with different authentication or set auth: null to disable.
+      steps:
+        type: array
+        description: Ordered list of steps that make up the workflow
+        items: { $ref: '#/definitions/Step' }
+        minItems: 1
+      outputs:
+        type: object
+        description: >
+          Named aliases that expose selected step outputs globally.
+          Each output references a step using the 'step/<stepId>' format.
+        additionalProperties: { $ref: '#/definitions/WorkflowOutput' }
+      deprecated: { $ref: '#/definitions/Deprecation' }
+    required: [ 'steps' ]
+
+  WorkflowReference:
+    type: string
+    description: >
+      JSONRef to another workflow (format: #/workflows/{workflowIdentifier}).
+      Note: Circular workflow references must be detected and rejected at runtime;
+      this cannot be validated at the JSON Schema level.
+    pattern: '^#/workflows/[a-zA-Z0-9_.-]+$'
+
+  WorkflowInput:
+    type: object
+    additionalProperties: false
+    properties:
+      description:
+        type: string
+        description: Explains the purpose and expected usage of this parameter
+      required:
+        type: boolean
+        description: Whether workflow callers must provide this input
+        default: false
+      schema:
+        type: object
+        description: JSON Schema describing the expected value type and structure
+      default:
+        description: >
+          Default value used when caller doesn't provide this input.
+          Must match the type and constraints defined in the schema property.
+          Runtime engines should validate that the default value conforms to the schema
+          before workflow execution begins.
+      sensitive:
+        type: boolean
+        description: >
+          Marks this input as containing sensitive data (passwords, tokens, API keys, secrets).
+          When true, workflow engines should mask this input value in logs, error messages,
+          and debugging output. Any step input that references this workflow input will also
+          be treated as sensitive automatically.
+        default: false
+    required: [ 'schema' ]
+
+  WorkflowInputIdentifier:
+    type: string
+    description: >
+      Identifier for referencing workflow-level input parameters. Format: 'workflow/<inputName>'
+      where inputName matches a key in the workflow's inputs object.
+    pattern: '^workflow/[a-zA-Z0-9_.-]+$'
+
+  WorkflowOutput:
+    type: object
+    additionalProperties: false
+    properties:
+      from: { $ref: '#/definitions/StepIdentifier' }
+      output:
+        type: string
+        description: Name of the output exposed by the referenced step
+      sensitive:
+        type: boolean
+        description: >
+          Marks this output as containing sensitive data (passwords, tokens, secrets).
+          When true, workflow engines should mask this output in logs, error messages,
+          and debugging output to prevent accidental exposure of sensitive information.
+        default: false
+    required: [ 'from', 'output' ]
+    examples:
+      - { from: 'step/create-user', output: 'userId' }
+      - { from: 'step/login', output: 'sessionToken' }
+
+  Step:
+    type: object
+    additionalProperties: false
+    properties:
+      id:
+        type: string
+        description: Unique identifier for the step within the workflow
+        pattern: '^[a-zA-Z0-9_.-]+$'
+      description:
+        type: string
+        description: Explains what the step accomplishes
+      operationId:
+        type: string
+        description: >
+          OpenAPI operationId executed for this step. Supports qualified notation
+          (source-name.operationId) when document defines multiple sourceDescriptions
+          to disambiguate which API contains the operation.
+      method:
+        type: string
+        description: HTTP method used when targeting a path directly
+        enum: [ 'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS' ]
+      path:
+        type: string
+        description: OpenAPI path paired with method when not using operationId
+      source:
+        type: string
+        description: >
+          Name of the source API (from root-level sourceDescriptions) when using method+path.
+          Optional when document has only one sourceDescription.
+          Required when document has multiple sourceDescriptions and using method+path
+          to disambiguate which API contains the path.
+        pattern: '^[a-zA-Z0-9_-]+$'
+      workflowRef: { $ref: '#/definitions/WorkflowReference' }
+      auth:
+        description: >
+          Authentication for this step. Can be an Authentication object, or null to disable
+          authentication (shorthand for type: 'none'). If not specified, inherits from workflow.auth.
+        oneOf:
+          - { type: 'null' }
+          - { $ref: '#/definitions/Authentication' }
+      redirect:
+        type: string
+        description: >
+          Controls how HTTP redirects (3xx responses) are handled.
+          Default: 'first' if step has redirectQuery outputs, 'last' otherwise.
+        enum: [ 'none', 'first', 'last' ]
+      dependencies:
+        type: array
+        description: >
+          Step identifiers that must complete before this one.
+          Forward references (referencing steps defined later in the array) are allowed
+          but strongly discouraged for readability. Best practice: define dependencies
+          before the steps that depend on them.
+        items: { $ref: '#/definitions/StepIdentifier' }
+        uniqueItems: true
+      inputs:
+        type: object
+        description: Map of named inputs consumed by this step
+        additionalProperties:
+          oneOf:
+            - { $ref: '#/definitions/StepInputLiteral' }
+            - { $ref: '#/definitions/StepInputReference' }
+      outputs:
+        type: object
+        description: Map of named outputs emitted by this step
+        additionalProperties: { $ref: '#/definitions/StepOutput' }
+      tags:
+        type: array
+        description: Optional labels for grouping and discoverability
+        items: { type: string }
+        uniqueItems: true
+    required: [ 'id' ]
+    oneOf:
+      - required: [ 'operationId' ]
+        not:
+          anyOf:
+            - { required: [ 'method' ] }
+            - { required: [ 'path' ] }
+            - { required: [ 'workflowRef' ] }
+      - required: [ 'method', 'path' ]
+        not:
+          anyOf:
+            - { required: [ 'operationId' ] }
+            - { required: [ 'workflowRef' ] }
+      - required: [ 'workflowRef' ]
+        not:
+          anyOf:
+            - { required: [ 'operationId' ] }
+            - { required: [ 'method' ] }
+            - { required: [ 'path' ] }
+            - { required: [ 'auth' ] }
+            - { required: [ 'outputs' ] }
+
+  StepIdentifier:
+    type: string
+    description: >
+      Identifier for referencing a step's outputs. Format: 'step/<stepId>' where
+      stepId matches the step's unique identifier within the workflow.
+    pattern: '^step/[a-zA-Z0-9_.-]+$'
+
+  StepInputLiteral:
+    type: object
+    additionalProperties: false
+    properties:
+      const:
+        description: Static literal value to use as input for this step
+      sensitive:
+        type: boolean
+        description: >
+          Marks this literal value as containing sensitive data (passwords, tokens, secrets).
+          When true, workflow engines should mask this value in logs and error messages.
+          Note: Hardcoding sensitive values is discouraged; prefer workflow inputs instead.
+        default: false
+    required: [ 'const' ]
+
+  StepInputReference:
+    type: object
+    additionalProperties: false
+    properties:
+      from:
+        description: >
+          Source identifier for the input reference.
+          Runtime validation required: when using workflow/X format, X must match
+          a declared input in the workflow's inputs object. When using step/X format,
+          X must reference an existing step with satisfied dependencies.
+        oneOf:
+          - { $ref: '#/definitions/StepIdentifier' }
+          - { $ref: '#/definitions/WorkflowInputIdentifier' }
+      output:
+        type: string
+        description: >
+          Name of the output to extract. Required for step references (step/X).
+          Must not be present for workflow input references (workflow/X).
+          Runtime validation required: for step references, the output name must match
+          an output declared by the referenced step.
+      transform:
+        type: string
+        description: >
+          Optional JSONPath expression (RFC 9535) applied to the referenced data.
+          Allows extracting nested values or transforming the output before use.
+    required: [ 'from' ]
+    allOf:
+      - if:
+          properties:
+            from:
+              pattern: '^step/'
+        then:
+          required: [ 'output' ]
+      - if:
+          properties:
+            from:
+              pattern: '^workflow/'
+        then:
+          not:
+            required: [ 'output' ]
+    examples:
+      - { from: 'workflow/config' }
+      - { from: 'step/create-user', output: 'userId' }
+      - { from: 'step/get-user-profile', output: 'profile', transform: '$.user.email' }
+      - { from: 'step/list-items', output: 'items', transform: '$[0].id' }
+
+  StepOutput:
+    type: object
+    additionalProperties: false
+    properties:
+      source:
+        type: string
+        description: Origin of the data that populates this output
+        enum: [ 'redirectQuery', 'responseBody', 'responseHeader', 'statusCode' ]
+      parameter:
+        type: string
+        description: Query parameter captured when source is redirectQuery
+      path:
+        type: string
+        description: JSONPath used to capture a value from the response body
+      header:
+        type: string
+        description: HTTP header to read when the source is responseHeader
+      default:
+        description: >
+          Default value used when output cannot be captured (e.g., missing query parameter,
+          header not present, JSONPath doesn't match). If not specified, step fails when
+          output cannot be captured.
+          
+          Type expectations based on source:
+          - redirectQuery: typically string (query parameter values)
+          - responseHeader: typically string (HTTP header values)
+          - responseBody: any valid JSON type (depends on API response structure)
+          - statusCode: integer (HTTP status codes like 200, 404, 500)
+      sensitive:
+        type: boolean
+        description: >
+          Marks this output as containing sensitive data (passwords, tokens, secrets).
+          When true, workflow engines should mask this output in logs, error messages,
+          and debugging output to prevent accidental exposure of sensitive information.
+        default: false
+    required: [ 'source' ]
+    allOf:
+      - if: { properties: { source: { const: redirectQuery } } }
+        then: { required: [ 'parameter' ] }
+      - if: { properties: { source: { const: responseBody } } }
+        then: { required: [ 'path' ] }
+      - if: { properties: { source: { const: responseHeader } } }
+        then: { required: [ 'header' ] }
+    examples:
+      - # Captures OAuth authorization code from redirect URL
+        source: redirectQuery
+        parameter: code
+      - # Extracts user ID from JSON response body
+        source: responseBody
+        path: $.user.id
+      - # Captures redirect URL from Location header
+        source: responseHeader
+        header: Location
+      - # Captures HTTP status code (e.g., 200, 404)
+        source: statusCode
+
+  Authentication:
+    type: object
+    additionalProperties: false
+    description: >
+      Authentication configuration for API requests. Specifies how to authenticate
+      the HTTP request for this step.
+      
+      Security Note: All authentication fields (username, password, token, value) are
+      implicitly treated as sensitive by workflow engines and should be automatically
+      masked in logs, error messages, and debugging output, regardless of whether they
+      use literal values or references.
+    properties:
+      type:
+        type: string
+        description: Type of authentication to use
+        enum: [ 'basic', 'bearer', 'oauth2', 'apiKey' ]
+      # basic
+      username:
+        description: Username for Basic authentication
+        oneOf:
+          - { $ref: '#/definitions/StepInputLiteral' }
+          - { $ref: '#/definitions/StepInputReference' }
+      password:
+        description: Password for Basic authentication
+        oneOf:
+          - { $ref: '#/definitions/StepInputLiteral' }
+          - { $ref: '#/definitions/StepInputReference' }
+      # bearer or oauth2
+      token:
+        description: Token for Bearer or OAuth2 authentication
+        oneOf:
+          - { $ref: '#/definitions/StepInputLiteral' }
+          - { $ref: '#/definitions/StepInputReference' }
+      # apiKey
+      in:
+        type: string
+        description: Location where API key should be sent
+        enum: [ 'header', 'query', 'cookie' ]
+      name:
+        type: string
+        description: Name of the header, query parameter, or cookie
+      value:
+        description: Value for API key authentication
+        oneOf:
+          - { $ref: '#/definitions/StepInputLiteral' }
+          - { $ref: '#/definitions/StepInputReference' }
+    required: [ 'type' ]
+    allOf:
+      - if: { properties: { type: { const: basic } } }
+        then: { required: [ 'username', 'password' ] }
+      - if: { properties: { type: { const: bearer } } }
+        then: { required: [ 'token' ] }
+      - if: { properties: { type: { const: oauth2 } } }
+        then: { required: [ 'token' ] }
+      - if: { properties: { type: { const: apiKey } } }
+        then: { required: [ 'in', 'name', 'value' ] }
+
+  Deprecation:
+    description: >
+      Deprecation metadata shared across all workflow consumers.
+      Can be a simple boolean for basic deprecation, or an object with details
+      including replacement workflow reference.
+    oneOf:
+      - type: boolean
+        description: >
+          Simple deprecation flag. Set to true to mark workflow as deprecated
+          without providing a replacement.
+      - type: object
+        description: >
+          Detailed deprecation information including deprecation status and
+          optional replacement workflow.
+        additionalProperties: false
+        properties:
+          value:
+            type: boolean
+            description: Whether the workflow is deprecated
+            default: true
+          replacedBy: { $ref: '#/definitions/WorkflowReference' }
+        required: [ 'value' ]
