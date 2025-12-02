@@ -1,5 +1,9 @@
 # Changelog
 
+## v2025.9
+
+- Update OpenAPI specs.
+
 ## v2025.8.1
 
 - Added richer token/session surfaces across `MCPServer`, `StaticTools`, and OAuth middleware, including OTP/session manager ports, refresh token reporting, and new OAuth login/logout tools on STDIO transports.
