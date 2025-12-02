@@ -2,7 +2,7 @@
   "info": {
     "description": "Justice Session Service",
     "title": "justice-session-service",
-    "version": "3.27.0"
+    "version": "3.28.0"
   },
   "schemes": [
     "https"
@@ -1402,7 +1402,8 @@
             ],
             "in": "query",
             "name": "statusV2",
-            "type": "string"
+            "type": "string",
+            "x-enum-ignore": true
           },
           {
             "description": "end of game session creation time range in RFC 3339 format e.g. 2022-10-21T07:20:50Z",
@@ -5672,7 +5673,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "Read Party Session Storage by partyID\nParty Storage example:\n```\n{\n\t&#34;reserved&#34;: {\n\t\t&#34;userID1&#34;: {&#34;key&#34;: &#34;value&#34;},\n\t\t&#34;userID2&#34;: {&#34;key&#34;: &#34;value&#34;},\n\t\t...\n\t}\n}\n```",
+        "description": "Read Party Session Storage by partyID (with reserved and member). \nContains &#34;reserved&#34; when Update Insert Party Session Reserved Storage User.\nContains &#34;member&#34; when Update Insert Party Session Storage User.\nParty Storage example:\n```\n{\n\t&#34;reserved&#34;: {\n\t\t&#34;userID1&#34;: {&#34;key&#34;: &#34;value&#34;},\n\t\t&#34;userID2&#34;: {&#34;key&#34;: &#34;value&#34;},\n\t\t...\n\t},\n\t&#34;member&#34;: {\n\t\t&#34;userID1&#34;: {&#34;key&#34;: &#34;value&#34;},\n\t\t&#34;userID2&#34;: {&#34;key&#34;: &#34;value&#34;},\n\t\t...\n\t}\n}\n```",
         "operationId": "publicReadPartySessionStorage",
         "parameters": [
           {
@@ -5745,13 +5746,13 @@
         ]
       }
     },
-    "/session/v1/public/namespaces/{namespace}/parties/{partyId}/storage/users/{userId}/reserved": {
+    "/session/v1/public/namespaces/{namespace}/parties/{partyId}/storage/users/{userId}": {
       "patch": {
         "consumes": [
           "application/json"
         ],
-        "description": "**For Internal Use Only**\nUpdate Insert Party Session Reserved Storage User. User can only update or insert user party session storage data itself.\ncan store generic json\nexample json can store : \n```\n{\n\t&#34;key&#34;: &#34;value&#34;,\n\t&#34;number&#34;: 123,\n}\n```\nThe data will be stored on the &#34;reserved&#34; storage field\nexample stored data :\n```\n{\n\t&#34;reserved&#34;: {\n\t\t&#34;userID1&#34;: {&#34;key&#34;: &#34;value&#34;},\n\t\t&#34;userID2&#34;: {&#34;key&#34;: &#34;value&#34;},\n\t\t...\n\t}\n}\n```\n",
-        "operationId": "publicUpdateInsertPartySessionStorageReserved",
+        "description": "Update Insert Party Session Storage User. User can only update or insert their own party storage (non-immutable).\ncan store generic json\nexample json can store :\n```\n{\n\t&#34;key&#34;: &#34;value&#34;,\n\t&#34;number&#34;: 123,\n}\n```\nThe data will be stored on the &#34;member&#34; storage field\nexample stored data :\n```\n{\n\t&#34;member&#34;: {\n\t\t&#34;userID1&#34;: {&#34;key&#34;: &#34;value&#34;},\n\t\t&#34;userID2&#34;: {&#34;key&#34;: &#34;value&#34;},\n\t\t...\n\t}\n}\n```\n",
+        "operationId": "publicUpdateInsertPartySessionStorage",
         "parameters": [
           {
             "in": "body",
@@ -5832,6 +5833,106 @@
           }
         ],
         "summary": "Update Insert Party Session Storage User.",
+        "tags": [
+          "Session Storage"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "userPermissions": [
+              "NAMESPACE:{namespace}:SESSION:STORAGE [UPDATE]"
+            ]
+          }
+        ]
+      }
+    },
+    "/session/v1/public/namespaces/{namespace}/parties/{partyId}/storage/users/{userId}/reserved": {
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "**For Internal Use Only**\nUpdate Insert Party Session Reserved Storage User. User can only update or insert their own reserve storage (non-immutable).\ncan store generic json\nexample json can store : \n```\n{\n\t&#34;key&#34;: &#34;value&#34;,\n\t&#34;number&#34;: 123,\n}\n```\nThe data will be stored on the &#34;reserved&#34; storage field\nexample stored data :\n```\n{\n\t&#34;reserved&#34;: {\n\t\t&#34;userID1&#34;: {&#34;key&#34;: &#34;value&#34;},\n\t\t&#34;userID2&#34;: {&#34;key&#34;: &#34;value&#34;},\n\t\t...\n\t}\n}\n```\n",
+        "operationId": "publicUpdateInsertPartySessionStorageReserved",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "additionalProperties": {},
+              "type": "object"
+            }
+          },
+          {
+            "description": "Namespace",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "partyID",
+            "in": "path",
+            "name": "partyId",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "userID",
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "additionalProperties": {},
+              "type": "object"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/response.Error"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/response.Error"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/response.Error"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/response.Error"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/response.Error"
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "Update Insert Party Session Reserved Storage User.",
         "tags": [
           "Session Storage"
         ],
@@ -9771,9 +9872,9 @@
     }
   },
   "x-version": {
-    "buildDate": "2025-10-16T03:11:18+00:00",
-    "gitHash": "1214efa62a43762e00ecf14947e291fa0867c92a",
-    "version": "3.27.0",
+    "buildDate": "2025-11-19T03:13:16+00:00",
+    "gitHash": "44a34dbb12e615e138e6e6c01abc8c45be47b9f4",
+    "version": "3.28.0",
     "version-roles-seeding": "1.2.86"
   }
 }

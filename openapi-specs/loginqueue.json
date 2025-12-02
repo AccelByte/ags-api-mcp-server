@@ -7,7 +7,7 @@
     },
     "description": "Login Queue Service",
     "title": "justice-login-queue-service",
-    "version": "2.3.2"
+    "version": "2.3.3"
   },
   "schemes": [
     "https"
@@ -88,7 +88,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "This API is used to set/update log queue configuration of a namespace.\nThis endpoint has upsert behavior. Calling the endpoint to a namespace with no configuration will make the service to create a new configuration. \nWhen creating new configuration, empty field will have default value:\n* enabled = false\n* maxConcurrency = 1000000\n* maxLoginRate = 500\n* safetyMarginPercentage = 5\n* minActivationPeriodInSecond = 600 \n* playerReconnectGracePeriodInSecond = 300\n* queueReconnectGracePeriodInSecond = 60\n* playerPollingTimeInSecond = 20\n\nCalling this endpoint with namespace that has configuration will replace the old configuration.\n\nInput validation:\n* maxConcurrency must be &gt; 0 and &lt;= 10000000 (0 &lt; x &lt;= 10000000)\n* maxLoginRate must be &gt; 0 and &lt;= 100000 (0 &lt; x &lt;= 100000)\n* minActivationPeriodInSecond, playerReconnectGracePeriodInSecond, playerPollingTimeInSecond and queueReconnectGracePeriodInSecond must be &gt; 0 and &lt;= 21600 (0 &lt; x &lt;= 21600)\n* playerPollingTimeInSecond must be smaller than queueReconnectGracePeriodInSecond \n* safetyMarginPercentage must be &gt;= 0 and &lt; 100 (0 &lt;= x &lt; 100)\n\n",
+        "description": "This API is used to set/update log queue configuration of a namespace.\nThis endpoint has upsert behavior. Calling the endpoint to a namespace with no configuration will make the service to create a new configuration. \nWhen creating new configuration, empty field will have default value:\n* enabled = false\n* maxConcurrency = 1000000\n* maxLoginRate = 500\n* safetyMarginPercentage = 5\n* minActivationPeriodInSecond = 600 \n* playerReconnectGracePeriodInSecond = 300\n* queueReconnectGracePeriodInSecond = 60\n* playerPollingTimeInSecond = 20\n\nCalling this endpoint with namespace that has configuration will replace the old configuration.\n\nInput validation:\n* maxConcurrency must be &amp;gt; 0 and &amp;lt;= 10000000 (0 &amp;lt; x &amp;lt;= 10000000)\n* maxLoginRate must be &amp;gt; 0 and &amp;lt;= 100000 (0 &amp;lt; x &amp;lt;= 100000)\n* minActivationPeriodInSecond, playerReconnectGracePeriodInSecond, playerPollingTimeInSecond and queueReconnectGracePeriodInSecond must be &amp;gt; 0 and &amp;lt;= 21600 (0 &amp;lt; x &amp;lt;= 21600)\n* playerPollingTimeInSecond must be smaller than queueReconnectGracePeriodInSecond \n* safetyMarginPercentage must be &amp;gt;= 0 and &amp;lt; 100 (0 &amp;lt;= x &amp;lt; 100)\n\n",
         "operationId": "adminUpdateConfiguration",
         "parameters": [
           {
@@ -231,7 +231,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "Cancel ticket. This endpoint requires ticket to be placed in the authorization header with this format: &#34;Bearer ticketID&#34;",
+        "description": "Cancel ticket. This endpoint requires ticket to be placed in the authorization header with this format: &amp;#34;Bearer ticketID&amp;#34;",
         "operationId": "cancelTicket",
         "parameters": [
           {
@@ -277,7 +277,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "Refresh ticket. This endpoint requires ticket to be placed in the authorization header with this format: &#34;Bearer ticketID&#34;. When the ticketID is empty or not found the response status will be 401",
+        "description": "Refresh ticket. This endpoint requires ticket to be placed in the authorization header with this format: &amp;#34;Bearer ticketID&amp;#34;. When the ticketID is empty or not found the response status will be 401",
         "operationId": "refreshTicket",
         "parameters": [
           {
@@ -530,10 +530,10 @@
     }
   },
   "x-version": {
-    "buildDate": "2025-10-16T08:07:32+00:00",
-    "gitHash": "e490e3ee15b288eaa57171c70d24ee00e94bec17",
+    "buildDate": "2025-11-19T03:13:28+00:00",
+    "gitHash": "2b8e8604f03bd2ddb3cba168bf6ef2b5da7627d9",
     "name": "justice-login-queue-service",
-    "version": "2.3.2",
+    "version": "2.3.3",
     "version-roles-seeding": "1.2.103"
   }
 }
