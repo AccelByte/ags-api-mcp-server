@@ -1,14 +1,52 @@
 schemaVersion: '1.0'
 
 sourceDescriptions:
+
   - name: csm
-    url: ../../openapi-specs/csm.json
+    url: openapi-specs/csm.json
     description: 'Custom Service Manager API'
   - name: iam
-    url: ../../openapi-specs/iam.json
+    url: openapi-specs/iam.json
     description: 'Identity and Access Management API'
+  - name: session
+    url: openapi-specs/session.json
+    description: 'Session and Party API'
+
 
 workflows:
+
+  get-extend-app-client:
+    name: 'Get Extend App Client'
+    description: 'Retrieves the AB_CLIENT_ID secret for an Extend app'
+
+    inputs:
+      namespace:
+        description: 'Game namespace'
+        required: true
+        schema: { type: string }
+      app:
+        description: 'App name. Expected format: (^[A-Za-z](?:[A-Za-z0-9\\-]*[A-Za-z0-9])?$)'
+        required: true
+        schema: { type: string }
+
+    steps:
+      - id: get-secrets
+        description: 'Get list of secrets to find AB_CLIENT_ID'
+        operationId: csm.GetListOfSecretsV2
+        inputs:
+          app: { from: workflow/app }
+          namespace: { from: workflow/namespace }
+        outputs:
+          clientId:
+            source: responseBody
+            path: "$.data[?(@.configName == 'AB_CLIENT_ID')][0].value"
+
+    outputs:
+      clientId:
+        from: step/get-secrets
+        output: clientId
+
+
   setup-extend-app-with-iam:
     name: 'Setup Extend App with IAM Permissions'
     description: 'Creates an Extend App, finds the IAM Client ID from secrets, and adds permissions to the IAM client'
@@ -28,7 +66,7 @@ workflows:
         schema:
           type: string
           enum: ['function-override', 'service-extension', 'event-handler']
-      permissionsBody:
+      permissions:
         description: 'IAM client permissions request body for updating permissions. Must include permissions array with objects containing action (integer) and resource (string) fields'
         required: true
         schema:
@@ -41,6 +79,7 @@ workflows:
                 properties:
                   resource: { type: string }
                   action:
+                    description: 'IAM client permission action (bit flag enum, see x-enum-mapping)'
                     type: integer
                     enum: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 ]
                     x-enum-mapping:
@@ -60,8 +99,8 @@ workflows:
                       '13': 'Create, Update, Delete'
                       '14': 'Read, Update, Delete'
                       '15': 'Create, Read, Update, Delete'
-                required: ['resource', 'action']
-          required: ['permissions']
+                required: [ 'resource', 'action' ]
+          required: [ 'permissions' ]
 
     steps:
       - id: create-app
@@ -79,17 +118,11 @@ workflows:
           status: { source: responseBody, path: '$.status' }
 
       - id: get-secrets
-        description: 'Get list of secrets to find AB_CLIENT_ID'
-        operationId: csm.GetListOfSecretsV2
+        workflowRef: '#/workflows/get-extend-app-client'
         dependencies: [ step/create-app ]
         inputs:
           app: { from: workflow/app }
           namespace: { from: workflow/namespace }
-        outputs:
-          secretsList: { source: responseBody, path: '$.data' }
-          clientId:
-            source: responseBody
-            path: "$.data[?(@.configName == 'AB_CLIENT_ID')][0].value"
 
       - id: add-permissions
         description: 'Update permissions for the IAM client'
@@ -98,7 +131,7 @@ workflows:
         inputs:
           clientId: { from: step/get-secrets, output: clientId }
           namespace: { from: workflow/namespace }
-          body: { from: workflow/permissionsBody }
+          body: { from: workflow/permissions }
         outputs:
           statusCode: { source: statusCode }
 
@@ -107,6 +140,7 @@ workflows:
       appId: { from: step/create-app, output: appId }
       clientId: { from: step/get-secrets, output: clientId }
       statusCode: { from: step/add-permissions, output: statusCode }
+
 
   provision-nosql-infrastructure:
     name: 'Provision NoSQL Infrastructure'
@@ -162,3 +196,156 @@ workflows:
       databaseId: { from: step/create-database, output: databaseId }
       databaseName: { from: step/create-database, output: databaseName }
       databaseStatus: { from: step/create-database, output: status }
+
+
+  create-session-invite-join:
+    name: 'Create Session, Send Invite, Join Session'
+    description: 'Creates a game session, invites a user, and joins the session'
+
+    inputs:
+      namespace:
+        description: 'Game namespace'
+        required: true
+        schema: { type: string }
+      sessionBody:
+        description: 'session.createGameSession request body (session#/definitions/apimodels.CreateGameSessionRequest); includes session name, type/joinability, min/maxPlayers, DS source, and attributes'
+        required: true
+        schema: { type: object }
+      inviteBody:
+        description: 'session.publicGameSessionInvite request body (session#/definitions/apimodels.SessionInviteRequest); invitee user/platform identifiers plus optional metadata'
+        required: true
+        schema: { type: object }
+
+    steps:
+      - id: create-session
+        operationId: session.createGameSession
+        inputs:
+          namespace: { from: workflow/namespace }
+          body: { from: workflow/sessionBody }
+        outputs:
+          sessionId: { source: responseBody, path: '$.id' }
+
+      - id: send-invite
+        operationId: session.publicGameSessionInvite
+        dependencies: [ step/create-session ]
+        inputs:
+          namespace: { from: workflow/namespace }
+          sessionId: { from: step/create-session, output: sessionId }
+          body: { from: workflow/inviteBody }
+        outputs:
+          inviteResult: { source: responseBody, path: '$' }
+
+      - id: join-session
+        operationId: session.joinGameSession
+        dependencies: [ step/send-invite ]
+        inputs:
+          namespace: { from: workflow/namespace }
+          sessionId: { from: step/create-session, output: sessionId }
+        outputs:
+          joinResult: { source: responseBody, path: '$' }
+
+    outputs:
+      sessionId: { from: step/create-session, output: sessionId }
+      inviteResult: { from: step/send-invite, output: inviteResult }
+      joinResult: { from: step/join-session, output: joinResult }
+
+
+  create-party-invite-join:
+    name: 'Create Party, Invite, Join'
+    description: 'Creates a party, sends an invite, then joins the party'
+
+    inputs:
+      namespace:
+        description: 'Game namespace'
+        required: true
+        schema: { type: string }
+      partyBody:
+        description: 'session.publicCreateParty request body (session#/definitions/apimodels.CreatePartyRequest); party name/joinability, min/maxPlayers, inviteTimeout/inactiveTimeout, and attributes'
+        required: true
+        schema: { type: object }
+      inviteBody:
+        description: 'session.publicPartyInvite request body (session#/definitions/apimodels.SessionInviteRequest) used for party invite; invitee user/platform identifiers plus optional metadata'
+        required: true
+        schema: { type: object }
+
+    steps:
+      - id: create-party
+        operationId: session.publicCreateParty
+        inputs:
+          namespace: { from: workflow/namespace }
+          body: { from: workflow/partyBody }
+        outputs:
+          partyId: { source: responseBody, path: '$.id' }
+
+      - id: invite-to-party
+        operationId: session.publicPartyInvite
+        dependencies: [ step/create-party ]
+        inputs:
+          namespace: { from: workflow/namespace }
+          partyId: { from: step/create-party, output: partyId }
+          body: { from: workflow/inviteBody }
+        outputs:
+          inviteResult: { source: responseBody, path: '$' }
+
+      - id: join-party
+        operationId: session.publicPartyJoin
+        dependencies: [ step/invite-to-party ]
+        inputs:
+          namespace: { from: workflow/namespace }
+          partyId: { from: step/create-party, output: partyId }
+        outputs:
+          joinResult: { source: responseBody, path: '$' }
+
+    outputs:
+      partyId: { from: step/create-party, output: partyId }
+      inviteResult: { from: step/invite-to-party, output: inviteResult }
+      joinResult: { from: step/join-party, output: joinResult }
+
+
+  create-party-code-join:
+    name: 'Create Party, Generate Code, Join by Code'
+    description: 'Creates a party, generates a join code, then joins the partyusing that code'
+
+    inputs:
+      namespace:
+        description: 'Game namespace'
+        required: true
+        schema: { type: string }
+      partyBody:
+        description: 'session.publicCreateParty request body (session#/definitions/apimodels.CreatePartyRequest); party name/joinability, min/maxPlayers, inviteTimeout/inactiveTimeout, and attributes'
+        required: true
+        schema: { type: object }
+
+    steps:
+      - id: create-party
+        operationId: session.publicCreateParty
+        inputs:
+          namespace: { from: workflow/namespace }
+          body: { from: workflow/partyBody }
+        outputs:
+          partyId: { source: responseBody, path: '$.id' }
+
+      - id: generate-party-code
+        operationId: session.publicGeneratePartyCode
+        dependencies: [ step/create-party ]
+        inputs:
+          namespace: { from: workflow/namespace }
+          partyId: { from: step/create-party, output: partyId }
+        outputs:
+          partyCode: { source: responseBody, path: '$.code' }
+
+      - id: join-party-by-code
+        operationId: session.publicPartyJoinCode
+        dependencies: [ step/generate-party-code ]
+        inputs:
+          namespace: { from: workflow/namespace }
+          body:
+            const:
+              code: { from: step/generate-code, output: partyCode }
+        outputs:
+          joinResult: { source: responseBody, path: '$' }
+
+    outputs:
+      partyId: { from: step/create-party, output: partyId }
+      partyCode: { from: step/generate-party-code, output: partyCode }
+      joinResult: { from: step/join-party-by-code, output: joinResult }
