@@ -36,7 +36,7 @@
   ],
   "author": "",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.20.0",
+    "@modelcontextprotocol/sdk": "^1.25.0",
     "axios": "^1.6.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
