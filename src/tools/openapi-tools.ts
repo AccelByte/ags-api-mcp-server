@@ -113,6 +113,9 @@ interface RunApiArgs {
 interface OpenApiToolsOptions {
   specsDir: string;
   defaultSearchLimit?: number;
+  maxSearchLimit?: number;
+  defaultRunTimeoutMs?: number;
+  maxRunTimeoutMs?: number;
   defaultServerUrl?: string;
   includeWriteRequests?: boolean;
 }
@@ -136,6 +139,9 @@ export class OpenApiTools {
   private readonly options: {
     specsDir: string;
     defaultSearchLimit: number;
+    maxSearchLimit: number;
+    defaultRunTimeoutMs: number;
+    maxRunTimeoutMs: number;
     defaultServerUrl?: string;
     includeWriteRequests: boolean;
   };
@@ -143,11 +149,14 @@ export class OpenApiTools {
   constructor(options: OpenApiToolsOptions) {
     this.options = {
       specsDir: options.specsDir,
-      defaultSearchLimit: options.defaultSearchLimit ?? 5,
+      defaultSearchLimit: options.defaultSearchLimit ?? 10,
+      maxSearchLimit: options.maxSearchLimit ?? 50,
+      defaultRunTimeoutMs: options.defaultRunTimeoutMs ?? 15_000,
+      maxRunTimeoutMs: options.maxRunTimeoutMs ?? 60_000,
       defaultServerUrl: options.defaultServerUrl
         ? this.normalizeServerUrl(options.defaultServerUrl)
         : undefined,
-      includeWriteRequests: options.includeWriteRequests ?? false,
+      includeWriteRequests: options.includeWriteRequests ?? true,
     };
 
     this.loadSpecs();
@@ -163,7 +172,7 @@ export class OpenApiTools {
     const query = (args.query || "").trim().toLowerCase();
     const limit = Math.min(
       Math.max(args.limit ?? this.options.defaultSearchLimit, 1),
-      50,
+      this.options.maxSearchLimit,
     );
     const methodFilter = args.method
       ? this.normalizeMethod(args.method)
@@ -252,6 +261,7 @@ export class OpenApiTools {
   async runApi(
     args: RunApiArgs = {},
     userContext?: UserContext,
+    accessToken?: string,
   ): Promise<object> {
     const operation = this.findOperation(args);
 
@@ -263,6 +273,11 @@ export class OpenApiTools {
         availableServers: operation.servers,
         defaultServerUrl: this.options.defaultServerUrl,
         hasAccessToken: Boolean(userContext?.accessToken),
+        accessTokenSource: accessToken
+          ? "parameter"
+          : userContext?.accessToken
+            ? "userContext"
+            : "none",
       },
       "Preparing to execute run-apis operation",
     );
@@ -344,19 +359,26 @@ export class OpenApiTools {
     }
 
     if (
-      args.useAccessToken !== false &&
-      userContext?.accessToken &&
+      args.useAccessToken === true &&
       !this.hasHeader(headers, "authorization")
     ) {
-      headers["Authorization"] = `Bearer ${userContext.accessToken}`;
+      if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      } else if (userContext?.accessToken) {
+        headers["Authorization"] = `Bearer ${userContext.accessToken}`;
+      }
     }
 
     const method = operation.method as Method;
+    const timeoutMs =
+      args.timeoutMs && args.timeoutMs > 0
+        ? Math.min(args.timeoutMs, this.options.maxRunTimeoutMs)
+        : this.options.defaultRunTimeoutMs;
     const config: AxiosRequestConfig = {
       method,
       url: url.toString(),
       headers,
-      timeout: args.timeoutMs && args.timeoutMs > 0 ? args.timeoutMs : 15000,
+      timeout: timeoutMs,
       validateStatus: () => true,
     };
 
@@ -762,29 +784,45 @@ export class OpenApiTools {
     return operation;
   }
 
-  private validateQueryParameters(operation: ApiOperation, queryParams?: Record<string, any>): void {
+  private validateQueryParameters(
+    operation: ApiOperation,
+    queryParams?: Record<string, any>,
+  ): void {
     const requiredQueryParams = operation.parameters.filter(
-      (param) => param.in === 'query' && param.required === true
+      (param) => param.in === "query" && param.required === true,
     );
 
     for (const param of requiredQueryParams) {
       if (!queryParams || !(param.name in queryParams)) {
-        throw new Error(`Missing required query parameter '${param.name}' for ${operation.method} ${operation.path}`);
+        throw new Error(
+          `Missing required query parameter '${param.name}' for ${operation.method} ${operation.path}`,
+        );
       }
     }
   }
 
   private validateRequestBody(operation: ApiOperation, body?: any): void {
-    if (operation.requestBody?.required === true && (body === undefined || body === null)) {
-      throw new Error(`Missing required request body for ${operation.method} ${operation.path}`);
+    if (
+      operation.requestBody?.required === true &&
+      (body === undefined || body === null)
+    ) {
+      throw new Error(
+        `Missing required request body for ${operation.method} ${operation.path}`,
+      );
     }
 
-    if (body !== undefined && body !== null && operation.requestBody?.contents) {
+    if (
+      body !== undefined &&
+      body !== null &&
+      operation.requestBody?.contents
+    ) {
       for (const content of operation.requestBody.contents) {
         if (content.schema && Array.isArray(content.schema.required)) {
           for (const fieldName of content.schema.required) {
             if (!(fieldName in body)) {
-              throw new Error(`Missing required field '${fieldName}' in request body for ${operation.method} ${operation.path}`);
+              throw new Error(
+                `Missing required field '${fieldName}' in request body for ${operation.method} ${operation.path}`,
+              );
             }
           }
         }
