@@ -19,8 +19,10 @@ import {
 import { StdioMCPServer } from "./stdio-server.js";
 import { StreamableHTTPTransport } from "./streamable-http.js";
 import { httpServerStatus } from "./http-server-status.js";
-import { loadWorkflows, registerRunWorkflowPrompt } from "./prompts/run-workflow.js";
-
+import {
+  loadWorkflows,
+  registerRunWorkflowPrompt,
+} from "./prompts/run-workflow.js";
 
 let stdioServer: StdioMCPServer | null = null;
 let httpServer: any = null;

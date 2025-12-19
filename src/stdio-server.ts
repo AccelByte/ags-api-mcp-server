@@ -460,10 +460,7 @@ export class StdioMCPServer {
             stdioSessionToken: this.sessionToken,
           };
 
-          const result = await handler(
-            args || {},
-            userContextWithStdioToken,
-          );
+          const result = await handler(args || {}, userContextWithStdioToken);
 
           const prompt = this.prompts.get(name);
 

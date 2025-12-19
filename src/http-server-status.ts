@@ -9,4 +9,3 @@ export let httpServerStatus: {
   error: null,
   port: null,
 };
-

@@ -110,7 +110,10 @@ function getRunWorkflowPrompt(): Prompt {
 /**
  * Get the run-workflow prompt handler
  */
-function getRunWorkflowHandler(): (args: any, userContext?: any) => Promise<string> {
+function getRunWorkflowHandler(): (
+  args: any,
+  userContext?: any,
+) => Promise<string> {
   return async (args: any, userContext?: any) => {
     const workflowName = args?.workflow;
     if (!workflowName) {
@@ -146,4 +149,3 @@ export function registerRunWorkflowPrompt(
 ): void {
   mcpServer.registerPrompt(getRunWorkflowPrompt(), getRunWorkflowHandler());
 }
-

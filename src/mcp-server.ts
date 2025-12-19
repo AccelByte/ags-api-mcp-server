@@ -477,11 +477,7 @@ export class MCPServer {
 
     const prompt = this.prompts.get(name);
     if (!prompt) {
-      return this.createErrorResponse(
-        id,
-        -32601,
-        `Prompt '${name}' not found`,
-      );
+      return this.createErrorResponse(id, -32601, `Prompt '${name}' not found`);
     }
 
     const handler = this.promptHandlers.get(name);
