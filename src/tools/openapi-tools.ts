@@ -118,6 +118,7 @@ interface OpenApiToolsOptions {
   maxRunTimeoutMs?: number;
   defaultServerUrl?: string;
   includeWriteRequests?: boolean;
+  loadSpecs?: boolean;
 }
 
 const HTTP_METHODS: HttpMethod[] = [
@@ -144,6 +145,7 @@ export class OpenApiTools {
     maxRunTimeoutMs: number;
     defaultServerUrl?: string;
     includeWriteRequests: boolean;
+    loadSpecs: boolean;
   };
 
   constructor(options: OpenApiToolsOptions) {
@@ -157,9 +159,14 @@ export class OpenApiTools {
         ? this.normalizeServerUrl(options.defaultServerUrl)
         : undefined,
       includeWriteRequests: options.includeWriteRequests ?? true,
+      loadSpecs: options.loadSpecs ?? true,
     };
 
-    this.loadSpecs();
+    // Only load specs synchronously if loadSpecs is true (default)
+    // If false, caller should call loadSpecsAsync() manually
+    if (this.options.loadSpecs) {
+      this.loadSpecs();
+    }
   }
 
   async searchApis(args: SearchApisArgs = {}): Promise<object> {
@@ -536,6 +543,98 @@ export class OpenApiTools {
       const filePath = path.join(specsPath, entry.name);
       try {
         const raw = fs.readFileSync(filePath, "utf-8");
+        const document = ext === ".json" ? JSON.parse(raw) : parseYaml(raw);
+        if (!document || typeof document !== "object") {
+          logger.warn(
+            { filePath },
+            "Skipping OpenAPI spec because parsed document is empty.",
+          );
+          continue;
+        }
+        const { operationCount, skippedDeprecated } = this.registerSpec(
+          entry.name,
+          filePath,
+          document as Record<string, any>,
+        );
+        operationsPerSpec[filePath] = operationCount;
+        if (skippedDeprecated > 0) {
+          deprecatedOperationsPerSpec[filePath] = skippedDeprecated;
+          totalDeprecatedOperations += skippedDeprecated;
+        }
+        loadedSpecs += 1;
+      } catch (error) {
+        logger.error(
+          { filePath, error },
+          "Failed to parse OpenAPI specification",
+        );
+      }
+    }
+
+    logger.info(
+      { specsPath, loadedSpecs, operations: this.operations.length },
+      "OpenAPI specifications processed",
+    );
+    if (loadedSpecs > 0) {
+      logger.info(
+        { operationsPerSpec },
+        "OpenAPI operations loaded per specification",
+      );
+      if (totalDeprecatedOperations > 0) {
+        logger.info(
+          { deprecatedOperationsPerSpec, totalDeprecatedOperations },
+          "Deprecated OpenAPI operations skipped",
+        );
+      }
+    }
+  }
+
+  /**
+   * Async variant of loadSpecs() that uses fs.promises for non-blocking I/O.
+   * Use this when you need to load specs asynchronously (e.g., in V2 MCP server).
+   *
+   * To use this method:
+   * 1. Create OpenApiTools instance with loadSpecs: false
+   * 2. Call await loadSpecsAsync() manually
+   *
+   * Example:
+   *   const tools = new OpenApiTools({ specsDir: "./specs", loadSpecs: false });
+   *   await tools.loadSpecsAsync();
+   */
+  async loadSpecsAsync(): Promise<void> {
+    // specsDir is already an absolute path from config, no need to resolve again
+    const specsPath = this.options.specsDir;
+
+    try {
+      await fs.promises.access(specsPath);
+    } catch {
+      logger.warn(
+        { specsPath },
+        "OpenAPI specs directory not found. Skipping OpenAPI tool registration.",
+      );
+      return;
+    }
+
+    const entries = await fs.promises.readdir(specsPath, {
+      withFileTypes: true,
+    });
+    let loadedSpecs = 0;
+    const operationsPerSpec: Record<string, number> = {};
+    const deprecatedOperationsPerSpec: Record<string, number> = {};
+    let totalDeprecatedOperations = 0;
+
+    for (const entry of entries) {
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      const ext = path.extname(entry.name).toLowerCase();
+      if (![".yaml", ".yml", ".json"].includes(ext)) {
+        continue;
+      }
+
+      const filePath = path.join(specsPath, entry.name);
+      try {
+        const raw = await fs.promises.readFile(filePath, "utf-8");
         const document = ext === ".json" ? JSON.parse(raw) : parseYaml(raw);
         if (!document || typeof document !== "object") {
           logger.warn(

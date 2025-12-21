@@ -12,7 +12,7 @@ import createServer from "./mcp/server.js";
 
 const app: Express = createExpress();
 
-const mcpServerFactory: McpServerFactory = () =>
+const mcpServerFactory: McpServerFactory = async () =>
   createServer("test", "1.0.0", config);
 
 if (config.mcp.enableAuth) {

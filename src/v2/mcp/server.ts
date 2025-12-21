@@ -7,16 +7,18 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Config } from "../config.js";
 import setupApiTools from "./tools/api.js";
 import setupAuthTools from "./tools/auth.js";
+import setupWorkflows from "./prompts/workflows.js";
 
-function createServer(
+async function createServer(
   name: string,
   version: string,
   config: Config,
-): McpServer {
+): Promise<McpServer> {
   const server = new McpServer({ name, version });
 
-  setupApiTools(server, config);
+  await setupApiTools(server, config);
   setupAuthTools(server);
+  await setupWorkflows(server);
 
   return server;
 }

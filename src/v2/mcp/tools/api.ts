@@ -479,7 +479,7 @@ function getConfigKey(config: Config): string {
   return JSON.stringify(config.openapi);
 }
 
-function getOrCreateOpenApiTools(config: Config): OpenApiTools {
+async function getOrCreateOpenApiTools(config: Config): Promise<OpenApiTools> {
   const configKey = getConfigKey(config);
 
   // Reuse cached instance if config matches
@@ -487,7 +487,7 @@ function getOrCreateOpenApiTools(config: Config): OpenApiTools {
     return cachedOpenApiTools;
   }
 
-  // Create new instance and cache it
+  // Create new instance without loading specs synchronously
   cachedOpenApiTools = new OpenApiTools({
     specsDir: config.openapi.specsDir,
     defaultSearchLimit: config.openapi.searchLimit,
@@ -496,19 +496,24 @@ function getOrCreateOpenApiTools(config: Config): OpenApiTools {
     maxRunTimeoutMs: config.openapi.maxRunTimeoutMs,
     defaultServerUrl: config.openapi.serverUrl,
     includeWriteRequests: config.openapi.includeWriteRequests,
+    loadSpecs: false, // Don't load specs in constructor
   });
+
+  // Load specs asynchronously
+  await cachedOpenApiTools.loadSpecsAsync();
+
   cachedConfigKey = configKey;
 
   return cachedOpenApiTools;
 }
 
-function setupApiTools(mcpServer: McpServer, config: Config) {
+async function setupApiTools(mcpServer: McpServer, config: Config) {
   // Create schemas with config values
   const SearchApisInputSchema = createSearchApisInputSchema(config);
   const RunApisInputSchema = createRunApisInputSchema(config);
 
   // Reuse cached OpenApiTools instance to avoid reloading specs
-  const openApiTools = getOrCreateOpenApiTools(config);
+  const openApiTools = await getOrCreateOpenApiTools(config);
 
   mcpServer.registerTool(
     "search-apis",

@@ -14,7 +14,7 @@ import { jsonRPCError } from "../utils.js";
  * Factory function type for creating MCP server instances.
  * Each call should return a new, independent server instance.
  */
-type McpServerFactory = () => McpServer;
+type McpServerFactory = () => Promise<McpServer>;
 
 interface RegisterMcpRoutesOptions {
   /**
@@ -55,7 +55,7 @@ function registerMcpRoutes(
     }
 
     try {
-      const server = factory();
+      const server = await factory();
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
       });
