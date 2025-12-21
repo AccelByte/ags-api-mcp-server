@@ -65,8 +65,6 @@ function stop(server: Server): void {
 
 function start(app: Express, port: number): Server {
   // TODO: Validate port number is within valid range before starting
-  // TODO: Handle SIGTERM signal in addition to SIGINT for better container support
-  // TODO: Add health check endpoint before starting server
   const server = app
     .listen(port, (error) => {
       if (error) {
@@ -84,7 +82,16 @@ function start(app: Express, port: number): Server {
       process.exit(0);
     });
 
-  process.on("SIGINT", async () => stop(server));
+  // Handle graceful shutdown signals
+  process.on("SIGINT", async () => {
+    log.info("Received SIGINT, shutting down gracefully...");
+    stop(server);
+  });
+
+  process.on("SIGTERM", async () => {
+    log.info("Received SIGTERM, shutting down gracefully...");
+    stop(server);
+  });
 
   return server;
 }
