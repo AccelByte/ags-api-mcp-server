@@ -46,8 +46,46 @@ function create(): Express {
   // TODO: Add cookie parser options
   app.use(cookieParser());
 
+  // Request logging middleware
+  app.use((req, res, next) => {
+    const startTime = Date.now();
+
+    // Log request
+    log.debug(
+      {
+        method: req.method,
+        url: req.url,
+        headers: {
+          "user-agent": req.get("User-Agent"),
+          "content-type": req.get("Content-Type"),
+          authorization: req.get("Authorization")
+            ? "***REDACTED***"
+            : undefined,
+        },
+        ip: req.ip,
+      },
+      "Incoming request",
+    );
+
+    // Log response when finished
+    res.on("finish", () => {
+      const duration = Date.now() - startTime;
+      log.info(
+        {
+          method: req.method,
+          url: req.url,
+          statusCode: res.statusCode,
+          duration,
+          ip: req.ip,
+        },
+        "Request completed",
+      );
+    });
+
+    next();
+  });
+
   // TODO: Make JSON body size limit configurable via environment variable
-  // TODO: Add request logging middleware for debugging and monitoring
   // TODO: Consider adding request ID middleware for tracing requests
   app.use(express.json({ limit: "10mb" }));
 
@@ -62,15 +100,16 @@ function create(): Express {
       err: Error,
       _req: express.Request,
       res: express.Response,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       _next: express.NextFunction,
     ) => {
       log.error({ error: err, stack: err.stack }, "Unhandled error occurred");
-      
+
       // Avoid sending response if headers already sent
       if (res.headersSent) {
         return;
       }
-      
+
       res.status(500).json({
         error: "Internal server error",
         message:
@@ -95,9 +134,7 @@ function stop(server: Server): void {
 
   // Force shutdown after timeout if graceful shutdown takes too long
   const shutdownTimeout = setTimeout(() => {
-    log.warn(
-      "Graceful shutdown timeout exceeded, forcing shutdown",
-    );
+    log.warn("Graceful shutdown timeout exceeded, forcing shutdown");
     process.exit(1);
   }, 10000); // 10 second timeout
 
