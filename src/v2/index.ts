@@ -24,4 +24,9 @@ registerMcpRoutes(app, mcpServerFactory, {
   enableAuth: config.mcp.enableAuth,
 });
 
+// Health check endpoint
+app.get("/health", (_, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 startExpress(app, config.mcp.port);
