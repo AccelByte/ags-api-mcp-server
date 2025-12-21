@@ -24,6 +24,29 @@ registerMcpRoutes(app, mcpServerFactory, {
   enableAuth: config.mcp.enableAuth,
 });
 
+// Root informational endpoint
+app.get("/", (_, res) => {
+  res.json({
+    name: "ags-api-mcp-server",
+    version: "2025.9.0",
+    description: "AccelByte Gaming Services API MCP Server",
+    endpoints: {
+      mcp: `${config.mcp.serverUrl}${config.mcp.path}`,
+      health: `${config.mcp.serverUrl}/health`,
+      protectedResourceMetadata: `${config.mcp.serverUrl}/.well-known/oauth-protected-resource`,
+    },
+    authentication: {
+      enabled: config.mcp.enableAuth,
+      type: "Bearer Token (JWT)",
+      authorizationServer: config.openapi.serverUrl,
+    },
+    documentation: {
+      mcp: "https://modelcontextprotocol.io/",
+      accelbyte: "https://docs.accelbyte.io/",
+    },
+  });
+});
+
 // Health check endpoint
 app.get("/health", (_, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
