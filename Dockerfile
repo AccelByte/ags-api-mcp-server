@@ -25,11 +25,13 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/openapi-specs ./openapi-specs
 
 ENV NODE_ENV=production \
-    PORT=3000
+    MCP_PORT=3000 \
+    MCP_PATH=/mcp
 
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=5 \
   CMD curl -sf http://127.0.0.1:3000/health >/dev/null || exit 1
 
-CMD ["node", "--enable-source-maps", "dist/index.js"]
+# Use V2 architecture (stateless, HTTP-only)
+CMD ["node", "--enable-source-maps", "dist/v2/index.js"]
