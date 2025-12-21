@@ -54,6 +54,31 @@ function create(): Express {
   // TODO: Add URL encoded body limit configuration
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
+  // Error handling middleware (must be last)
+  // Note: Routes should be registered after calling create() but before starting the server
+  // This middleware will catch any errors thrown in route handlers
+  app.use(
+    (
+      err: Error,
+      _req: express.Request,
+      res: express.Response,
+      _next: express.NextFunction,
+    ) => {
+      log.error({ error: err, stack: err.stack }, "Unhandled error occurred");
+      
+      // Avoid sending response if headers already sent
+      if (res.headersSent) {
+        return;
+      }
+      
+      res.status(500).json({
+        error: "Internal server error",
+        message:
+          process.env.NODE_ENV === "development" ? err.message : undefined,
+      });
+    },
+  );
+
   return app;
 }
 
