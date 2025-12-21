@@ -58,9 +58,26 @@ function create(): Express {
 }
 
 function stop(server: Server): void {
-  // TODO: Add graceful shutdown with timeout to allow in-flight requests to complete
-  // TODO: Close database connections and other resources before shutting down
-  server.close();
+  // Graceful shutdown: allow in-flight requests to complete
+  server.close((error) => {
+    if (error) {
+      log.error({ error }, "Error during server shutdown");
+      process.exit(1);
+    }
+    log.info("Server closed successfully");
+    process.exit(0);
+  });
+
+  // Force shutdown after timeout if graceful shutdown takes too long
+  const shutdownTimeout = setTimeout(() => {
+    log.warn(
+      "Graceful shutdown timeout exceeded, forcing shutdown",
+    );
+    process.exit(1);
+  }, 10000); // 10 second timeout
+
+  // Clear timeout if shutdown completes normally
+  shutdownTimeout.unref();
 }
 
 function start(app: Express, port: number): Server {
