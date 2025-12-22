@@ -1,302 +1,518 @@
-# Development Guide
+# Development Guide (V2)
 
-This guide covers the development workflow, project structure, and how to add new features to the AGS API MCP Server.
+This guide covers the development workflow, project structure, and how to extend the AGS API MCP Server V2.
+
+> **Note:** This is the V2 development guide. For V1 documentation, see [docs/v1/DEVELOPMENT.md](v1/DEVELOPMENT.md).
+
+---
+
+## V2 Architecture Overview
+
+V2 uses a **stateless, HTTP-only** architecture:
+- ✅ No server-side sessions
+- ✅ Client-managed authentication
+- ✅ Factory pattern for MCP servers
+- ✅ Type-safe with Zod validation
+
+See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for detailed architecture.
+
+---
 
 ## Project Structure
 
 ```
-src/
-├── index.ts              # Main server entry point
-├── mcp-server.ts         # MCP protocol implementation
-├── stdio-server.ts       # Stdio transport implementation
-├── streamable-http.ts   # Streamable HTTP transport implementation
-├── oauth-middleware.ts  # OAuth authentication middleware
-├── session-manager.ts   # User session and token management
-├── otp-manager.ts       # One-time password token management
-├── config.ts            # Configuration management
-├── logger.ts            # Logging utilities
-└── tools/
-    ├── static-tools.ts  # Static MCP tools (get_token_info, start_oauth_login)
-    └── openapi-tools.ts # Dynamic OpenAPI-based tools (search-apis, describe-apis, run-apis)
+src/v2/
+├── index.ts                 # Main entry point
+├── express.ts               # Express server setup
+├── config.ts                # Configuration management (Zod)
+├── logger.ts                # Logging utilities (Pino)
+├── utils.ts                 # Utility functions
+├── auth/
+│   ├── middleware.ts        # Token extraction middleware
+│   └── routes.ts            # Auth-related routes (minimal)
+└── mcp/
+    ├── server.ts            # MCP server factory
+    ├── routes.ts            # MCP endpoint handlers
+    ├── elicitations.ts      # User consent handling
+    ├── tools/
+    │   ├── api.ts           # OpenAPI-based tools
+    │   └── auth.ts          # Authentication tools
+    └── prompts/
+        └── workflows.ts     # Workflow prompts
 ```
+
+### Key Differences from V1
+
+| Component | V1 | V2 |
+|-----------|----|----|
+| **Entry** | `src/index.ts` | `src/v2/index.ts` |
+| **Server** | `src/mcp-server.ts` | `src/v2/mcp/server.ts` |
+| **Config** | Plain JS | Zod validation |
+| **Auth** | `oauth-middleware.ts` | `auth/middleware.ts` (simple) |
+| **Sessions** | `session-manager.ts` | None (stateless) |
+| **Transport** | stdio + HTTP | HTTP only |
+
+---
 
 ## Development Setup
 
 ### Prerequisites
 
 - Node.js 20+
-- pnpm (install with: `npm install -g pnpm`)
+- pnpm
+- Git
 
 ### Initial Setup
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd ags-api-mcp-server
-   ```
-
-2. Install dependencies:
-   ```bash
-   pnpm install
-   ```
-
-3. Set up environment:
-   ```bash
-   pnpm run setup
-   ```
-
-4. Configure `.env` file with your AccelByte environment settings
-
-### Development Commands
-
-**Run in development mode (stdio)**:
 ```bash
-pnpm run dev
-```
+# Clone and install
+git clone <repository-url>
+cd ags-api-mcp-server
+pnpm install
 
-**Run in development mode (HTTP)**:
-```bash
-pnpm run dev:http
-```
+# Setup environment
+pnpm run setup
 
-**Watch mode (auto-rebuild on changes)**:
-```bash
-pnpm run watch
-```
+# Configure .env
+echo "AB_BASE_URL=https://yourgame.accelbyte.io" > .env
 
-**Build for production**:
-```bash
+# Build
 pnpm run build
 ```
 
-**Run tests**:
+---
+
+## Development Commands
+
+### Run in Development Mode
+
 ```bash
+# Watch mode (auto-restart)
+pnpm run dev
+```
+
+This compiles TypeScript and runs V2 with auto-restart on changes.
+
+### Build
+
+```bash
+# Build for production
+pnpm run build
+```
+
+### Run Tests
+
+```bash
+# All tests
 pnpm test
+
+# Watch mode
+pnpm test -- --watch
+
+# Specific test file
+pnpm test tests/v2/config.test.ts
 ```
 
-## Adding New Tools
+### Linting
 
-MCP tools are functions that can be called by MCP clients. The server supports two types of tools:
+```bash
+# Check code
+pnpm run lint
 
-1. **Static Tools**: Hand-coded tools in `src/tools/static-tools.ts`
-2. **Dynamic Tools**: Auto-generated from OpenAPI specs in `src/tools/openapi-tools.ts`
-
-### Creating a Static Tool
-
-1. **Add a method to `StaticTools` class** in `src/tools/static-tools.ts`:
-
-```typescript
-export class StaticTools {
-  // ... existing methods ...
-
-  async myNewTool(params: { input: string }): Promise<{ result: string }> {
-    // Your tool logic here
-    return { result: `Processed: ${params.input}` };
-  }
-}
+# Auto-fix
+pnpm run lint:fix
 ```
 
-2. **Register the tool** in `src/index.ts`:
+### Formatting
+
+```bash
+# Check formatting
+pnpm run format
+
+# Auto-format
+pnpm run format:fix
+```
+
+---
+
+## Configuration Management
+
+V2 uses **Zod** for type-safe configuration.
+
+### Adding a New Config Option
+
+**1. Update Schema** in `src/v2/config.ts`:
 
 ```typescript
-import { StaticTools } from './tools/static-tools';
-
-// ... existing code ...
-
-const staticTools = new StaticTools();
-
-// Register the tool
-mcpServer.registerTool('my_new_tool', staticTools.myNewTool.bind(staticTools), {
-  name: 'my_new_tool',
-  description: 'Description of what this tool does',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      input: {
-        type: 'string',
-        description: 'Input parameter description'
-      }
-    },
-    required: ['input']
-  }
+const MyConfigSchema = z.object({
+  myOption: z.string().default("default-value"),
+  myNumber: z.coerce.number().min(1).max(100).default(10),
 });
 ```
 
-3. **Access authenticated user context** (if needed):
-
-Tools receive the authenticated user context automatically. Access it through the MCP server's context:
+**2. Add to Main Config**:
 
 ```typescript
-async myNewTool(params: { input: string }, context?: any): Promise<{ result: string }> {
-  // Access user context if available
-  const userId = context?.userId;
-  const token = context?.token;
-  
-  // Your tool logic here
-  return { result: `Processed for user ${userId}: ${params.input}` };
-}
-```
-
-### Tool Schema
-
-When registering a tool, provide a schema for better tool discovery and validation:
-
-```typescript
-mcpServer.registerTool('tool_name', handler, {
-  name: 'tool_name',
-  description: 'Clear description of what the tool does',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      param1: {
-        type: 'string',
-        description: 'Parameter description'
-      },
-      param2: {
-        type: 'number',
-        description: 'Another parameter'
-      },
-      optionalParam: {
-        type: 'boolean',
-        description: 'Optional parameter'
-      }
-    },
-    required: ['param1', 'param2']
-  }
+const ConfigSchema = z.object({
+  mcp: McpConfigSchema,
+  openapi: OpenApiConfigSchema,
+  myFeature: MyConfigSchema,  // Add here
+  runtime: RuntimeConfigSchema,
 });
 ```
 
-### Best Practices for Tools
+**3. Load from Environment**:
 
-1. **Error Handling**: Always handle errors gracefully and return meaningful error messages
-2. **Input Validation**: Validate inputs before processing
-3. **Type Safety**: Use TypeScript types for parameters and return values
-4. **Documentation**: Provide clear descriptions in tool schemas
-5. **Authentication**: Tools automatically receive user context - use it for authorization
-6. **Logging**: Use the logger for important operations:
-   ```typescript
-   import { logger } from './logger';
-   
-   logger.info({ param: params.input }, 'Processing tool request');
-   ```
+```typescript
+const raw = {
+  // ... existing config
+  myFeature: {
+    myOption: process.env.MY_OPTION,
+    myNumber: process.env.MY_NUMBER,
+  },
+};
+```
+
+**4. Use in Code**:
+
+```typescript
+import config from './config.js';
+
+console.log(config.myFeature.myOption);
+```
+
+### Configuration Validation
+
+Zod automatically:
+- ✅ Validates types
+- ✅ Applies defaults
+- ✅ Coerces values (e.g., string → number)
+- ✅ Provides clear error messages
+
+---
+
+## Adding New MCP Tools
+
+V2 tools are defined in `src/v2/mcp/tools/`.
+
+### Create a New Tool
+
+**1. Define Tool in `tools/api.ts` (for API tools)**:
+
+```typescript
+export function myNewTool(openApiTools: OpenApiTools) {
+  return {
+    name: "my_new_tool",
+    description: "Description of what this tool does",
+    inputSchema: z.object({
+      param1: z.string().describe("Parameter description"),
+      param2: z.number().optional().describe("Optional parameter"),
+    }),
+    outputSchema: z.object({
+      result: z.string(),
+      status: z.string(),
+    }),
+    handler: async (params: z.infer<typeof inputSchema>) => {
+      // Tool logic here
+      const result = await doSomething(params);
+      
+      return {
+        result: result.data,
+        status: "success",
+      };
+    },
+  };
+}
+```
+
+**2. Register Tool** in `src/v2/mcp/server.ts`:
+
+```typescript
+import { myNewTool } from "./tools/api.js";
+
+// In createServer function
+const tools = [
+  getTokenInfo(config, extractedToken),
+  searchApis(openApiTools, config),
+  describeApis(openApiTools),
+  runApis(openApiTools, config, extractedToken),
+  myNewTool(openApiTools),  // Add here
+];
+
+tools.forEach((tool) => {
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    if (request.params.name === tool.name) {
+      const params = tool.inputSchema.parse(request.params.arguments);
+      const result = await tool.handler(params);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    }
+  });
+});
+```
+
+### Tool Best Practices
+
+1. **Use Zod for validation**: Define `inputSchema` and `outputSchema`
+2. **Clear descriptions**: Help LLMs understand when to use the tool
+3. **Error handling**: Return meaningful errors
+4. **Type safety**: Use TypeScript types from Zod schemas
+5. **Logging**: Log important operations
+
+```typescript
+import log from "../../logger.js";
+
+log.info({ params }, "Executing my_new_tool");
+```
+
+---
 
 ## Working with OpenAPI Tools
 
-The server automatically generates tools from OpenAPI specifications. These are managed in `src/tools/openapi-tools.ts`.
+V2 auto-generates tools from OpenAPI specs.
 
 ### Adding OpenAPI Specs
 
-1. Place OpenAPI JSON files in the `openapi-specs/` directory
-2. The server automatically loads them on startup
-3. Tools are generated automatically: `search-apis`, `describe-apis`, `run-apis`
+1. Place `.json` files in `openapi-specs/` directory
+2. Restart server (auto-loads specs)
 
-### Processing OpenAPI Specs
-
-Use the processing script to clean up OpenAPI specs:
+### Processing Specs
 
 ```bash
-# Process all specs in openapi-specs/
+# Clean and process specs
 pnpm run process-specs
 
-# With custom input folder
-pnpm run process-specs -- /path/to/input/folder
+# Custom input folder
+pnpm run process-specs -- /path/to/input
 
-# With custom input and output folders
-pnpm run process-specs -- /path/to/input/folder /path/to/output/folder
+# Custom output folder
+pnpm run process-specs -- /path/to/input /path/to/output
 ```
 
-The processing script:
-- Filters out deprecated APIs
-- Removes documentation fields (`host`, `externalDocs`, `x-docs`)
-- Removes environment-specific data (`realm` field from `x-version`)
-- Ignores specified services (buildinfo, challenge, differ, eventlog, matchmaking, sessionbrowser, ugc)
-- Prettifies JSON output
+The script:
+- Removes deprecated APIs
+- Strips documentation fields
+- Removes environment-specific data
+- Prettifies JSON
 
-## Code Style and Standards
+---
 
-### TypeScript
+## Authentication & Middleware
 
-- Use strict TypeScript settings (enforced by `tsconfig.json`)
-- Prefer explicit types over `any`
-- Use interfaces for object shapes
-- Use enums for constants
+V2 uses simple token extraction (no JWKS verification).
 
-### Logging
+### Token Extraction
 
-Use the structured logger from `src/logger.ts`:
+**Location**: `src/v2/auth/middleware.ts`
 
 ```typescript
-import { logger } from './logger';
-
-// Info level
-logger.info({ key: 'value' }, 'Informational message');
-
-// Debug level
-logger.debug({ data }, 'Debug information');
-
-// Error level
-logger.error({ error }, 'Error occurred');
-
-// Fatal level (exits process)
-logger.fatal({ error }, 'Fatal error');
-```
-
-### Error Handling
-
-Always handle errors appropriately:
-
-```typescript
-try {
-  // Operation
-} catch (error) {
-  logger.error({ error }, 'Operation failed');
-  throw new Error('User-friendly error message');
+export function extractToken(req: Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader.substring(7);
+  }
+  return null;
 }
 ```
 
-## Testing
+### Using Token in Tools
 
-### Running Tests
-
-```bash
-# Run all tests
-pnpm test
-
-# Run tests in watch mode
-pnpm test -- --watch
-
-# Run specific test file
-pnpm test tests/my-test.test.ts
-```
-
-### Writing Tests
-
-Tests use Node.js built-in test framework. Example:
+Token is passed to tool handlers via MCP server factory:
 
 ```typescript
-import { test } from 'node:test';
-import assert from 'node:assert';
+// In server.ts
+const extractedToken = extractToken(req);
 
-test('my tool test', async () => {
-  const result = await myTool({ input: 'test' });
-  assert.strictEqual(result.output, 'expected');
+// Pass to tool
+const tool = getTokenInfo(config, extractedToken);
+```
+
+---
+
+## Testing
+
+### Unit Tests
+
+Create tests in `tests/v2/`:
+
+```typescript
+import { test, describe } from 'node:test';
+import assert from 'node:assert';
+import { myFunction } from '../../src/v2/my-module.js';
+
+describe('MyModule', () => {
+  test('should do something', async () => {
+    const result = await myFunction();
+    assert.strictEqual(result, expected);
+  });
 });
 ```
 
-See existing tests in the `tests/` directory for examples.
+### Integration Tests
+
+Test HTTP endpoints:
+
+```typescript
+test('POST /mcp returns success', async () => {
+  const response = await fetch('http://localhost:3000/mcp', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${testToken}`,
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/list',
+    }),
+  });
+  
+  assert.strictEqual(response.status, 200);
+});
+```
+
+### Test with Real Server
+
+```bash
+# Start server
+pnpm run dev
+
+# In another terminal, run integration tests
+pnpm run test:integration
+```
+
+---
+
+## Logging
+
+V2 uses **Pino** for structured logging.
+
+### Log Levels
+
+```typescript
+import log from './logger.js';
+
+log.trace({ detail }, 'Trace message');
+log.debug({ data }, 'Debug message');
+log.info({ info }, 'Info message');
+log.warn({ warning }, 'Warning message');
+log.error({ error }, 'Error message');
+log.fatal({ error }, 'Fatal error');  // Exits process
+```
+
+### Logging Best Practices
+
+1. **Structured logging**: Include context objects
+2. **Appropriate levels**: Use correct log level
+3. **No secrets**: Never log tokens or secrets
+4. **Performance**: Use debug level for verbose logs
+
+```typescript
+// Good
+log.info({ userId, action: 'login' }, 'User logged in');
+
+// Bad
+log.info('User ' + userId + ' logged in');
+```
+
+---
+
+## Error Handling
+
+### MCP Errors
+
+Use `McpError` for MCP protocol errors:
+
+```typescript
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+
+throw new McpError(
+  ErrorCode.InvalidRequest,
+  "Invalid parameter: userId is required"
+);
+```
+
+### Express Errors
+
+Express error handler catches all errors:
+
+```typescript
+// src/v2/express.ts
+app.use((err, req, res, next) => {
+  log.error({ err, path: req.path }, "Request error");
+  res.status(500).json({
+    error: {
+      message: "Internal server error",
+      code: "INTERNAL_ERROR",
+    },
+  });
+});
+```
+
+---
+
+## Code Style
+
+### TypeScript
+
+- Use strict mode (enforced by `tsconfig.json`)
+- Prefer interfaces for object shapes
+- Use `const` for immutable values
+- Explicit return types for functions
+
+```typescript
+// Good
+interface User {
+  id: string;
+  name: string;
+}
+
+function getUser(id: string): Promise<User> {
+  // ...
+}
+```
+
+### Imports
+
+Use ES modules (`.js` extension):
+
+```typescript
+import config from './config.js';
+import { myFunction } from '../utils.js';
+```
+
+### Zod Schemas
+
+Define schemas for validation:
+
+```typescript
+const MySchema = z.object({
+  name: z.string(),
+  age: z.number().positive(),
+});
+
+type MyType = z.infer<typeof MySchema>;
+```
+
+---
 
 ## Debugging
 
 ### Debug Mode
 
-Enable debug logging:
 ```bash
 LOG_LEVEL=debug pnpm run dev
 ```
 
 ### VS Code Debugging
 
-Create a `.vscode/launch.json`:
+Create `.vscode/launch.json`:
 
 ```json
 {
@@ -305,12 +521,12 @@ Create a `.vscode/launch.json`:
     {
       "type": "node",
       "request": "launch",
-      "name": "Debug MCP Server (stdio)",
+      "name": "Debug V2",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["run", "dev"],
       "env": {
-        "TRANSPORT": "stdio",
-        "LOG_LEVEL": "debug"
+        "LOG_LEVEL": "debug",
+        "AB_BASE_URL": "https://yourgame.accelbyte.io"
       },
       "console": "integratedTerminal"
     }
@@ -318,78 +534,114 @@ Create a `.vscode/launch.json`:
 }
 ```
 
+### Inspecting Requests
+
+```bash
+# Enable request logging
+LOG_LEVEL=debug pnpm run dev
+
+# Test with curl
+curl -v -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer test-token" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+---
+
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Make your changes
-4. Add tests if applicable
-5. Ensure all tests pass: `pnpm test`
-6. Commit your changes: `git commit -m "Add my feature"`
-7. Push to the branch: `git push origin feature/my-feature`
-8. Submit a pull request
+### Workflow
+
+1. Fork repository
+2. Create feature branch: `git checkout -b feature/my-feature`
+3. Make changes
+4. Add tests
+5. Run tests: `pnpm test`
+6. Run linter: `pnpm run lint`
+7. Commit: `git commit -m "feat: add my feature"`
+8. Push: `git push origin feature/my-feature`
+9. Open pull request
 
 ### Commit Messages
 
-Follow conventional commit format:
-- `feat: Add new tool`
-- `fix: Fix authentication bug`
-- `docs: Update README`
-- `test: Add tests for new feature`
-- `refactor: Simplify tool registration`
+Follow conventional commits:
 
-## Common Development Tasks
+```
+feat: Add new tool for user management
+fix: Fix token extraction bug
+docs: Update API reference
+test: Add tests for config module
+refactor: Simplify tool registration
+```
 
-### Adding a New Environment Variable
+---
 
-1. Add to `src/config.ts`:
-   ```typescript
-   export const myConfig = {
-     myVar: process.env.MY_VAR || 'default-value'
-   };
-   ```
+## Common Tasks
 
+### Add Environment Variable
+
+1. Update `src/v2/config.ts` schema
 2. Document in `docs/ENVIRONMENT_VARIABLES.md`
-3. Add to `env.example` if needed
+3. Add to `env.example`
 
-### Modifying OAuth Flow
+### Add Express Route
 
-OAuth logic is in `src/oauth-middleware.ts`. Key components:
-- `OAuthMiddleware` class handles OAuth flow
-- Session management in `src/session-manager.ts`
-- OTP tokens in `src/otp-manager.ts`
+```typescript
+// In src/v2/index.ts
+app.get('/my-route', (req, res) => {
+  res.json({ message: 'Hello' });
+});
+```
 
-### Modifying Transport
+### Add Middleware
 
-- Stdio transport: `src/stdio-server.ts`
-- HTTP transport: `src/streamable-http.ts`
-- Main server logic: `src/mcp-server.ts`
+```typescript
+// src/v2/express.ts
+import { myMiddleware } from './middlewares/my-middleware.js';
+
+export function create(): Express {
+  const app = express();
+  app.use(myMiddleware);
+  // ... rest of setup
+}
+```
+
+---
 
 ## Troubleshooting
 
 ### Build Errors
 
-1. Clear node_modules and reinstall:
-   ```bash
-   rm -rf node_modules pnpm-lock.yaml
-   pnpm install
-   ```
+```bash
+# Clean and rebuild
+rm -rf dist node_modules
+pnpm install
+pnpm run build
+```
 
-2. Clear TypeScript cache:
-   ```bash
-   rm -rf dist
-   pnpm run build
-   ```
+### Type Errors
+
+```bash
+# Check TypeScript
+pnpm run build
+```
 
 ### Runtime Errors
 
-1. Check logs with `LOG_LEVEL=debug`
-2. Verify environment variables are set correctly
-3. Check that all dependencies are installed
+```bash
+# Enable debug logging
+LOG_LEVEL=debug pnpm run dev
+```
 
-### Test Failures
+---
 
-1. Ensure test environment is set up correctly
-2. Check that mock data matches expected format
-3. Verify test isolation (no shared state)
+## References
+
+- [V2 Architecture](V2_ARCHITECTURE.md)
+- [API Reference](API_REFERENCE.md)
+- [Testing Guide](TESTING.md)
+- [MCP SDK Documentation](https://github.com/modelcontextprotocol/typescript-sdk)
+- [Zod Documentation](https://zod.dev/)
+- [Pino Documentation](https://getpino.io/)
 

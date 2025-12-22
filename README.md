@@ -335,21 +335,27 @@ pnpm test
 
 ## Documentation
 
-### Getting Started
-- [docs/QUICK_START.md](docs/QUICK_START.md) - Quick start guide and setup instructions
+> 📖 **New to the project?** See [docs/DOCUMENTATION_GUIDE.md](docs/DOCUMENTATION_GUIDE.md) for a complete overview of the documentation structure.
 
-### Core Documentation
-- [docs/STREAMABLE_HTTP.md](docs/STREAMABLE_HTTP.md) - Streamable HTTP transport implementation
-- [docs/OAUTH_FLOW.md](docs/OAUTH_FLOW.md) - OAuth authentication flow details
-- [docs/API_REFERENCE.md](docs/API_REFERENCE.md) - Complete API endpoints reference
-- [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) - Environment variables reference
+### V2 Documentation (Current)
 
-### Deployment & Operations
-- [docs/DOCKER.md](docs/DOCKER.md) - Docker deployment guide
+#### Getting Started
+- [docs/QUICK_START.md](docs/QUICK_START.md) - V2 quick start guide and setup
+- [docs/V2_ARCHITECTURE.md](docs/V2_ARCHITECTURE.md) - V2 architecture and V1 comparison
 
-### Development
-- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) - Development guide and contributing
-- [docs/TESTING.md](docs/TESTING.md) - Testing guide and examples
+#### Core Documentation
+- [docs/API_REFERENCE.md](docs/API_REFERENCE.md) - V2 API endpoints reference
+- [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) - V2 environment variables
+
+#### Deployment & Operations
+- [docs/DOCKER.md](docs/DOCKER.md) - V2 Docker deployment guide
+
+#### Development
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) - V2 development guide
+- [docs/TESTING.md](docs/TESTING.md) - V2 testing guide
+
+### V1 Documentation (Legacy)
+- [docs/v1/](docs/v1/) - Complete V1 documentation (OAuth flow, SSE, sessions)
 
 ## Support
 

@@ -1,22 +1,33 @@
-# API Reference
+# API Reference (V2)
 
-This document describes all available API endpoints for the AGS API MCP Server.
+This document describes all available API endpoints for the AGS API MCP Server V2.
 
-## MCP Protocol (Streamable HTTP)
+> **Note:** This is the V2 API reference. For V1 documentation, see [docs/v1/API_REFERENCE.md](v1/API_REFERENCE.md).
 
-The server implements the MCP (Model Context Protocol) using Streamable HTTP transport, compliant with [MCP Specification 2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#streamable-http).
+## Architecture Overview
+
+V2 is **stateless** and uses **HTTP-only** transport with:
+- POST-only MCP endpoint
+- Bearer token authentication (client-managed)
+- No server-side sessions
+- No SSE streams
+
+See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for detailed architectural information.
+
+---
+
+## MCP Protocol Endpoint
 
 ### `POST /mcp`
+
 Send JSON-RPC messages from client to server.
 
-**Authentication**: Required (Bearer token, MCP session ID, or auto-generated session token)
+**Authentication**: Required - Bearer token via `Authorization` header
 
 **Request Headers**:
-- `Content-Type: application/json`
-- `Accept: application/json` or `Accept: text/event-stream`
-- `MCP-Protocol-Version: 2025-06-18` (optional)
-- `Mcp-Session-Id: <session-id>` (required for non-initialize requests)
-- `Authorization: Bearer <token>` (optional, if using bearer token)
+- `Content-Type: application/json` (required)
+- `Authorization: Bearer <token>` (required)
+- `Accept: application/json` (optional)
 
 **Request Body**:
 ```json
@@ -28,7 +39,24 @@ Send JSON-RPC messages from client to server.
 }
 ```
 
-**Response**: JSON-RPC response or Server-Sent Events stream (depending on Accept header)
+**Response**: JSON-RPC response
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "tools": [...]
+  }
+}
+```
+
+**Status Codes**:
+- `200 OK`: Request processed successfully
+- `400 Bad Request`: Invalid JSON-RPC request
+- `401 Unauthorized`: Missing or invalid bearer token
+- `405 Method Not Allowed`: Non-POST request (V2 is POST-only)
+- `429 Too Many Requests`: Rate limit exceeded
+- `500 Internal Server Error`: Server error
 
 **Example**:
 ```bash
@@ -42,70 +70,20 @@ curl -X POST http://localhost:3000/mcp \
   }'
 ```
 
-### `GET /mcp`
-Open Server-Sent Events (SSE) stream for server-to-client messages.
+### `GET /mcp` and `DELETE /mcp`
 
-**Authentication**: Required (Bearer token, MCP session ID, or auto-generated session token)
+**Status**: Returns `405 Method Not Allowed`
 
-**Request Headers**:
-- `Accept: text/event-stream`
-- `MCP-Protocol-Version: 2025-06-18` (optional)
-- `Mcp-Session-Id: <session-id>` (optional, for resuming existing session)
-- `Last-Event-Id: <event-id>` (optional, for stream resumption)
-- `Authorization: Bearer <token>` (optional, if using bearer token)
+V2 implements minimal Streamable HTTP per MCP specification, which allows returning 405 for GET and DELETE methods. V2 focuses on stateless POST-only operation.
 
-**Response**: Server-Sent Events stream
+For V1 with full SSE support, see [docs/v1/STREAMABLE_HTTP.md](v1/STREAMABLE_HTTP.md).
 
-**Example**:
-```bash
-curl -N http://localhost:3000/mcp \
-  -H "Accept: text/event-stream" \
-  -H "Authorization: Bearer your_jwt_token"
-```
+---
 
-For detailed Streamable HTTP documentation, see [docs/STREAMABLE_HTTP.md](STREAMABLE_HTTP.md).
-
-## OAuth & Authentication
-
-### `GET /auth/login?otp_token=<uuid>`
-Initiate OAuth login flow using a secure one-time password token.
-
-**Authentication**: OTP token (required in query parameter)
-
-**Query Parameters**:
-- `otp_token` (required): One-time password token obtained from `start_oauth_login` tool response
-
-**Security Features**:
-- OTP tokens expire in 10 minutes
-- OTP tokens can only be used once
-- Returns 400 Bad Request if OTP token is missing or invalid
-
-**Response**: Redirects to OAuth authorization server
-
-**Example**:
-```
-http://localhost:3000/auth/login?otp_token=550e8400-e29b-41d4-a716-446655440000
-```
-
-**Note**: Get the OTP token from the `start_oauth_login` MCP tool response before calling this endpoint.
-
-### `GET /oauth/callback`
-OAuth callback handler for receiving authorization codes.
-
-**Authentication**: Not required (handled by OAuth flow)
-
-**Query Parameters**: Standard OAuth callback parameters (code, state, etc.)
-
-**Response**: Redirects to success page or error page
-
-**Note**: 
-- This endpoint is automatically called by the OAuth provider after user authorization
-- **Only required for user token authentication**: This redirect URI configuration is only needed if you intend to use user token authentication (OAuth Authorization Code flow with PKCE). If you only use client credentials flow, this endpoint is not needed
-- **Must match IAM configuration**: The redirect URI configured here (via `OAUTH_REDIRECT_URI`, default: `http://localhost:3000/oauth/callback`) must exactly match what's registered in your AccelByte IAM client settings. If they don't match, AccelByte will reject the OAuth callback and authentication will fail
-
-## Health Check
+## Health & Information Endpoints
 
 ### `GET /health`
+
 Check server health status.
 
 **Authentication**: Not required
@@ -123,36 +101,38 @@ Check server health status.
 curl http://localhost:3000/health
 ```
 
-## Discovery Endpoints
+### `GET /`
 
-These endpoints provide metadata about the OAuth/OIDC configuration, following standard discovery protocols.
-
-### `GET /.well-known/oauth-authorization-server`
-OAuth server metadata (RFC 8414).
+Server information and available endpoints.
 
 **Authentication**: Not required
 
-**Response**: JSON object containing OAuth server metadata
-
-**Example**:
-```bash
-curl http://localhost:3000/.well-known/oauth-authorization-server
-```
-
-### `GET /.well-known/openid-configuration`
-OpenID Connect discovery document.
-
-**Authentication**: Not required
-
-**Response**: JSON object containing OpenID Connect configuration
-
-**Example**:
-```bash
-curl http://localhost:3000/.well-known/openid-configuration
+**Response**:
+```json
+{
+  "name": "ags-api-mcp-server",
+  "version": "2025.9.0",
+  "description": "AccelByte Gaming Services API MCP Server",
+  "endpoints": {
+    "mcp": "http://localhost:3000/mcp",
+    "health": "http://localhost:3000/health",
+    "protectedResourceMetadata": "http://localhost:3000/.well-known/oauth-protected-resource"
+  },
+  "authentication": {
+    "enabled": true,
+    "type": "Bearer Token (JWT)",
+    "authorizationServer": "https://yourgame.accelbyte.io"
+  },
+  "documentation": {
+    "mcp": "https://modelcontextprotocol.io/",
+    "accelbyte": "https://docs.accelbyte.io/"
+  }
+}
 ```
 
 ### `GET /.well-known/oauth-protected-resource`
-Protected resource metadata (RFC 9728).
+
+Protected resource metadata per RFC 9728.
 
 **Authentication**: Not required
 
@@ -163,74 +143,237 @@ Protected resource metadata (RFC 9728).
 curl http://localhost:3000/.well-known/oauth-protected-resource
 ```
 
-## Authentication Methods
+---
 
-The server supports multiple authentication methods:
+## Authentication
 
-### Bearer Token
-Standard OAuth bearer token authentication.
+V2 uses **Bearer Token authentication** (client-managed).
 
-**Usage**:
-- Set `Authorization: Bearer <token>` header
-- Or set `auth_token` cookie
+### How It Works
 
-**Supported for**: All endpoints requiring authentication
+1. **Client obtains token** externally (from OAuth provider)
+2. **Client includes token** in Authorization header: `Bearer <token>`
+3. **Server validates token** per request (stateless)
 
-### MCP Session ID Header
-For Streamable HTTP transport sessions.
+### Token Format
 
-**Usage**:
-- Set `Mcp-Session-Id: <session-id>` header
-- Session ID is returned after initializing a session
+Standard JWT (JSON Web Token) from AccelByte IAM:
+```
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+```
 
-**Supported for**: MCP protocol endpoints (`/mcp`)
+### Authentication Flow
 
-### Auto-Generated Session Token
-For stdio mode (automatically generated, no configuration needed).
+```
+┌─────────────┐                    ┌──────────────┐
+│   Client    │                    │  MCP Server  │
+└──────┬──────┘                    └──────┬───────┘
+       │                                  │
+       │  1. Obtain JWT from OAuth        │
+       │     provider externally          │
+       │                                  │
+       │  2. POST /mcp                    │
+       │     Authorization: Bearer <JWT>  │
+       ├─────────────────────────────────►│
+       │                                  │
+       │                   3. Extract JWT │
+       │                      from header │
+       │                                  │
+       │                   4. Use token   │
+       │                      for API     │
+       │                      calls       │
+       │                                  │
+       │  5. Response                     │
+       │◄─────────────────────────────────┤
+       │                                  │
+```
 
-**Usage**:
-- Automatically handled by the server in stdio mode
-- No manual configuration required
+### Token Refresh
 
-**Supported for**: Stdio mode only
+**Client responsibility** - V2 doesn't manage tokens server-side:
+1. Monitor token expiration
+2. Refresh token before it expires
+3. Update Authorization header with new token
 
-### OTP Token
-For OAuth login URLs only (single-use, 10-minute expiry).
+### Optional: Disable Authentication
 
-**Usage**:
-- Include `otp_token` query parameter in `/auth/login` endpoint
-- Get OTP token from `start_oauth_login` tool response
+Set `MCP_AUTH=false` for development/testing (not recommended for production):
 
-**Supported for**: `/auth/login` endpoint only
+```bash
+export MCP_AUTH=false
+pnpm start
+```
 
-## Error Responses
+---
 
-All endpoints may return standard HTTP error codes:
+## MCP Tools
 
-- `400 Bad Request`: Invalid request parameters or missing required parameters
-- `401 Unauthorized`: Authentication required or authentication failed
-- `403 Forbidden`: Insufficient permissions
-- `404 Not Found`: Endpoint not found
-- `500 Internal Server Error`: Server error
+V2 provides 4 core tools:
 
-Error responses follow this format:
+### 1. `get_token_info`
+
+Get information about the authenticated token and user.
+
+**Input**: None required
+
+**Output**:
 ```json
 {
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "Human-readable error message"
+  "namespace": "mygame",
+  "user_id": "user-uuid",
+  "display_name": "PlayerName",
+  "roles": ["User"],
+  "permissions": [...],
+  "expires_at": 1234567890,
+  "hints": {
+    "namespace_usage": "This namespace should be used as the default...",
+    "token_validity": "Token is valid and active"
   }
 }
 ```
 
+### 2. `search-apis`
+
+Search across loaded OpenAPI operations.
+
+**Input**:
+```json
+{
+  "query": "user profile",
+  "method": "GET",
+  "tag": "Users",
+  "spec": "iam",
+  "limit": 10
+}
+```
+
+**Output**:
+```json
+{
+  "results": [
+    {
+      "apiId": "iam:GET:/iam/v3/public/users/me/profiles",
+      "method": "GET",
+      "path": "/iam/v3/public/users/me/profiles",
+      "summary": "Get my user profile",
+      "description": "...",
+      "tags": ["Users"],
+      "spec": "iam"
+    }
+  ],
+  "total": 1,
+  "limit": 10
+}
+```
+
+### 3. `describe-apis`
+
+Get detailed information about a specific API operation.
+
+**Input**:
+```json
+{
+  "apiId": "iam:GET:/iam/v3/public/users/me/profiles"
+}
+```
+
+**Output**: Detailed API schema, parameters, responses, etc.
+
+### 4. `run-apis`
+
+Execute API requests against endpoints.
+
+**Input**:
+```json
+{
+  "apiId": "iam:GET:/iam/v3/public/users/me/profiles",
+  "pathParams": {},
+  "query": {},
+  "headers": {},
+  "timeoutMs": 15000
+}
+```
+
+**Output**:
+```json
+{
+  "status": 200,
+  "data": { ... },
+  "headers": { ... }
+}
+```
+
+**User Consent**: For write operations (POST/PUT/PATCH/DELETE), the tool uses **elicitation** to request user approval before execution.
+
+---
+
 ## Rate Limiting
 
-Currently, the server does not implement rate limiting. However, it's recommended to:
-- Use appropriate request intervals
-- Implement client-side rate limiting for production use
-- Monitor server resources
+V2 includes built-in rate limiting:
+
+- **Default**: 100 requests per 15 minutes per IP
+- **Response**: `429 Too Many Requests` when exceeded
+- **Headers**: Rate limit info in response headers
+
+---
+
+## Error Responses
+
+All endpoints return errors in this format:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32600,
+    "message": "Invalid Request",
+    "data": {
+      "details": "Additional error information"
+    }
+  }
+}
+```
+
+### Common Error Codes
+
+| HTTP Status | JSON-RPC Code | Meaning |
+|------------|---------------|---------|
+| 400 | -32600 | Invalid Request |
+| 401 | -32000 | Unauthorized (missing/invalid token) |
+| 405 | - | Method Not Allowed (GET/DELETE on /mcp) |
+| 429 | -32000 | Rate Limit Exceeded |
+| 500 | -32603 | Internal Server Error |
+
+---
 
 ## CORS
 
-For HTTP mode, the server validates the `Origin` header to prevent DNS rebinding attacks. Ensure your client sends the correct `Origin` header when making requests.
+V2 includes CORS support with sensible defaults:
+- Allows common origins for development
+- Configurable via middleware
+
+---
+
+## Comparison with V1
+
+| Feature | V1 | V2 |
+|---------|----|----|
+| **Transport** | stdio + HTTP with SSE | HTTP POST-only |
+| **Authentication** | Server-managed OAuth | Client-managed Bearer token |
+| **Session Management** | Server-side sessions | Stateless |
+| **GET /mcp** | SSE stream | 405 Method Not Allowed |
+| **DELETE /mcp** | Session termination | 405 Method Not Allowed |
+| **OAuth Endpoints** | /auth/login, /oauth/callback | None |
+| **Rate Limiting** | None | Built-in |
+
+See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for detailed comparison.
+
+---
+
+## References
+
+- [MCP Specification (2025-11-25)](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)
+- [V2 Architecture Guide](V2_ARCHITECTURE.md)
+- [V1 API Reference](v1/API_REFERENCE.md) (legacy)
 

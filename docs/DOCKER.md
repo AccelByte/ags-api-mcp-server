@@ -1,184 +1,119 @@
-# Docker Deployment Guide
+# Docker Deployment Guide (V2)
 
-The MCP server can be deployed using Docker for easy containerization and deployment. This guide covers building, running, and managing Docker containers.
+Deploy the AGS API MCP Server V2 using Docker for easy containerization and deployment.
+
+> **Note:** This is the V2 Docker guide. For V1 documentation, see [docs/v1/DOCKER.md](v1/DOCKER.md) (if needed).
+
+---
+
+## V2 Architecture
+
+V2 is **stateless** and **HTTP-only**, making it ideal for containerized deployments:
+- ✅ No session state to persist
+- ✅ No sticky sessions required
+- ✅ Horizontal scaling
+- ✅ Simple health checks
+
+See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for architectural details.
+
+---
 
 ## Building the Docker Image
 
-Build the Docker image from the project directory:
+### Build from Project Root
 
 ```bash
-docker build -t ags-api-mcp-server .
+docker build -t ags-api-mcp-server:v2 .
 ```
 
-The Dockerfile uses a multi-stage build process to create an optimized production image.
+The Dockerfile:
+- Uses multi-stage build (optimized size)
+- Runs V2 by default (`dist/v2/index.js`)
+- Based on Node.js Alpine (lightweight)
+- Includes health check
+
+### Build with Custom Tag
+
+```bash
+docker build -t mycompany/ags-api-mcp-server:2.0.0 .
+```
+
+### Build with Build Args
+
+```bash
+docker build \
+  --build-arg NODE_VERSION=20 \
+  -t ags-api-mcp-server:v2 \
+  .
+```
+
+---
 
 ## Running with Docker
 
-### Stdio Mode (Default)
-
-To run in stdio mode (default), configure the MCP client to run docker directly. This is the recommended approach for MCP clients like Claude Desktop.
-
-**Example Claude Desktop Configuration**:
-```json
-{
-  "mcpServers": {
-    "ags-api": {
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "TRANSPORT=stdio",
-        "-e",
-        "AB_BASE_URL=https://yourgame.accelbyte.io",
-        "-e",
-        "OAUTH_CLIENT_ID=<client_id>",
-        "-e",
-        "OAUTH_CLIENT_SECRET=<client_secret>",
-        "-e",
-        "LOG_LEVEL=info",
-        "ags-api-mcp-server"
-      ]
-    }
-  }
-}
-```
-
-**Note**: The `-i` flag is required for interactive mode (stdio), and `--rm` automatically removes the container when it stops.
-
-### HTTP Mode
-
-To run in HTTP mode, add the `TRANSPORT=http` environment variable and expose the port:
+### Basic Run
 
 ```bash
 docker run -d \
   --name ags-api-mcp-server \
-  -e TRANSPORT=http \
   -e AB_BASE_URL=https://yourgame.accelbyte.io \
-  -e OAUTH_CLIENT_ID=your-client-id \
-  -e OAUTH_CLIENT_SECRET=your-client-secret \
-  -e PORT=3000 \
+  -e MCP_AUTH=true \
+  -p 3000:3000 \
+  ags-api-mcp-server:v2
+```
+
+### With Custom Configuration
+
+```bash
+docker run -d \
+  --name ags-api-mcp-server \
+  -e AB_BASE_URL=https://yourgame.accelbyte.io \
+  -e MCP_PORT=3000 \
+  -e MCP_PATH=/mcp \
+  -e MCP_AUTH=true \
   -e NODE_ENV=production \
   -e LOG_LEVEL=info \
+  -e OPENAPI_MAX_SEARCH_LIMIT=50 \
+  -e OPENAPI_DEFAULT_RUN_TIMEOUT_MS=15000 \
   -p 3000:3000 \
-  ags-api-mcp-server
+  ags-api-mcp-server:v2
 ```
 
-**Note**: The `-d` flag runs the container in detached mode (background).
+### With Environment File
 
-## Docker Container Management
-
-### View Logs
-
-View container logs:
+Create `docker.env`:
 ```bash
-docker logs ags-api-mcp-server
+AB_BASE_URL=https://yourgame.accelbyte.io
+MCP_AUTH=true
+NODE_ENV=production
+LOG_LEVEL=info
 ```
 
-Follow logs in real-time:
+Run with env file:
 ```bash
-docker logs -f ags-api-mcp-server
+docker run -d \
+  --name ags-api-mcp-server \
+  --env-file docker.env \
+  -p 3000:3000 \
+  ags-api-mcp-server:v2
 ```
 
-### Stop Container
+### With Volume for OpenAPI Specs
 
-Stop a running container:
-```bash
-docker stop ags-api-mcp-server
-```
-
-### Remove Container
-
-Remove a stopped container:
-```bash
-docker rm ags-api-mcp-server
-```
-
-Stop and remove in one command:
-```bash
-docker stop ags-api-mcp-server && docker rm ags-api-mcp-server
-```
-
-### Restart Container
-
-Restart a running container:
-```bash
-docker restart ags-api-mcp-server
-```
-
-### Check Container Status
-
-View running containers:
-```bash
-docker ps
-```
-
-View all containers (including stopped):
-```bash
-docker ps -a
-```
-
-## Health Check
-
-The Docker container includes a built-in health check that monitors the `/health` endpoint.
-
-### Check Container Health Status
-
-View container health status:
-```bash
-docker ps
-```
-
-The health status will be displayed in the STATUS column (e.g., "healthy", "unhealthy", or "starting").
-
-### Manual Health Check
-
-Test the health endpoint manually:
-```bash
-curl http://localhost:3000/health
-```
-
-Expected response:
-```json
-{
-  "status": "ok",
-  "timestamp": "2024-01-01T00:00:00.000Z"
-}
-```
-
-## Docker Features
-
-The Docker image includes the following features:
-
-- **Multi-stage build**: Optimized image size with separate build and runtime stages
-- **Health checks**: Built-in monitoring of server health via `/health` endpoint
-- **Port exposure**: Port 3000 is automatically exposed (configurable via `PORT` environment variable)
-- **Production ready**: Configured for production deployment with optimized Node.js settings
-- **Lightweight**: Based on Node.js Alpine Linux image for minimal size
-
-## Environment Variables
-
-All environment variables can be passed to the Docker container using the `-e` flag. See [docs/ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) for a complete list of available variables.
-
-**Example with multiple environment variables**:
 ```bash
 docker run -d \
   --name ags-api-mcp-server \
   -e AB_BASE_URL=https://yourgame.accelbyte.io \
-  -e OAUTH_CLIENT_ID=your-client-id \
-  -e OAUTH_CLIENT_SECRET=your-client-secret \
-  -e PORT=3000 \
-  -e NODE_ENV=production \
-  -e LOG_LEVEL=debug \
-  -e TRANSPORT=http \
+  -v $(pwd)/openapi-specs:/app/openapi-specs:ro \
   -p 3000:3000 \
-  ags-api-mcp-server
+  ags-api-mcp-server:v2
 ```
 
-## Using Docker Compose
+---
 
-You can also use Docker Compose for easier management. Create a `docker-compose.yml` file:
+## Docker Compose
+
+### Basic docker-compose.yml
 
 ```yaml
 version: '3.8'
@@ -190,11 +125,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - TRANSPORT=http
       - AB_BASE_URL=https://yourgame.accelbyte.io
-      - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
-      - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
-      - PORT=3000
+      - MCP_AUTH=true
       - NODE_ENV=production
       - LOG_LEVEL=info
     healthcheck:
@@ -203,87 +135,415 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    restart: unless-stopped
 ```
 
-Then run:
-```bash
-docker-compose up -d
+### With Volume and Resource Limits
+
+```yaml
+version: '3.8'
+
+services:
+  ags-api-mcp-server:
+    build: .
+    container_name: ags-api-mcp-server
+    ports:
+      - "3000:3000"
+    environment:
+      - AB_BASE_URL=https://yourgame.accelbyte.io
+      - MCP_AUTH=true
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+    volumes:
+      - ./openapi-specs:/app/openapi-specs:ro
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    restart: unless-stopped
 ```
+
+### Run with Docker Compose
+
+```bash
+# Start
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
+
+# Rebuild and restart
+docker-compose up -d --build
+```
+
+---
+
+## Container Management
+
+### View Logs
+
+```bash
+# View all logs
+docker logs ags-api-mcp-server
+
+# Follow logs (real-time)
+docker logs -f ags-api-mcp-server
+
+# Last 100 lines
+docker logs --tail 100 ags-api-mcp-server
+
+# With timestamps
+docker logs -t ags-api-mcp-server
+```
+
+### Stop Container
+
+```bash
+docker stop ags-api-mcp-server
+```
+
+### Start Container
+
+```bash
+docker start ags-api-mcp-server
+```
+
+### Restart Container
+
+```bash
+docker restart ags-api-mcp-server
+```
+
+### Remove Container
+
+```bash
+# Stop and remove
+docker stop ags-api-mcp-server
+docker rm ags-api-mcp-server
+
+# Force remove (running container)
+docker rm -f ags-api-mcp-server
+```
+
+### Check Status
+
+```bash
+# View running containers
+docker ps
+
+# View all containers
+docker ps -a
+
+# View container details
+docker inspect ags-api-mcp-server
+```
+
+---
+
+## Health Checks
+
+V2 includes built-in health check endpoint.
+
+### Check Container Health
+
+```bash
+# Via Docker
+docker inspect --format='{{.State.Health.Status}}' ags-api-mcp-server
+
+# Via curl
+curl http://localhost:3000/health
+```
+
+Expected response:
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-01T00:00:00.000Z"
+}
+```
+
+### Health Check Configuration
+
+Docker health check runs every 30 seconds:
+- ✅ **healthy** - Endpoint returns 200
+- ⚠️ **starting** - Initial 40s grace period
+- ❌ **unhealthy** - Failed 3 consecutive checks
+
+---
+
+## Production Deployment
+
+### Resource Limits
+
+Set appropriate limits:
+
+```bash
+docker run -d \
+  --name ags-api-mcp-server \
+  --memory="512m" \
+  --memory-reservation="256m" \
+  --cpus="1.0" \
+  -e AB_BASE_URL=https://yourgame.accelbyte.io \
+  -p 3000:3000 \
+  ags-api-mcp-server:v2
+```
+
+### Restart Policy
+
+```bash
+docker run -d \
+  --name ags-api-mcp-server \
+  --restart=unless-stopped \
+  -e AB_BASE_URL=https://yourgame.accelbyte.io \
+  -p 3000:3000 \
+  ags-api-mcp-server:v2
+```
+
+Options:
+- `no` - Never restart
+- `on-failure` - Restart on error
+- `always` - Always restart
+- `unless-stopped` - Always restart unless manually stopped
+
+### Network Configuration
+
+```bash
+# Create custom network
+docker network create ags-network
+
+# Run with custom network
+docker run -d \
+  --name ags-api-mcp-server \
+  --network ags-network \
+  -e AB_BASE_URL=https://yourgame.accelbyte.io \
+  -p 3000:3000 \
+  ags-api-mcp-server:v2
+```
+
+---
+
+## Environment Variables
+
+All V2 environment variables work in Docker.
+
+### Required
+
+- `AB_BASE_URL` - AccelByte environment URL
+
+### Optional
+
+- `MCP_PORT` - Server port (default: 3000)
+- `MCP_PATH` - Endpoint path (default: /mcp)
+- `MCP_AUTH` - Enable auth (default: true)
+- `NODE_ENV` - Environment (default: development)
+- `LOG_LEVEL` - Log level (default: info)
+
+See [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) for complete list.
+
+---
+
+## Kubernetes Deployment
+
+### Basic Deployment
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ags-api-mcp-server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ags-api-mcp-server
+  template:
+    metadata:
+      labels:
+        app: ags-api-mcp-server
+    spec:
+      containers:
+      - name: ags-api-mcp-server
+        image: ags-api-mcp-server:v2
+        ports:
+        - containerPort: 3000
+        env:
+        - name: AB_BASE_URL
+          value: "https://yourgame.accelbyte.io"
+        - name: MCP_AUTH
+          value: "true"
+        - name: NODE_ENV
+          value: "production"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "500m"
+          limits:
+            memory: "512Mi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ags-api-mcp-server
+spec:
+  selector:
+    app: ags-api-mcp-server
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3000
+  type: LoadBalancer
+```
+
+### With ConfigMap
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ags-api-mcp-server-config
+data:
+  AB_BASE_URL: "https://yourgame.accelbyte.io"
+  MCP_AUTH: "true"
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ags-api-mcp-server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ags-api-mcp-server
+  template:
+    metadata:
+      labels:
+        app: ags-api-mcp-server
+    spec:
+      containers:
+      - name: ags-api-mcp-server
+        image: ags-api-mcp-server:v2
+        envFrom:
+        - configMapRef:
+            name: ags-api-mcp-server-config
+        ports:
+        - containerPort: 3000
+```
+
+---
 
 ## Troubleshooting
 
 ### Container Won't Start
 
-1. Check Docker logs:
-   ```bash
-   docker logs ags-api-mcp-server
-   ```
+**Check logs**:
+```bash
+docker logs ags-api-mcp-server
+```
 
-2. Verify environment variables are set correctly:
-   ```bash
-   docker inspect ags-api-mcp-server | grep -A 20 Env
-   ```
+**Common issues**:
+- Missing `AB_BASE_URL` environment variable
+- Port 3000 already in use
+- Invalid configuration
 
-3. Ensure required environment variables are provided (especially `AB_BASE_URL`)
+### Health Check Failing
 
-### Port Already in Use
+**Test manually**:
+```bash
+docker exec ags-api-mcp-server wget -qO- http://localhost:3000/health
+```
 
-If port 3000 is already in use, change the port mapping:
+**Check application logs**:
+```bash
+docker logs ags-api-mcp-server
+```
+
+### Port Conflicts
+
+**Change host port**:
 ```bash
 docker run -d \
   --name ags-api-mcp-server \
+  -e AB_BASE_URL=https://yourgame.accelbyte.io \
   -p 3001:3000 \
-  -e PORT=3000 \
-  ...
-  ags-api-mcp-server
+  ags-api-mcp-server:v2
 ```
 
-Then access the server at `http://localhost:3001`.
-
-### Container Health Check Failing
-
-1. Check if the server is running inside the container:
-   ```bash
-   docker exec ags-api-mcp-server wget -qO- http://localhost:3000/health
-   ```
-
-2. Review application logs for errors:
-   ```bash
-   docker logs ags-api-mcp-server
-   ```
-
-3. Verify the health check configuration in the Dockerfile matches your setup
+Access at `http://localhost:3001`
 
 ### Permission Issues
 
-If you encounter permission issues, ensure Docker has proper permissions:
+**Linux - Docker socket permissions**:
 ```bash
-# Add your user to the docker group (Linux)
 sudo usermod -aG docker $USER
+newgrp docker
 ```
 
 ### Network Issues
 
-If the container can't reach external services:
-1. Check Docker network configuration
-2. Verify firewall rules
-3. Test connectivity from inside the container:
-   ```bash
-   docker exec ags-api-mcp-server ping -c 3 yourgame.accelbyte.io
-   ```
+**Test connectivity from container**:
+```bash
+docker exec ags-api-mcp-server ping -c 3 yourgame.accelbyte.io
+```
+
+---
 
 ## Best Practices
 
-1. **Use environment variables**: Never hardcode secrets in Dockerfiles or docker-compose files
-2. **Use secrets management**: For production, consider using Docker secrets or external secret management
-3. **Monitor logs**: Regularly check container logs for errors or warnings
-4. **Health checks**: Rely on health checks for automated monitoring and restart policies
-5. **Resource limits**: Set appropriate CPU and memory limits for production deployments:
-   ```bash
-   docker run -d \
-     --memory="512m" \
-     --cpus="1.0" \
-     ...
-     ags-api-mcp-server
-   ```
+### Security
 
+1. **Don't expose port unnecessarily**: Use reverse proxy
+2. **Use environment variables**: Never hardcode secrets
+3. **Run as non-root**: Dockerfile already configured
+4. **Use secrets management**: Kubernetes secrets, Docker secrets
+
+### Performance
+
+1. **Set resource limits**: Prevent resource exhaustion
+2. **Use health checks**: Enable auto-restart
+3. **Enable logging**: Monitor container health
+4. **Use alpine base**: Smaller image size
+
+### Deployment
+
+1. **Use specific tags**: Avoid `latest` in production
+2. **Implement CI/CD**: Automate builds and deployments
+3. **Monitor containers**: Use monitoring tools
+4. **Backup configurations**: Version control docker-compose.yml
+
+---
+
+## References
+
+- [V2 Architecture](V2_ARCHITECTURE.md)
+- [Environment Variables](ENVIRONMENT_VARIABLES.md)
+- [Quick Start](QUICK_START.md)
+- [Docker Documentation](https://docs.docker.com/)
+- [Kubernetes Documentation](https://kubernetes.io/docs/)
