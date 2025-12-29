@@ -1,361 +1,419 @@
 # AGS API MCP Server
 
-A stateless MCP (Model Context Protocol) server built with TypeScript for AccelByte Gaming Services APIs with OpenAPI integration.
+## Description
 
-> **🎉 V2 Available:** This server now uses the V2 architecture (stateless, HTTP-only) by default. For V1 (stdio support, server-managed OAuth), see [V2 Architecture Guide](docs/V2_ARCHITECTURE.md).
+The AGS API MCP Server is a Model Context Protocol (MCP) server that provides AI assistants with access to AccelByte Gaming Services APIs through OpenAPI integration.
 
-## V2 Architecture (Current)
+### What It Is
 
-**V2** is optimized for production deployments with:
-- ✅ **Stateless design** - No server-side sessions, perfect for containers
-- ✅ **HTTP-only transport** - Simple, scalable, easy to debug
-- ✅ **Client-managed auth** - Bearer tokens via Authorization header
-- ✅ **Type-safe** - Zod validation throughout
-- ✅ **User consent** - Elicitation for write operations
-- ✅ **Better DX** - Structured responses, clear errors
+An MCP server built with TypeScript that bridges AI assistants (VS Code Copilot, Cursor, Claude) with AccelByte Gaming Services APIs. It implements the Model Context Protocol to expose AccelByte APIs as tools that AI assistants can discover and use.
 
-**Quick Start V2:**
-```bash
-# Set required environment variables
-export AB_BASE_URL="https://your-env.accelbyte.io"
-export MCP_AUTH=true  # Enable authentication
+### What It's For
 
-# Start the server
-pnpm start
+Enable AI assistants to interact with AccelByte APIs by:
+- Searching for available AccelByte API operations
+- Getting detailed information about specific APIs
+- Executing API requests with proper authentication
+- Retrieving token information
 
-# Server runs at http://localhost:3000
-# Endpoint: http://localhost:3000/mcp
-# Health: http://localhost:3000/health
-```
+### What It Does
 
-See [V2 Architecture Guide](docs/V2_ARCHITECTURE.md) for detailed comparison with V1.
-
----
-
-## Features
-
-### Core MCP Protocol
-- **Streamable HTTP Transport** - Minimal spec-compliant implementation (POST-only)
-- **MCP Tools** - `get_token_info`, `search-apis`, `describe-apis`, `run-apis`
-- **MCP Prompts** - `run-workflow` with autocomplete support
-- **MCP Resources** - Workflow schema, specification, and definitions
-- **User Consent** - Elicitation for write operations (POST/PUT/PATCH/DELETE)
-
-### OpenAPI Integration
-- **Dynamic API Discovery** - Load OpenAPI specs from directory
-- **Semantic Search** - Find APIs by description, tags, or path
-- **Automatic Documentation** - Generate tool descriptions from OpenAPI
-- **Request Validation** - Validate requests against OpenAPI schemas
-- **Configurable Limits** - Max search results, request timeouts
-
-### Production Ready
-- **Stateless Operation** - No sessions, scales horizontally
-- **Health Checks** - `/health` endpoint for monitoring
-- **Rate Limiting** - 100 requests per 15 minutes
-- **Request Logging** - Structured logging with Pino
-- **Error Handling** - Proper error middleware
-- **Graceful Shutdown** - SIGTERM/SIGINT with timeout
-- **Type Safety** - Zod validation throughout
-
-### Security
-- **Bearer Token Auth** - Standard Authorization header
-- **Origin Validation** - Prevents DNS rebinding attacks
-- **Input Validation** - Zod schemas for all inputs
-- **Rate Limiting** - Prevents abuse
-
----
-
-## V1 Features (Legacy)
-
-V1 includes additional features (stdio transport, server-managed OAuth, SSE streams). Available via:
-- `pnpm run start:v1-stdio` - stdio transport with auto-generated sessions
-- `pnpm run start:v1-http` - HTTP transport with full OAuth flow
-
-See [V2 Architecture Guide](docs/V2_ARCHITECTURE.md) for complete V1 vs V2 comparison.
-
+- **Exposes AccelByte APIs as MCP Tools**: Provides access to AccelByte APIs through MCP tools
+- **Provides Semantic Search**: Search across OpenAPI operations by description, tags, or path
+- **Executes API Requests**: Runs API calls with proper authentication and validation
+- **Provides Token Information**: Retrieves information about authenticated tokens
 
 ## Prerequisites
 
-- Node.js 20+ 
-- pnpm (install with: `npm install -g pnpm`)
-- IAM OAuth provider in an Accelbyte Environment
+- **Docker** installed and running
+- **AccelByte Environment URL** (`AB_BASE_URL`) - Your AccelByte environment base URL
+- (Optional) **AccelByte OAuth Credentials** - If using authentication features
 
-## Installation
+## Quick Start
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd ags-api-mcp-server
+### Visual Studio Code
+
+Create or edit `.vscode/mcp.json` in your workspace (or configure in user settings):
+
+```json
+{
+  "servers": {
+    "ags-api": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "--interactive",
+        "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
+        "--env", "OAUTH_CLIENT_ID=your-client-id",
+        "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
+        "ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0"
+      ]
+    }
+  }
+}
 ```
 
-2. Install dependencies:
-```bash
-pnpm install
+**Note**: Replace the placeholder values with your actual AccelByte credentials. You can also use input variables for sensitive data. See the [VS Code MCP documentation](https://code.visualstudio.com/docs/copilot/customization/mcp-servers#_other-options-to-add-an-mcp-server) for more details.
+
+**Location**: 
+- Workspace: `.vscode/mcp.json`
+- User settings: VS Code settings UI or `settings.json`
+
+### Cursor
+
+Create or edit `.cursor/mcp.json` in your workspace (or configure in user settings):
+
+```json
+{
+  "mcpServers": {
+    "ags-api": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "--interactive",
+        "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
+        "--env", "OAUTH_CLIENT_ID=your-client-id",
+        "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
+        "ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0"
+      ]
+    }
+  }
+}
 ```
 
-3. Set up environment configuration:
-```bash
-pnpm run setup
+**Note**: Replace the placeholder values with your actual AccelByte credentials. See the [Cursor MCP documentation](https://cursor.com/docs/context/mcp#using-mcpjson) for more details.
+
+**Location**:
+- Workspace: `.cursor/mcp.json`
+- User settings: Cursor settings UI
+
+### Claude Desktop
+
+Edit your Claude Desktop configuration file:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "ags-api": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "--interactive",
+        "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
+        "--env", "OAUTH_CLIENT_ID=your-client-id",
+        "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
+        "ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0"
+      ]
+    }
+  }
+}
 ```
 
-4. Configure your AccelByte environment in `.env`:
+**Note**: Replace the placeholder values with your actual AccelByte credentials. See the [Claude Desktop MCP documentation](https://modelcontextprotocol.io/docs/develop/connect-local-servers#installing-the-filesystem-server) for more details.
 
-**V2 Configuration (Minimal):**
-```env
-# Required
-AB_BASE_URL=https://yourgame.accelbyte.io
-MCP_AUTH=true  # Enable authentication (optional, default: true)
+**After configuration**: Restart your AI assistant application to load the MCP server.
 
-# Optional
-MCP_PORT=3000
-MCP_PATH=/mcp
-OPENAPI_SPECS_DIR=openapi-specs
-```
+### Claude Code
 
-**V1 Configuration (OAuth):**
-```env
-# For V1 only - server-managed OAuth
-AB_BASE_URL=https://yourgame.accelbyte.io
-OAUTH_CLIENT_ID=your-client-id
-OAUTH_CLIENT_SECRET=your-client-secret
-TRANSPORT=stdio  # or 'http'
-```
+Claude Code uses a different configuration system than Claude Desktop. You can configure MCP servers either via CLI command or by creating a `.mcp.json` file.
 
-📖 **For detailed setup instructions**, see [docs/QUICK_START.md](docs/QUICK_START.md)
-📖 **For all configuration options**, see [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
+#### Option 1: Using CLI Command
 
-**Note (V2):**
-- V2 is stateless - clients provide Bearer tokens via Authorization header
-- No OAuth configuration needed on the server
-- Perfect for production deployments
-
-**Note (V1):**
-- OAuth URLs derived from `AB_BASE_URL` if not set explicitly
-- Redirect URI must be registered in AccelByte IAM: `http://localhost:3000/oauth/callback`
-
-## Usage
-
-### V2 (Default - HTTP Mode)
-
-**Development:**
-```bash
-pnpm run dev  # Watch mode
-```
-
-**Production:**
-```bash
-pnpm run build
-pnpm start  # Runs V2 at http://localhost:3000
-```
-
-### V1 (Legacy)
-
-**Stdio Mode:**
-```bash
-pnpm run build
-pnpm run start:v1-stdio
-```
-
-**HTTP Mode:**
-```bash
-pnpm run build
-pnpm run start:v1-http
-```
-
-📖 **For detailed V1 setup**, see [docs/QUICK_START.md](docs/QUICK_START.md)
-
-### Development Commands
-
-```bash
-# Watch mode (auto-rebuild on changes)
-pnpm run dev
-
-# Run tests
-pnpm test
-
-# Lint
-pnpm run lint
-
-# Format
-pnpm run format
-
-# Process OpenAPI specs
-pnpm run process-specs
-
-# Inspect with MCP Inspector (V2)
-pnpm run inspect
-
-# Inspect with MCP Inspector (V1 stdio)
-pnpm run inspect:v1-stdio
-
-# Inspect with MCP Inspector (V1 http)
-pnpm run inspect:v1-http
-```
-
-📖 **For detailed development workflows**, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)  
-📖 **For testing guide**, see [docs/TESTING.md](docs/TESTING.md)
-
-## Environment Variables
-
-### V2 Configuration
-
-Essential variables for V2:
-
-- `AB_BASE_URL` - Base URL for AccelByte environment (required)
-- `MCP_PORT` or `PORT` - Server port (default: 3000)
-- `MCP_PATH` - MCP endpoint path (default: `/mcp`)
-- `MCP_AUTH` - Enable authentication (default: `true`)
-- `MCP_SERVER_URL` - Full server URL (auto-derived from port if not set)
-- `OPENAPI_SPECS_DIR` - OpenAPI specs directory (default: `openapi-specs`)
-- `LOG_LEVEL` - Logging level (default: `info`)
-
-### V1 Configuration (Legacy)
-
-Additional variables for V1:
-
-- `OAUTH_CLIENT_ID` - OAuth client ID (required for V1)
-- `OAUTH_CLIENT_SECRET` - OAuth client secret (required for V1)
-- `TRANSPORT` - Transport mode: `stdio` or `http` (default: `stdio`)
-
-📖 **For complete environment variable reference**, see [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
-
-
-## API Endpoints
-
-### V2 Endpoints
-
-**MCP Protocol:**
-- `POST /mcp` - Send JSON-RPC messages (requires `Authorization: Bearer <token>`)
-- `GET /mcp` - Returns 405 Method Not Allowed (V2 is POST-only)
-- `DELETE /mcp` - Returns 405 Method Not Allowed
-
-**Health & Info:**
-- `GET /health` - Server health status
-- `GET /` - Server information and endpoints
-- `GET /.well-known/oauth-protected-resource` - Resource metadata
-
-### V1 Endpoints (Legacy)
-
-**MCP Protocol:**
-- `POST /mcp` - Send JSON-RPC messages
-- `GET /mcp` - Open SSE stream for server-to-client messages
-- `DELETE /mcp` - Close session
-
-**Authentication:**
-- `GET /auth/login?otp_token=<uuid>` - Initiate OAuth login flow
-- `GET /oauth/callback` - OAuth callback handler
-
-**Discovery:**
-- `GET /.well-known/oauth-authorization-server` - OAuth server metadata
-- `GET /.well-known/openid-configuration` - OIDC configuration
-
-📖 **For detailed API reference**, see [docs/API_REFERENCE.md](docs/API_REFERENCE.md)  
-📖 **For Streamable HTTP transport details**, see [docs/STREAMABLE_HTTP.md](docs/STREAMABLE_HTTP.md)
-
-## MCP Tools
-
-### V2 Tools (4 tools)
-
-1. **`get_token_info`** - Get information about the authenticated token and user
-   - Returns namespace, user ID, roles, token expiration, etc.
-   - Includes hints for common scenarios
-   
-2. **`search-apis`** - Search across loaded OpenAPI operations
-   - Filter by query text, HTTP method, tag, or spec
-   - Configurable result limit (max 50)
-   - Zod-validated input/output schemas
-   
-3. **`describe-apis`** - Get detailed information about specific API operations
-   - Full request/response schemas
-   - Authentication requirements
-   - Example requests
-   - Zod-validated input/output schemas
-   
-4. **`run-apis`** - Execute API requests against endpoints
-   - User consent via elicitation for write operations
-   - Automatic authentication with user token
-   - Configurable timeouts (max 60s)
-   - Zod-validated input/output schemas
-
-### V1 Tools (6 tools)
-
-V1 includes two additional tools for server-managed OAuth:
-
-5. **`start_oauth_login`** - Initiate OAuth login flow (V1 only)
-6. **`logout`** - Clear user session (V1 only)
-
-See [V2 Architecture Guide](docs/V2_ARCHITECTURE.md) for detailed tool comparison.
-
-## Development
-
-📖 **For development guide, project structure, and adding new tools**, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
-
-## Docker Deployment
-
-### V2 (Default)
-
-Build and run the V2 Docker image:
+Run the following command in your terminal:
 
 ```bash
-# Build
-docker build -t ags-api-mcp-server:v2 .
+claude mcp add --transport stdio ags-api -- \
+  docker run --rm --interactive \
+  --env AB_BASE_URL=https://yourgame.accelbyte.io \
+  --env OAUTH_CLIENT_ID=your-client-id \
+  --env OAUTH_CLIENT_SECRET=your-client-secret \
+  ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0
+```
 
-# Run
+**Note**: Replace the placeholder values with your actual AccelByte credentials. The `--` separator is required to distinguish Claude CLI flags from the Docker command.
+
+#### Option 2: Using .mcp.json File
+
+Create or edit `.mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "ags-api": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "--interactive",
+        "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
+        "--env", "OAUTH_CLIENT_ID=your-client-id",
+        "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
+        "ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0"
+      ]
+    }
+  }
+}
+```
+
+**Note**: Replace the placeholder values with your actual AccelByte credentials. See the [Claude Code MCP documentation](https://code.claude.com/docs/en/mcp#installing-mcp-servers) for more details.
+
+**Location**: `.mcp.json` in your project root directory
+
+### Antigravity
+
+Antigravity uses `mcp_config.json` for MCP server configuration. Create or edit the configuration file:
+
+**Location**: `mcp_config.json` in your project root
+
+```json
+{
+  "mcpServers": {
+    "ags-api": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "--interactive",
+        "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
+        "--env", "OAUTH_CLIENT_ID=your-client-id",
+        "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
+        "ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0"
+      ]
+    }
+  }
+}
+```
+
+**Note**: Replace the placeholder values with your actual AccelByte credentials. See the [Antigravity MCP documentation](https://antigravity.google/docs/mcp#connecting-custom-mcp-servers) for more details.
+
+**Location**: `mcp_config.json` in your project root directory
+### Gemini CLI
+
+Gemini CLI uses a different configuration system. You can configure MCP servers either via CLI command or by editing `settings.json`.
+
+#### Option 1: Using CLI Command
+
+Run the following command in your terminal:
+
+```bash
+gemini mcp add --transport stdio --env AB_BASE_URL=https://yourgame.accelbyte.io --env OAUTH_CLIENT_ID=your-client-id --env OAUTH_CLIENT_SECRET=your-client-secret ags-api -- docker run --rm --interactive ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0
+```
+
+**Note**: Replace the placeholder values with your actual AccelByte credentials. The `--` separator is required to distinguish Gemini CLI flags from the Docker command. See the [Gemini CLI MCP documentation](https://geminicli.com/docs/tools/mcp-server/#configure-the-mcp-server-in-settingsjson) for more details.
+
+#### Option 2: Using settings.json File
+
+Edit your Gemini CLI settings file:
+
+**User scope**: `~/.gemini/settings.json`  
+**Project scope**: `.gemini/settings.json` (in your project root)
+
+```json
+{
+  "mcpServers": {
+    "ags-api": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "--interactive",
+        "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
+        "--env", "OAUTH_CLIENT_ID=your-client-id",
+        "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
+        "ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0"
+      ]
+    }
+  }
+}
+```
+
+**Note**: Replace the placeholder values with your actual AccelByte credentials. See the [Gemini CLI MCP documentation](https://geminicli.com/docs/tools/mcp-server/#configure-the-mcp-server-in-settingsjson) for more details.
+
+**Location**: 
+- User scope: `~/.gemini/settings.json`
+- Project scope: `.gemini/settings.json` in your project root
+
+## Using the Tools
+
+Once configured, your AI assistant can use the following MCP tools to interact with AccelByte APIs:
+
+### `get_token_info`
+
+Get information about the authenticated user and token (if available). Returns details such as:
+- User ID and display name
+- Namespace
+- Roles and permissions
+- Token expiration information
+
+**Example usage**: Ask your AI assistant "What's my current user information?" or "Show me my token details".
+
+### `search-apis`
+
+Search for AccelByte API operations by:
+- Description or summary text
+- HTTP method (GET, POST, PUT, DELETE, etc.)
+- API tags
+- Service name
+
+**Example usage**: "Find APIs for user management" or "Search for inventory-related endpoints".
+
+### `describe-apis`
+
+Get detailed information about a specific API operation, including:
+- Request parameters and schemas
+- Response schemas
+- Authentication requirements
+- Example requests
+
+**Example usage**: "Show me details about the getUserProfile API" or "What parameters does the createItem endpoint need?".
+
+### `run-apis`
+
+Execute API requests against AccelByte endpoints. The server handles:
+- Authentication with your token
+- Request validation
+- Response formatting
+
+**Note**: For write operations (POST, PUT, PATCH, DELETE), the server may request your consent before executing.
+
+**Example usage**: "Get my user profile" or "List all items in my inventory".
+
+### Workflow Support
+
+The server also provides workflow resources and prompts for running predefined workflows. Ask your AI assistant about available workflows or use the `run-workflow` prompt.
+
+## Bonus: Running Docker Container Manually
+
+If you prefer to run the Docker container manually instead of configuring it through your AI assistant's MCP configuration files:
+
+### Run the Container
+
+```bash
 docker run -d \
   --name ags-api-mcp-server \
   -e AB_BASE_URL=https://yourgame.accelbyte.io \
-  -e MCP_AUTH=true \
+  -e OAUTH_CLIENT_ID=your-client-id \
+  -e OAUTH_CLIENT_SECRET=your-client-secret \
   -p 3000:3000 \
-  ags-api-mcp-server:v2
-
-# Health check
-curl http://localhost:3000/health
+  ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0
 ```
 
-The Dockerfile uses V2 by default (`CMD ["node", "--enable-source-maps", "dist/v2/index.js"]`).
+**Note**: Replace the placeholder values with your actual AccelByte credentials.
 
-📖 **For detailed Docker deployment guide**, see [docs/DOCKER.md](docs/DOCKER.md)
+The server will be available at `http://localhost:3000/mcp`, which you can then add in your VS Code, Cursor, Claude Code, Gemini CLI, or Antigravity configuration.
 
-## Testing
+### Configure Your AI Assistant to Use the Running Container
 
-Run tests:
+#### Visual Studio Code
+
+Add to `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "ags-api": { "type": "http", "url": "http://localhost:3000/mcp" }
+  }
+}
+```
+
+#### Cursor
+
+Add to `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "ags-api": { "type": "http", "url": "http://localhost:3000/mcp" }
+  }
+}
+```
+
+#### Claude Code
+
+Claude Code uses a different configuration system than Claude Desktop. You can configure MCP servers either via CLI command or by creating a `.mcp.json` file.
+
+##### Option 1: Using CLI Command
+
+Run the following command in your terminal:
+
 ```bash
-pnpm test
+claude mcp add --transport http ags-api http://localhost:3000/mcp
 ```
 
-📖 **For testing guide and examples**, see [docs/TESTING.md](docs/TESTING.md)
+##### Option 2: Using .mcp.json File
 
-## Contributing
+Create or edit `.mcp.json` in your project root:
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+```json
+{
+  "mcpServers": {
+    "ags-api": { "type": "http", "url": "http://localhost:3000/mcp" }
+  }
+}
+```
+
+**Location**: `.mcp.json` in your project root directory
+
+#### Gemini CLI
+
+Gemini CLI uses a different configuration system. You can configure MCP servers either via CLI command or by editing `settings.json`.
+
+##### Option 1: Using CLI Command
+
+Run the following command in your terminal:
+
+```bash
+gemini mcp add --transport http ags-api http://localhost:3000/mcp
+```
+
+##### Option 2: Using settings.json File
+
+Edit your Gemini CLI settings file:
+
+**User scope**: `~/.gemini/settings.json`  
+**Project scope**: `.gemini/settings.json` (in your project root)
+
+```json
+{
+  "mcpServers": {
+    "ags-api": { "type": "http", "url": "http://localhost:3000/mcp" }
+  }
+}
+```
+
+**Location**: 
+- User scope: `~/.gemini/settings.json`
+- Project scope: `.gemini/settings.json` in your project root
+
+#### Antigravity
+
+Add to `mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "ags-api": { "type": "http", "url": "http://localhost:3000/mcp" }
+  }
+}
+```
 
 ## Documentation
 
-> 📖 **New to the project?** See [docs/DOCUMENTATION_GUIDE.md](docs/DOCUMENTATION_GUIDE.md) for a complete overview of the documentation structure.
+For detailed documentation, see:
 
-### V2 Documentation (Current)
-
-#### Getting Started
-- [docs/QUICK_START.md](docs/QUICK_START.md) - V2 quick start guide and setup
-- [docs/V2_ARCHITECTURE.md](docs/V2_ARCHITECTURE.md) - V2 architecture and V1 comparison
-
-#### Core Documentation
-- [docs/API_REFERENCE.md](docs/API_REFERENCE.md) - V2 API endpoints reference
-- [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) - V2 environment variables
-
-#### Deployment & Operations
-- [docs/DOCKER.md](docs/DOCKER.md) - V2 Docker deployment guide
-
-#### Development
-- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) - V2 development guide
-- [docs/TESTING.md](docs/TESTING.md) - V2 testing guide
-
-### V1 Documentation (Legacy)
-- [docs/v1/](docs/v1/) - Complete V1 documentation (OAuth flow, SSE, sessions)
+- [Quick Start Guide](docs/QUICK_START.md) - Detailed setup instructions
+- [API Reference](docs/API_REFERENCE.md) - Complete API documentation
+- [Environment Variables](docs/ENVIRONMENT_VARIABLES.md) - Configuration options
+- [Docker Deployment](docs/DOCKER.md) - Advanced Docker configuration
+- [Development Guide](docs/DEVELOPMENT.md) - Contributing and extending the server
 
 ## Support
 
