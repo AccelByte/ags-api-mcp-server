@@ -1,0 +1,108 @@
+library(
+    identifier: 'jenkins-shared-library@master',
+    retriever: modernSCM(
+        [
+            $class: 'GitSCMSource',
+            remote: 'https://github.com/dhanarab/jenkins-pipeline-library.git'
+        ]
+    )
+)
+
+bitbucketCredentialsHttps = "bitbucket-build-extend-https"
+bitbucketCredentialsSsh = "bitbucket-build-extend-ssh"
+
+repoName = "ags-api-mcp-server"
+repoBranchName = "update"
+
+slackActivityChannel = "#activity-extend-engineering"
+
+sdkSpecGitHash = null
+
+sdkSpecPath = null
+sdkCodegenPath = null
+mcpServerPath = null
+
+pipeline {
+    agent {
+        label "extend-builder-batch && linux-amd64"
+    }
+    stages {
+        stage("Prepare") {
+            steps {
+                script {
+                    sdkCodegenPath = "${env.WORKSPACE}/justice-codegen-modular-sdk"
+                    sdkSpecPath = "${env.WORKSPACE}/justice-codegen-sdk-spec"
+                    mcpServerPath = "${env.WORKSPACE}"
+
+                    sh "rm -rf ${sdkCodegenPath}"
+                    sh "rm -rf ${sdkSpecPath}"
+
+                    sshagent(credentials: [bitbucketCredentialsSsh]) {
+                        sh "git clone --depth 1 git@bitbucket.org:accelbyte/justice-codegen-modular-sdk.git ${sdkCodegenPath}"
+                        sh "git clone --depth 50 git@bitbucket.org:accelbyte/justice-codegen-sdk-spec.git ${sdkSpecPath}"
+                    }
+
+                    dir(sdkCodegenPath) {
+                        sh "make build-linux PLATFORM=amd64"
+                    }
+
+                    dir(".justice-codegen-sdk-spec") {
+                        script {
+                            sdkSpecGitHash = git.getCommitHashShort()
+                        }
+                    }
+                }
+            }
+        }
+        stage("Update") {
+            steps {
+                script {
+                    sh "git branch ${repoBranchName}"
+                    sh "git checkout ${repoBranchName}"
+
+                    sh "rm -rfv openapi-specs/*"
+
+                    sh "docker run --rm -u \$(id -u):\$(id -g) -v ${mcpServerPath}:/workspace -v ${sdkSpecPath}/spec/stage_extend-sdk:/input node:22 sh -c 'cd /workspace && node process-openapi-specs.cjs /input openapi-specs'"
+
+                    sh "git add openapi-specs/*"
+
+                    if (sh(script: "git status --porcelain openapi-specs/. | grep '.*'", returnStatus: true) == 0) {
+                        sh 'make build'     // Test build before committing changes
+
+                        sh "git commit -m 'chore(openapi-specs): update justice-codegen-sdk-spec ${sdkSpecGitHash}'"
+                        sshagent(credentials: [bitbucketCredentialsSsh]) {
+                            sh "git push origin +${repoBranchName}:${repoBranchName}"
+                        }
+
+                        repoCommitHash = git.getCommitHash()
+                        repoCommitHashShort = git.getCommitHashShort()
+                        repoCommitMessage = git.getCommitMessage()
+
+                        message = """
+                            :white_check_mark: <${env.BUILD_URL}|${env.JOB_NAME}-${env.BUILD_NUMBER}> *openapi-specs update successful*
+
+                            |*${repoName}:*
+                            |<https://bitbucket.org/accelbyte/${repoName}/commits/${repoCommitHash}|${repoBranchName} ${repoCommitHashShort}>
+                            |${repoCommitMessage}
+
+                            |""".stripMargin()
+
+                        slackSend(channel: "${slackActivityChannel}", color: '#36B37E', message: message)
+                    }
+                }
+            }
+        }
+    }
+    post {
+        failure {
+            script {
+                message = """
+                    :no_entry: <${env.BUILD_URL}|${env.JOB_NAME}-${env.BUILD_NUMBER}> *config update failed*
+
+                    |""".stripMargin()
+
+                slackSend(channel: "${slackActivityChannel}", color: '#FF0000', message: message)
+            }
+        }
+    }
+}

@@ -5,7 +5,7 @@ const path = require('path');
 
 /**
  * Process OpenAPI specs by filtering out write APIs, deprecated APIs, and ignored services
- * Usage: node process-openapi-specs.js [input-folder] [output-folder]
+ * Usage: node process-openapi-specs.cjs [input-folder] [output-folder]
  * 
  * Features:
  * - Filters out write operations (POST, PUT, PATCH, DELETE)

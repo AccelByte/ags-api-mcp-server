@@ -27,7 +27,7 @@
     "test:unit": "NODE_ENV=test node --import tsx --test tests/**/*.test.ts",
     "type-check": "tsc --noEmit",
     "setup": "node setup-env.js",
-    "process-specs": "node process-openapi-specs.js"
+    "process-specs": "node process-openapi-specs.cjs"
   },
   "keywords": [
     "mcp",
