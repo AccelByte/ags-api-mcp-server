@@ -393,13 +393,11 @@ export class OpenApiTools {
       args.body !== undefined &&
       !["GET", "HEAD"].includes(operation.method)
     ) {
-      config.data = args.body;
       if (
         typeof args.body === "object" &&
         !Buffer.isBuffer(args.body) &&
         !this.hasHeader(headers, "content-type")
       ) {
-        // Determine content-type from OpenAPI spec if available
         let contentType: string | undefined;
         if (operation.requestBody?.contents && operation.requestBody.contents.length > 0) {
           // Prefer application/json if available, otherwise use the first content-type
@@ -417,6 +415,8 @@ export class OpenApiTools {
           headers["Content-Type"] = contentType;
         }
       }
+
+      config.data = args.body;
     }
 
     const startedAt = Date.now();
