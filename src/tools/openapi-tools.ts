@@ -399,7 +399,23 @@ export class OpenApiTools {
         !Buffer.isBuffer(args.body) &&
         !this.hasHeader(headers, "content-type")
       ) {
-        headers["Content-Type"] = "application/json";
+        // Determine content-type from OpenAPI spec if available
+        let contentType: string | undefined;
+        if (operation.requestBody?.contents && operation.requestBody.contents.length > 0) {
+          // Prefer application/json if available, otherwise use the first content-type
+          const jsonContent = operation.requestBody.contents.find(
+            (content) => content.contentType === "application/json",
+          );
+          contentType = jsonContent
+            ? jsonContent.contentType
+            : operation.requestBody.contents[0].contentType;
+        } else {
+          // Fallback to application/json if no spec information available
+          contentType = "application/json";
+        }
+        if (contentType) {
+          headers["Content-Type"] = contentType;
+        }
       }
     }
 
