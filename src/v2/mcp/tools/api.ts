@@ -450,7 +450,9 @@ const RunApisOutputSchema = z.object({
     .object({
       status: z.number().optional(),
       statusText: z.string().optional(),
-      headers: z.record(z.string(), z.string()).optional(),
+      headers: z
+        .record(z.string(), z.union([z.string(), z.array(z.string())]))
+        .optional(),
       data: z.unknown().optional(),
       durationMs: z.number().optional(),
     })
@@ -460,7 +462,9 @@ const RunApisOutputSchema = z.object({
       message: z.string().optional(),
       code: z.string().optional(),
       status: z.number().optional(),
-      headers: z.record(z.string(), z.string()).optional(),
+      headers: z
+        .record(z.string(), z.union([z.string(), z.array(z.string())]))
+        .optional(),
       data: z.unknown().optional(),
       durationMs: z.number().optional(),
     })
