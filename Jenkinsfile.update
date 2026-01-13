@@ -46,7 +46,7 @@ pipeline {
                         sh "make build-linux PLATFORM=amd64"
                     }
 
-                    dir(".justice-codegen-sdk-spec") {
+                    dir(sdkSpecPath) {
                         script {
                             sdkSpecGitHash = git.getCommitHashShort()
                         }
