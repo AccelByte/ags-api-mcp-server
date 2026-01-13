@@ -399,7 +399,10 @@ export class OpenApiTools {
         !this.hasHeader(headers, "content-type")
       ) {
         let contentType: string | undefined;
-        if (operation.requestBody?.contents && operation.requestBody.contents.length > 0) {
+        if (
+          operation.requestBody?.contents &&
+          operation.requestBody.contents.length > 0
+        ) {
           // Prefer application/json if available, otherwise use the first content-type
           const jsonContent = operation.requestBody.contents.find(
             (content) => content.contentType === "application/json",

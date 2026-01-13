@@ -4,6 +4,8 @@
 
 The AGS API MCP Server is a Model Context Protocol (MCP) server that provides AI assistants with access to AccelByte Gaming Services APIs through OpenAPI integration.
 
+> **Note:** V2 is **HTTP-only** and uses Bearer token authentication. For stdio transport or server-managed OAuth, see [V1 documentation](docs/v1/README.md).
+
 ### What It Is
 
 An MCP server built with TypeScript that bridges AI assistants (VS Code Copilot, Cursor, Claude) with AccelByte Gaming Services APIs. It implements the Model Context Protocol to expose AccelByte APIs as tools that AI assistants can discover and use.
@@ -25,13 +27,68 @@ Enable AI assistants to interact with AccelByte APIs by:
 
 ## Prerequisites
 
-- **Docker** installed and running
+- **Docker** - Container runtime (required)
 - **AccelByte Environment URL** (`AB_BASE_URL`) - Your AccelByte environment base URL
-- (Optional) **AccelByte OAuth Credentials** - If using authentication features
+
+## Running the Server
+
+> **Note**: MCP clients require the server to be running before configuration. Start the server first, then configure your MCP client (see [Quick Start](#quick-start) below).
+
+Start the server using Docker:
+
+```bash
+docker run -d \
+  --name ags-api-mcp-server \
+  -e AB_BASE_URL=https://yourgame.accelbyte.io \
+  -e MCP_AUTH=true \
+  -p 3000:3000 \
+  ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0
+```
+
+**Note**: Replace `https://yourgame.accelbyte.io` with your actual AccelByte environment URL.
+
+Verify the server is running:
+
+```bash
+curl http://localhost:3000/health
+```
+
+You should see: `{"status":"ok","timestamp":"..."}`
+
+See [Docker Deployment Guide](docs/DOCKER.md) for detailed Docker instructions.
 
 ## Quick Start
 
-### Visual Studio Code
+V2 uses HTTP transport, which requires the server to be running before configuring MCP clients. Follow these steps:
+
+### Step 1: Start the Server
+
+Start the MCP server using Docker:
+
+```bash
+docker run -d \
+  --name ags-api-mcp-server \
+  -e AB_BASE_URL=https://yourgame.accelbyte.io \
+  -e MCP_AUTH=true \
+  -p 3000:3000 \
+  ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0
+```
+
+**Note**: Replace `https://yourgame.accelbyte.io` with your actual AccelByte environment URL.
+
+Verify the server is running:
+
+```bash
+curl http://localhost:3000/health
+```
+
+You should see: `{"status":"ok","timestamp":"..."}`
+
+### Step 2: Configure Your MCP Client
+
+Once the server is running, configure your MCP client to connect via HTTP:
+
+#### Visual Studio Code
 
 Create or edit `.vscode/mcp.json` in your workspace (or configure in user settings):
 
@@ -39,29 +96,20 @@ Create or edit `.vscode/mcp.json` in your workspace (or configure in user settin
 {
   "servers": {
     "ags-api": {
-      "type": "stdio",
-      "command": "docker",
-      "args": [
-        "run",
-        "--rm",
-        "--interactive",
-        "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
-        "--env", "OAUTH_CLIENT_ID=your-client-id",
-        "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
-        "ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0"
-      ]
+      "type": "http",
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
 ```
 
-**Note**: Replace the placeholder values with your actual AccelByte credentials. You can also use input variables for sensitive data. See the [VS Code MCP documentation](https://code.visualstudio.com/docs/copilot/customization/mcp-servers#_other-options-to-add-an-mcp-server) for more details.
-
 **Location**: 
 - Workspace: `.vscode/mcp.json`
 - User settings: VS Code settings UI or `settings.json`
 
-### Cursor
+See the [VS Code MCP documentation](https://code.visualstudio.com/docs/copilot/customization/mcp-servers#_other-options-to-add-an-mcp-server) for more details.
+
+#### Cursor
 
 Create or edit `.cursor/mcp.json` in your workspace (or configure in user settings):
 
@@ -69,28 +117,20 @@ Create or edit `.cursor/mcp.json` in your workspace (or configure in user settin
 {
   "mcpServers": {
     "ags-api": {
-      "command": "docker",
-      "args": [
-        "run",
-        "--rm",
-        "--interactive",
-        "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
-        "--env", "OAUTH_CLIENT_ID=your-client-id",
-        "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
-        "ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0"
-      ]
+      "type": "http",
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
 ```
 
-**Note**: Replace the placeholder values with your actual AccelByte credentials. See the [Cursor MCP documentation](https://cursor.com/docs/context/mcp#using-mcpjson) for more details.
-
 **Location**:
 - Workspace: `.cursor/mcp.json`
 - User settings: Cursor settings UI
 
-### Claude Desktop
+See the [Cursor MCP documentation](https://cursor.com/docs/context/mcp#using-mcpjson) for more details.
+
+#### Claude Desktop
 
 Edit your Claude Desktop configuration file:
 
@@ -101,45 +141,28 @@ Edit your Claude Desktop configuration file:
 {
   "mcpServers": {
     "ags-api": {
-      "command": "docker",
-      "args": [
-        "run",
-        "--rm",
-        "--interactive",
-        "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
-        "--env", "OAUTH_CLIENT_ID=your-client-id",
-        "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
-        "ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0"
-      ]
+      "type": "http",
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
 ```
 
-**Note**: Replace the placeholder values with your actual AccelByte credentials. See the [Claude Desktop MCP documentation](https://modelcontextprotocol.io/docs/develop/connect-local-servers#installing-the-filesystem-server) for more details.
+**After configuration**: Restart Claude Desktop to load the MCP server.
 
-**After configuration**: Restart your AI assistant application to load the MCP server.
+See the [Claude Desktop MCP documentation](https://modelcontextprotocol.io/docs/develop/connect-local-servers#installing-the-filesystem-server) for more details.
 
-### Claude Code
+#### Claude Code
 
 Claude Code uses a different configuration system than Claude Desktop. You can configure MCP servers either via CLI command or by creating a `.mcp.json` file.
 
-#### Option 1: Using CLI Command
-
-Run the following command in your terminal:
+**Option 1: Using CLI Command**
 
 ```bash
-claude mcp add --transport stdio ags-api -- \
-  docker run --rm --interactive \
-  --env AB_BASE_URL=https://yourgame.accelbyte.io \
-  --env OAUTH_CLIENT_ID=your-client-id \
-  --env OAUTH_CLIENT_SECRET=your-client-secret \
-  ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0
+claude mcp add --transport http ags-api http://localhost:3000/mcp
 ```
 
-**Note**: Replace the placeholder values with your actual AccelByte credentials. The `--` separator is required to distinguish Claude CLI flags from the Docker command.
-
-#### Option 2: Using .mcp.json File
+**Option 2: Using .mcp.json File**
 
 Create or edit `.mcp.json` in your project root:
 
@@ -147,69 +170,47 @@ Create or edit `.mcp.json` in your project root:
 {
   "mcpServers": {
     "ags-api": {
-      "type": "stdio",
-      "command": "docker",
-      "args": [
-        "run",
-        "--rm",
-        "--interactive",
-        "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
-        "--env", "OAUTH_CLIENT_ID=your-client-id",
-        "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
-        "ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0"
-      ]
+      "type": "http",
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
 ```
 
-**Note**: Replace the placeholder values with your actual AccelByte credentials. See the [Claude Code MCP documentation](https://code.claude.com/docs/en/mcp#installing-mcp-servers) for more details.
-
 **Location**: `.mcp.json` in your project root directory
 
-### Antigravity
+See the [Claude Code MCP documentation](https://code.claude.com/docs/en/mcp#installing-mcp-servers) for more details.
 
-Antigravity uses `mcp_config.json` for MCP server configuration. Create or edit the configuration file:
+#### Antigravity
 
-**Location**: `mcp_config.json` in your project root
+Create or edit `mcp_config.json` in your project root:
 
 ```json
 {
   "mcpServers": {
     "ags-api": {
-      "command": "docker",
-      "args": [
-        "run",
-        "--rm",
-        "--interactive",
-        "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
-        "--env", "OAUTH_CLIENT_ID=your-client-id",
-        "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
-        "ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0"
-      ]
+      "type": "http",
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
 ```
 
-**Note**: Replace the placeholder values with your actual AccelByte credentials. See the [Antigravity MCP documentation](https://antigravity.google/docs/mcp#connecting-custom-mcp-servers) for more details.
-
 **Location**: `mcp_config.json` in your project root directory
-### Gemini CLI
+
+See the [Antigravity MCP documentation](https://antigravity.google/docs/mcp#connecting-custom-mcp-servers) for more details.
+
+#### Gemini CLI
 
 Gemini CLI uses a different configuration system. You can configure MCP servers either via CLI command or by editing `settings.json`.
 
-#### Option 1: Using CLI Command
-
-Run the following command in your terminal:
+**Option 1: Using CLI Command**
 
 ```bash
-gemini mcp add --transport stdio --env AB_BASE_URL=https://yourgame.accelbyte.io --env OAUTH_CLIENT_ID=your-client-id --env OAUTH_CLIENT_SECRET=your-client-secret ags-api -- docker run --rm --interactive ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0
+gemini mcp add --transport http ags-api http://localhost:3000/mcp
 ```
 
-**Note**: Replace the placeholder values with your actual AccelByte credentials. The `--` separator is required to distinguish Gemini CLI flags from the Docker command. See the [Gemini CLI MCP documentation](https://geminicli.com/docs/tools/mcp-server/#configure-the-mcp-server-in-settingsjson) for more details.
-
-#### Option 2: Using settings.json File
+**Option 2: Using settings.json File**
 
 Edit your Gemini CLI settings file:
 
@@ -220,26 +221,18 @@ Edit your Gemini CLI settings file:
 {
   "mcpServers": {
     "ags-api": {
-      "command": "docker",
-      "args": [
-        "run",
-        "--rm",
-        "--interactive",
-        "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
-        "--env", "OAUTH_CLIENT_ID=your-client-id",
-        "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
-        "ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0"
-      ]
+      "type": "http",
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
 ```
 
-**Note**: Replace the placeholder values with your actual AccelByte credentials. See the [Gemini CLI MCP documentation](https://geminicli.com/docs/tools/mcp-server/#configure-the-mcp-server-in-settingsjson) for more details.
-
 **Location**: 
 - User scope: `~/.gemini/settings.json`
 - Project scope: `.gemini/settings.json` in your project root
+
+See the [Gemini CLI MCP documentation](https://geminicli.com/docs/tools/mcp-server/#configure-the-mcp-server-in-settingsjson) for more details.
 
 ## Using the Tools
 
@@ -290,120 +283,20 @@ Execute API requests against AccelByte endpoints. The server handles:
 
 The server also provides workflow resources and prompts for running predefined workflows. Ask your AI assistant about available workflows or use the `run-workflow` prompt.
 
-## Bonus: Running Docker Container Manually
+## Authentication
 
-If you prefer to run the Docker container manually instead of configuring it through your AI assistant's MCP configuration files:
+V2 uses **Bearer token authentication**. Clients must obtain a JWT token from AccelByte's OAuth service and include it in the `Authorization` header:
 
-### Run the Container
-
-```bash
-docker run -d \
-  --name ags-api-mcp-server \
-  -e AB_BASE_URL=https://yourgame.accelbyte.io \
-  -e OAUTH_CLIENT_ID=your-client-id \
-  -e OAUTH_CLIENT_SECRET=your-client-secret \
-  -p 3000:3000 \
-  ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0
+```
+Authorization: Bearer <your-jwt-token>
 ```
 
-**Note**: Replace the placeholder values with your actual AccelByte credentials.
+The server validates the token on each request but does not manage OAuth flows or token refresh. Clients are responsible for:
+- Obtaining tokens from AccelByte OAuth
+- Refreshing tokens when they expire
+- Including tokens in requests
 
-The server will be available at `http://localhost:3000/mcp`, which you can then add in your VS Code, Cursor, Claude Code, Gemini CLI, or Antigravity configuration.
-
-### Configure Your AI Assistant to Use the Running Container
-
-#### Visual Studio Code
-
-Add to `.vscode/mcp.json`:
-
-```json
-{
-  "servers": {
-    "ags-api": { "type": "http", "url": "http://localhost:3000/mcp" }
-  }
-}
-```
-
-#### Cursor
-
-Add to `.cursor/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "ags-api": { "type": "http", "url": "http://localhost:3000/mcp" }
-  }
-}
-```
-
-#### Claude Code
-
-Claude Code uses a different configuration system than Claude Desktop. You can configure MCP servers either via CLI command or by creating a `.mcp.json` file.
-
-##### Option 1: Using CLI Command
-
-Run the following command in your terminal:
-
-```bash
-claude mcp add --transport http ags-api http://localhost:3000/mcp
-```
-
-##### Option 2: Using .mcp.json File
-
-Create or edit `.mcp.json` in your project root:
-
-```json
-{
-  "mcpServers": {
-    "ags-api": { "type": "http", "url": "http://localhost:3000/mcp" }
-  }
-}
-```
-
-**Location**: `.mcp.json` in your project root directory
-
-#### Gemini CLI
-
-Gemini CLI uses a different configuration system. You can configure MCP servers either via CLI command or by editing `settings.json`.
-
-##### Option 1: Using CLI Command
-
-Run the following command in your terminal:
-
-```bash
-gemini mcp add --transport http ags-api http://localhost:3000/mcp
-```
-
-##### Option 2: Using settings.json File
-
-Edit your Gemini CLI settings file:
-
-**User scope**: `~/.gemini/settings.json`  
-**Project scope**: `.gemini/settings.json` (in your project root)
-
-```json
-{
-  "mcpServers": {
-    "ags-api": { "type": "http", "url": "http://localhost:3000/mcp" }
-  }
-}
-```
-
-**Location**: 
-- User scope: `~/.gemini/settings.json`
-- Project scope: `.gemini/settings.json` in your project root
-
-#### Antigravity
-
-Add to `mcp_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "ags-api": { "type": "http", "url": "http://localhost:3000/mcp" }
-  }
-}
-```
+See [API Reference](docs/API_REFERENCE.md) for authentication details.
 
 ## Documentation
 

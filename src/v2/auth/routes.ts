@@ -30,6 +30,12 @@ interface RegisterOAuthRoutesOptions {
    * @default AuthorizationServerDiscoveryMode.None
    */
   authorizationServerDiscoveryMode?: AuthorizationServerDiscoveryMode;
+
+  /**
+   * Whether hosted mode is enabled.
+   * When true, the authorization server URL is derived from req.ags.baseUrl.
+   */
+  hostedMode?: boolean;
 }
 
 function registerOAuthRoutes(
@@ -40,21 +46,34 @@ function registerOAuthRoutes(
 ): void {
   const {
     authorizationServerDiscoveryMode = AuthorizationServerDiscoveryMode.None,
+    hostedMode = false,
   } = options;
 
   const isDiscoveryWorkaroundEnabled =
     authorizationServerDiscoveryMode !== AuthorizationServerDiscoveryMode.None;
 
-  app.get("/.well-known/oauth-protected-resource", (_, res: Response) => {
-    const metadata: OAuthProtectedResourceMetadata = {
-      resource: resourceServerUrl,
-      authorization_servers: isDiscoveryWorkaroundEnabled
-        ? [resourceServerUrl]
-        : [authorizationServerUrl],
-      bearer_methods_supported: ["header"],
-    };
-    res.status(200).json(metadata);
-  });
+  app.get(
+    "/.well-known/oauth-protected-resource",
+    (req: Request, res: Response) => {
+      const effectiveBaseUrl =
+        hostedMode && req.ags?.baseUrl
+          ? req.ags.baseUrl
+          : authorizationServerUrl;
+      const effectiveAuthServer =
+        hostedMode && req.ags?.baseUrl
+          ? req.ags.baseUrl
+          : authorizationServerUrl;
+
+      const metadata: OAuthProtectedResourceMetadata = {
+        resource: effectiveBaseUrl,
+        authorization_servers: isDiscoveryWorkaroundEnabled
+          ? [effectiveBaseUrl]
+          : [effectiveAuthServer],
+        bearer_methods_supported: ["header"],
+      };
+      res.status(200).json(metadata);
+    },
+  );
 
   if (isDiscoveryWorkaroundEnabled) {
     app.get(

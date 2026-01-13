@@ -10,11 +10,15 @@ import { ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import setAuthFromToken from "../auth/middleware.js";
 import { jsonRPCError } from "../utils.js";
 
+interface McpRequestContext {
+  agsBaseUrl: string;
+}
+
 /**
  * Factory function type for creating MCP server instances.
  * Each call should return a new, independent server instance.
  */
-type McpServerFactory = () => Promise<McpServer>;
+type McpServerFactory = (context: McpRequestContext) => Promise<McpServer>;
 
 interface RegisterMcpRoutesOptions {
   /**
@@ -26,6 +30,11 @@ interface RegisterMcpRoutesOptions {
    * Whether to enable authentication middleware. Defaults to false.
    */
   enableAuth?: boolean;
+
+  /**
+   * The default AGS base URL to use if not provided in the request context.
+   */
+  defaultAgsBaseUrl?: string;
 }
 
 /**
@@ -44,7 +53,7 @@ function registerMcpRoutes(
   factory: McpServerFactory,
   options: RegisterMcpRoutesOptions = {},
 ): void {
-  const { path = "/mcp", enableAuth = false } = options;
+  const { path = "/mcp", enableAuth = false, defaultAgsBaseUrl } = options;
 
   const postHandler = async (req: Request, res: Response) => {
     if (enableAuth && !req.headers.authorization) {
@@ -54,8 +63,15 @@ function registerMcpRoutes(
       return;
     }
 
+    const context: McpRequestContext = {
+      agsBaseUrl:
+        req.ags?.baseUrl ||
+        defaultAgsBaseUrl ||
+        "https://development.accelbyte.io",
+    };
+
     try {
-      const server = await factory();
+      const server = await factory(context);
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
       });
@@ -91,5 +107,5 @@ function registerMcpRoutes(
   });
 }
 
-export type { McpServerFactory, RegisterMcpRoutesOptions };
+export type { McpRequestContext, McpServerFactory, RegisterMcpRoutesOptions };
 export default registerMcpRoutes;

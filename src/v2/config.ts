@@ -61,10 +61,18 @@ const OpenApiConfigSchema = z.object({
   includeWriteRequests: EnvBooleanSchema.default(true),
 });
 
+const HostedConfigSchema = z.object({
+  enabled: EnvBooleanSchema.default(false),
+  validateTokenIssuer: EnvBooleanSchema.default(true),
+});
+
+type HostedConfig = z.infer<typeof HostedConfigSchema>;
+
 const ConfigSchema = z.object({
   mcp: McpConfigSchema,
   openapi: OpenApiConfigSchema,
   runtime: RuntimeConfigSchema,
+  hosted: HostedConfigSchema,
 });
 
 type Config = z.infer<typeof ConfigSchema>;
@@ -114,6 +122,10 @@ function loadConfig(): Config {
         nodeEnv: process.env.NODE_ENV,
         logLevel: process.env.LOG_LEVEL,
       },
+      hosted: {
+        enabled: process.env.MCP_HOSTED,
+        validateTokenIssuer: process.env.MCP_VALIDATE_TOKEN_ISSUER,
+      },
     };
 
     const config: Config = ConfigSchema.parse(raw);
@@ -136,6 +148,9 @@ function loadConfig(): Config {
         openapiDefaultRunTimeoutMs: config.openapi.runTimeoutMs,
         openapiMaxRunTimeoutMs: config.openapi.maxRunTimeoutMs,
         includeWriteRequests: config.openapi.includeWriteRequests,
+        // Hosted Configuration
+        hostedEnabled: config.hosted.enabled,
+        hostedValidateTokenIssuer: config.hosted.validateTokenIssuer,
       },
       "Configuration loaded",
     );
@@ -153,5 +168,5 @@ function loadConfig(): Config {
 
 const config = loadConfig();
 
-export type { Config };
+export type { Config, HostedConfig };
 export default config;
