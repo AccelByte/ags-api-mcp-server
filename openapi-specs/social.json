@@ -7,7 +7,7 @@
     },
     "description": "Justice Statistics Service",
     "title": "justice-statistics-service",
-    "version": "4.2.0"
+    "version": "4.3.0"
   },
   "schemes": [
     "https"
@@ -2119,7 +2119,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "Update stat.&lt;br&gt;Other detail info:&lt;ul&gt;&lt;li&gt;&lt;i&gt;Returns&lt;/i&gt;: updated stat&lt;/li&gt;&lt;li&gt;&lt;i&gt;Field globalAggregationMethod will be ignored when the stat is not set as global&lt;/li&gt;&lt;li&gt;&lt;i&gt;Field globalAggregationMethod is not updatable when the stat status is TIED&lt;/li&gt;&lt;li&gt;&lt;i&gt;Field visibility is not updatable when the stat status is TIED&lt;/li&gt;&lt;/ul&gt;",
+        "description": "Update stat.&lt;br&gt;&lt;strong&gt;Update a TIED stat will affect users&#39; data, the updated stat will take effect in the next evaluation.&lt;/strong&gt;&lt;br&gt;Other detail info:&lt;ul&gt;&lt;li&gt;&lt;i&gt;Returns&lt;/i&gt;: updated stat&lt;/li&gt;&lt;li&gt;&lt;i&gt;Field globalAggregationMethod will be ignored when the stat is not set as global&lt;/li&gt;&lt;/ul&gt;",
         "operationId": "updateStat",
         "parameters": [
           {
@@ -8557,11 +8557,34 @@
           "type": "boolean",
           "x-omitempty": false
         },
+        "incrementOnly": {
+          "type": "boolean",
+          "x-omitempty": false
+        },
         "isPublic": {
           "type": "boolean",
           "x-omitempty": false
         },
+        "maximum": {
+          "format": "double",
+          "type": "number"
+        },
+        "minimum": {
+          "format": "double",
+          "type": "number"
+        },
         "name": {
+          "type": "string"
+        },
+        "setAsGlobal": {
+          "type": "boolean",
+          "x-omitempty": false
+        },
+        "setBy": {
+          "enum": [
+            "CLIENT",
+            "SERVER"
+          ],
           "type": "string"
         },
         "tags": {
@@ -8794,15 +8817,15 @@
   },
   "x-version": {
     "buildBy": "Gradle 8.5",
-    "buildDate": "2025-11-19T03:12:06+00:00",
-    "buildID": "4.2.0",
+    "buildDate": "2026-01-08T09:25:44+00:00",
+    "buildID": "4.3.0",
     "buildJDK": "21.0.6 (Amazon.com Inc. 21.0.6+7-LTS)",
-    "buildOS": "Linux amd64 5.10.245-241.978.amzn2.x86_64",
+    "buildOS": "Linux amd64 6.1.144-170.251.amzn2023.x86_64",
     "gitBranchName": "release-candidate",
-    "gitHash": "8bee59c1d7",
-    "gitTag": "4.2.0",
+    "gitHash": "4ab953f37a",
+    "gitTag": "4.3.0",
     "name": "justice-social-service",
-    "version": "4.2.0",
+    "version": "4.3.0",
     "version-roles-seeding": "0.0.12"
   }
 }

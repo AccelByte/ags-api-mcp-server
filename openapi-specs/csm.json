@@ -7,7 +7,7 @@
     },
     "description": "Custom Service Manager",
     "title": "custom-service-manager",
-    "version": "1.30.0"
+    "version": "1.31.0"
   },
   "schemes": [
     "https"
@@ -136,7 +136,7 @@
         "operationId": "GetAppListV2",
         "parameters": [
           {
-            "description": "Available scenario:\n- scenario 3: <code>event-handler</code>\n- scenario 1: <code>function-override</code>\n- scenario 2: <code>service-extension</code>\n\n\nAvailable app status:\n- <code>app-creating</code>\n- <code>app-creation-failed</code>\n- <code>app-creation-timeout</code>\n- <code>app-undeployed</code>\n- <code>deployment-in-progress</code>\n- <code>deployment-failed</code>\n- <code>deployment-timeout</code>\n- <code>deployment-running</code>\n- <code>deployment-down</code>\n- <code>app-stopping</code>\n- <code>app-stop-failed</code>\n- <code>app-stop-timeout</code>\n- <code>app-stopped</code>\n- <code>app-removing</code>\n- <code>app-removed</code>\n- <code>app-remove-timeout</code>\n\n\nPut empty object {} for no filter",
+            "description": "Available scenario:\n- scenario 1: <code>function-override</code>\n- scenario 2: <code>service-extension</code>\n- scenario 3: <code>event-handler</code>\n\n\nAvailable app status:\n- <code>app-creating</code>\n- <code>app-creation-failed</code>\n- <code>app-creation-timeout</code>\n- <code>app-undeployed</code>\n- <code>deployment-in-progress</code>\n- <code>deployment-failed</code>\n- <code>deployment-timeout</code>\n- <code>deployment-running</code>\n- <code>deployment-down</code>\n- <code>app-stopping</code>\n- <code>app-stop-failed</code>\n- <code>app-stop-timeout</code>\n- <code>app-stopped</code>\n- <code>app-removing</code>\n- <code>app-removed</code>\n- <code>app-remove-timeout</code>\n\n\nPut empty object {} for no filter",
             "in": "body",
             "name": "body",
             "required": true,
@@ -1110,7 +1110,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "Required permission : &lt;code&gt;ADMIN:NAMESPACE:{namespace}:EXTEND:NOSQL:DATABASES [READ]&lt;/code&gt;\n\nGet a NoSQL database information returns the NoSQL database related information by given game namespace\nand app name.\n\n&lt;code&gt;resourceStatus&lt;/code&gt; field - indicates the NoSQL cluster status:\n- &lt;code&gt;stopping&lt;/code&gt; : The cluster is in the process of stopping and will soon become inaccessible. \n- &lt;code&gt;stopped&lt;/code&gt; : The cluster is stopped and not accessible. \n- &lt;code&gt;available&lt;/code&gt; : The cluster is accessible. \n- &lt;code&gt;failed&lt;/code&gt; : The cluster failed to provision or is in an error state and not accessible. \n- &lt;code&gt;starting&lt;/code&gt; : The cluster is transitioning from stopped to running, or is rebooting. \n- &lt;code&gt;maintenance&lt;/code&gt; : The cluster is undergoing maintenance operations and is not accessible. \n- &lt;code&gt;unknown&lt;/code&gt; : The cluster status is not recognized \n- &lt;code&gt;updating&lt;/code&gt; : The cluster is being modified and is not yet accessible (e.g., updating min/max DCU). \n- &lt;code&gt;creating&lt;/code&gt; : The cluster or instance is being created and is not yet accessible. \n- &lt;code&gt;deleting&lt;/code&gt; : The cluster is in the process of being deleted and is not accessible. \n\n\n",
+        "description": "Required permission : &lt;code&gt;ADMIN:NAMESPACE:{namespace}:EXTEND:NOSQL:DATABASES [READ]&lt;/code&gt;\n\nGet a NoSQL database information returns the NoSQL database related information by given game namespace\nand app name.\n\n&lt;code&gt;resourceStatus&lt;/code&gt; field - indicates the NoSQL cluster status:\n- &lt;code&gt;deleting&lt;/code&gt; : The cluster is in the process of being deleted and is not accessible. \n- &lt;code&gt;stopped&lt;/code&gt; : The cluster is stopped and not accessible. \n- &lt;code&gt;updating&lt;/code&gt; : The cluster is being modified and is not yet accessible (e.g., updating min/max DCU). \n- &lt;code&gt;failed&lt;/code&gt; : The cluster failed to provision or is in an error state and not accessible. \n- &lt;code&gt;stopping&lt;/code&gt; : The cluster is in the process of stopping and will soon become inaccessible. \n- &lt;code&gt;starting&lt;/code&gt; : The cluster is transitioning from stopped to running, or is rebooting. \n- &lt;code&gt;maintenance&lt;/code&gt; : The cluster is undergoing maintenance operations and is not accessible. \n- &lt;code&gt;unknown&lt;/code&gt; : The cluster status is not recognized \n- &lt;code&gt;available&lt;/code&gt; : The cluster is accessible. \n- &lt;code&gt;creating&lt;/code&gt; : The cluster or instance is being created and is not yet accessible. \n\n\n",
         "operationId": "GetNoSQLDatabaseV2",
         "parameters": [
           {
@@ -3261,7 +3261,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "Required permission : &lt;code&gt;ADMIN:NAMESPACE:{namespace}:EXTEND:NOSQL:CLUSTERS [READ]&lt;/code&gt;\n\nGet NoSQL cluster information returns the NoSQL cluster related information by given studio/publisher namespace.\n\n&lt;code&gt;status&lt;/code&gt; field - indicates the NoSQL cluster status:\n- &lt;code&gt;updating&lt;/code&gt; : The cluster is being modified and is not yet accessible (e.g., updating min/max DCU). \n- &lt;code&gt;creating&lt;/code&gt; : The cluster or instance is being created and is not yet accessible. \n- &lt;code&gt;deleting&lt;/code&gt; : The cluster is in the process of being deleted and is not accessible. \n- &lt;code&gt;stopping&lt;/code&gt; : The cluster is in the process of stopping and will soon become inaccessible. \n- &lt;code&gt;stopped&lt;/code&gt; : The cluster is stopped and not accessible. \n- &lt;code&gt;available&lt;/code&gt; : The cluster is accessible. \n- &lt;code&gt;failed&lt;/code&gt; : The cluster failed to provision or is in an error state and not accessible. \n- &lt;code&gt;starting&lt;/code&gt; : The cluster is transitioning from stopped to running, or is rebooting. \n- &lt;code&gt;maintenance&lt;/code&gt; : The cluster is undergoing maintenance operations and is not accessible. \n- &lt;code&gt;unknown&lt;/code&gt; : The cluster status is not recognized \n\n",
+        "description": "Required permission : &lt;code&gt;ADMIN:NAMESPACE:{namespace}:EXTEND:NOSQL:CLUSTERS [READ]&lt;/code&gt;\n\nGet NoSQL cluster information returns the NoSQL cluster related information by given studio/publisher namespace.\n\n&lt;code&gt;status&lt;/code&gt; field - indicates the NoSQL cluster status:\n- &lt;code&gt;stopping&lt;/code&gt; : The cluster is in the process of stopping and will soon become inaccessible. \n- &lt;code&gt;starting&lt;/code&gt; : The cluster is transitioning from stopped to running, or is rebooting. \n- &lt;code&gt;maintenance&lt;/code&gt; : The cluster is undergoing maintenance operations and is not accessible. \n- &lt;code&gt;unknown&lt;/code&gt; : The cluster status is not recognized \n- &lt;code&gt;available&lt;/code&gt; : The cluster is accessible. \n- &lt;code&gt;creating&lt;/code&gt; : The cluster or instance is being created and is not yet accessible. \n- &lt;code&gt;deleting&lt;/code&gt; : The cluster is in the process of being deleted and is not accessible. \n- &lt;code&gt;stopped&lt;/code&gt; : The cluster is stopped and not accessible. \n- &lt;code&gt;updating&lt;/code&gt; : The cluster is being modified and is not yet accessible (e.g., updating min/max DCU). \n- &lt;code&gt;failed&lt;/code&gt; : The cluster failed to provision or is in an error state and not accessible. \n\n",
         "operationId": "GetNoSQLClusterV2",
         "parameters": [
           {
@@ -3751,6 +3751,100 @@
         "x-errorCodes": {}
       }
     },
+    "/csm/v2/admin/namespaces/{studioName}/nosql/{resourceId}/apps": {
+      "get": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "Required permission : &lt;code&gt;ADMIN:NAMESPACE:{namespace}:EXTEND:NOSQL:CLUSTERS [READ]&lt;/code&gt;\n\nGet List of Extend App using NoSQL database by given studio/publisher namespace and the NoSQL cluster resourceId.\n- &lt;code&gt;available&lt;/code&gt; : The cluster is accessible. \n- &lt;code&gt;creating&lt;/code&gt; : The cluster or instance is being created and is not yet accessible. \n- &lt;code&gt;deleting&lt;/code&gt; : The cluster is in the process of being deleted and is not accessible. \n- &lt;code&gt;stopped&lt;/code&gt; : The cluster is stopped and not accessible. \n- &lt;code&gt;updating&lt;/code&gt; : The cluster is being modified and is not yet accessible (e.g., updating min/max DCU). \n- &lt;code&gt;failed&lt;/code&gt; : The cluster failed to provision or is in an error state and not accessible. \n- &lt;code&gt;stopping&lt;/code&gt; : The cluster is in the process of stopping and will soon become inaccessible. \n- &lt;code&gt;starting&lt;/code&gt; : The cluster is transitioning from stopped to running, or is rebooting. \n- &lt;code&gt;maintenance&lt;/code&gt; : The cluster is undergoing maintenance operations and is not accessible. \n- &lt;code&gt;unknown&lt;/code&gt; : The cluster status is not recognized \n\n",
+        "operationId": "GetNoSQLAppListV2",
+        "parameters": [
+          {
+            "description": "Studio Name",
+            "in": "path",
+            "name": "studioName",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Resource ID",
+            "in": "path",
+            "name": "resourceId",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "App Name",
+            "in": "query",
+            "name": "appName",
+            "type": "string"
+          },
+          {
+            "description": "Limit for pagination",
+            "in": "query",
+            "name": "limit",
+            "type": "integer"
+          },
+          {
+            "description": "Game Name",
+            "in": "query",
+            "name": "namespace",
+            "type": "string"
+          },
+          {
+            "description": "Offset for pagination",
+            "in": "query",
+            "name": "offset",
+            "type": "integer"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/apimodel.NoSQLAppListResponse"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/response.ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/response.ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/response.ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/response.ErrorResponse"
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "Get List of Extend App using NoSQL",
+        "tags": [
+          "Managed Resources"
+        ],
+        "x-errorCodes": {}
+      }
+    },
     "/csm/v3/admin/namespaces/{namespace}/apps/{app}/subscriptions": {
       "delete": {
         "consumes": [
@@ -4092,11 +4186,23 @@
           "format": "int32",
           "type": "integer"
         },
+        "extendAppEventHandlerMemoryLimit": {
+          "format": "int32",
+          "type": "integer"
+        },
         "extendAppMemoryLimit": {
           "format": "int32",
           "type": "integer"
         },
         "extendAppReplicaLimit": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "extendAppServiceExtensionCPULimit": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "extendAppServiceExtensionMemoryLimit": {
           "format": "int32",
           "type": "integer"
         },
@@ -4113,8 +4219,11 @@
         "autoscaling",
         "extendAppCPULimit",
         "extendAppEventHandlerCPULimit",
+        "extendAppEventHandlerMemoryLimit",
         "extendAppMemoryLimit",
         "extendAppReplicaLimit",
+        "extendAppServiceExtensionCPULimit",
+        "extendAppServiceExtensionMemoryLimit",
         "extendAppeEventHandlerMemoryLimit",
         "maxSubscriberCount"
       ]
@@ -4685,6 +4794,44 @@
           "type": "integer"
         }
       }
+    },
+    "apimodel.NoSQLAppListResponse": {
+      "properties": {
+        "data": {
+          "items": {
+            "$ref": "#/definitions/apimodel.NoSQLAppResponse"
+          },
+          "type": "array"
+        },
+        "pagination": {
+          "$ref": "#/definitions/apimodel.PaginationResponse"
+        }
+      },
+      "required": [
+        "data"
+      ]
+    },
+    "apimodel.NoSQLAppResponse": {
+      "properties": {
+        "appId": {
+          "type": "string"
+        },
+        "appName": {
+          "type": "string"
+        },
+        "gameName": {
+          "type": "string"
+        },
+        "scenario": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "appId",
+        "appName",
+        "gameName",
+        "scenario"
+      ]
     },
     "apimodel.NoSQLDatabaseCredentialResponse": {
       "properties": {
@@ -6291,10 +6438,10 @@
     }
   ],
   "x-version": {
-    "buildDate": "Mon Nov 24 09:07:09 UTC 2025",
-    "gitHash": "4f9db587",
+    "buildDate": "Thu Jan  8 07:46:26 UTC 2026",
+    "gitHash": "4195a640",
     "name": "custom-service-manager",
-    "version": "1.30.0",
+    "version": "1.31.0",
     "version-justice": "3.39.0",
     "version-roles-seeding": "1.2.64"
   }
