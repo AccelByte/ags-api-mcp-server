@@ -48,7 +48,7 @@ Create or edit `.vscode/mcp.json` in your workspace (or configure in user settin
         "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
         "--env", "OAUTH_CLIENT_ID=your-client-id",
         "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
-        "ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0"
+        "ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0"
       ]
     }
   }
@@ -77,7 +77,7 @@ Create or edit `.cursor/mcp.json` in your workspace (or configure in user settin
         "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
         "--env", "OAUTH_CLIENT_ID=your-client-id",
         "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
-        "ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0"
+        "ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0"
       ]
     }
   }
@@ -109,7 +109,7 @@ Edit your Claude Desktop configuration file:
         "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
         "--env", "OAUTH_CLIENT_ID=your-client-id",
         "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
-        "ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0"
+        "ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0"
       ]
     }
   }
@@ -134,7 +134,7 @@ claude mcp add --transport stdio ags-api -- \
   --env AB_BASE_URL=https://yourgame.accelbyte.io \
   --env OAUTH_CLIENT_ID=your-client-id \
   --env OAUTH_CLIENT_SECRET=your-client-secret \
-  ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0
+  ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0
 ```
 
 **Note**: Replace the placeholder values with your actual AccelByte credentials. The `--` separator is required to distinguish Claude CLI flags from the Docker command.
@@ -156,7 +156,7 @@ Create or edit `.mcp.json` in your project root:
         "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
         "--env", "OAUTH_CLIENT_ID=your-client-id",
         "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
-        "ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0"
+        "ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0"
       ]
     }
   }
@@ -185,7 +185,7 @@ Antigravity uses `mcp_config.json` for MCP server configuration. Create or edit 
         "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
         "--env", "OAUTH_CLIENT_ID=your-client-id",
         "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
-        "ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0"
+        "ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0"
       ]
     }
   }
@@ -204,7 +204,7 @@ Gemini CLI uses a different configuration system. You can configure MCP servers 
 Run the following command in your terminal:
 
 ```bash
-gemini mcp add --transport stdio --env AB_BASE_URL=https://yourgame.accelbyte.io --env OAUTH_CLIENT_ID=your-client-id --env OAUTH_CLIENT_SECRET=your-client-secret ags-api -- docker run --rm --interactive ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0
+gemini mcp add --transport stdio --env AB_BASE_URL=https://yourgame.accelbyte.io --env OAUTH_CLIENT_ID=your-client-id --env OAUTH_CLIENT_SECRET=your-client-secret ags-api -- docker run --rm --interactive ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0
 ```
 
 **Note**: Replace the placeholder values with your actual AccelByte credentials. The `--` separator is required to distinguish Gemini CLI flags from the Docker command. See the [Gemini CLI MCP documentation](https://geminicli.com/docs/tools/mcp-server/#configure-the-mcp-server-in-settingsjson) for more details.
@@ -228,7 +228,7 @@ Edit your Gemini CLI settings file:
         "--env", "AB_BASE_URL=https://yourgame.accelbyte.io",
         "--env", "OAUTH_CLIENT_ID=your-client-id",
         "--env", "OAUTH_CLIENT_SECRET=your-client-secret",
-        "ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0"
+        "ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0"
       ]
     }
   }
@@ -303,7 +303,7 @@ docker run -d \
   -e OAUTH_CLIENT_ID=your-client-id \
   -e OAUTH_CLIENT_SECRET=your-client-secret \
   -p 3000:3000 \
-  ghcr.io/accelbyte/ags-api-mcp-server:2025.9.0
+  ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0
 ```
 
 **Note**: Replace the placeholder values with your actual AccelByte credentials.

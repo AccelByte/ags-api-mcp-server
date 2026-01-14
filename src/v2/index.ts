@@ -28,7 +28,7 @@ registerMcpRoutes(app, mcpServerFactory, {
 app.get("/", (_, res) => {
   res.json({
     name: "ags-api-mcp-server",
-    version: "2025.9.0",
+    version: "2026.1.0",
     description: "AccelByte Gaming Services API MCP Server",
     endpoints: {
       mcp: `${config.mcp.serverUrl}${config.mcp.path}`,

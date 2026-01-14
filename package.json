@@ -1,6 +1,6 @@
 {
   "name": "ags-api-mcp-server",
-  "version": "2025.10.0",
+  "version": "2026.1.0",
   "description": "Stateless MCP server for AccelByte Gaming Services APIs with OpenAPI integration",
   "type": "module",
   "main": "dist/v2/index.js",

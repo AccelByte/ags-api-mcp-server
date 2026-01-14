@@ -1,6 +1,6 @@
 # Changelog
 
-## v2025.10 (V2 Architecture)
+## v2026.1 (V2 Architecture)
 
 ### 🎉 V2 Release - Complete Rewrite
 
