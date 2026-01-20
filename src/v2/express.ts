@@ -30,18 +30,27 @@ function create(): Express {
   // TODO: Add cors configuration
   app.use(cors({}));
 
-  // TODO: Make rate limit configuration configurable via environment variables
-  // TODO: Consider implementing different rate limits per endpoint (e.g., stricter limits for /mcp)
-  // TODO: Add rate limit key generator based on IP or authenticated user ID
-  app.use(
-    rateLimit({
-      windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 100, // 100 requests per windowMs
-      message: "Too many requests, please try again later.",
-      standardHeaders: true,
-      legacyHeaders: false,
-    }),
-  );
+  // Rate limit configuration (configurable via environment variables)
+  const rateLimitWindowMs =
+    parseInt(process.env.RATE_LIMIT_WINDOW_MINS || "15", 10) * 60 * 1000; // Default: 15 minutes
+  const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX || "1000", 10); // Default: 1000 requests per window (increased for development/testing)
+  const rateLimitEnabled = process.env.RATE_LIMIT_ENABLED !== "false"; // Default: enabled
+
+  if (rateLimitEnabled) {
+    app.use(
+      rateLimit({
+        windowMs: rateLimitWindowMs,
+        max: rateLimitMax,
+        message: "Too many requests, please try again later.",
+        standardHeaders: true,
+        legacyHeaders: false,
+        // Use IP address as key (can be overridden by X-Forwarded-For header)
+        // In development/testing, you might want to use a more permissive key
+        // For production, use IP address
+        keyGenerator: (req) => req.ip || "unknown",
+      }),
+    );
+  }
 
   // TODO: Add cookie parser options
   app.use(cookieParser());
@@ -86,7 +95,8 @@ function create(): Express {
   });
 
   // TODO: Make JSON body size limit configurable via environment variable
-  // TODO: Consider adding request ID middleware for tracing requests
+  // TODO: Consider adding request ID middleware for tracing requests across services
+  //       (e.g., generate UUID, add to response headers, include in logs for correlation)
   app.use(express.json({ limit: "10mb" }));
 
   // TODO: Add URL encoded body limit configuration
