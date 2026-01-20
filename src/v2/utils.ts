@@ -63,4 +63,42 @@ function maskToken(
   return `${prefix}${mask}${suffix}`;
 }
 
-export { maskToken, jsonRPCError };
+/**
+ * Safely logs an unknown error with proper type narrowing.
+ * Handles both Error instances and other error types (strings, objects, etc.).
+ *
+ * @param error - The error to log (typed as unknown for catch blocks)
+ * @param logger - The logger instance to use
+ * @param context - Additional context to include in the log
+ *
+ * @example
+ * try {
+ *   // some code
+ * } catch (error: unknown) {
+ *   logError(error, log, { context: "MCP handler" });
+ *   res.status(500).json(jsonRPCError(ErrorCode.InternalError, "Internal error"));
+ * }
+ */
+function logError(
+  error: unknown,
+  logger: { error: (meta: unknown, message: string) => void },
+  context?: Record<string, unknown>,
+): void {
+  if (error instanceof Error) {
+    logger.error(
+      {
+        ...context,
+        error: error.message,
+        stack: error.stack,
+        name: error.name,
+      },
+      "Error occurred",
+    );
+  } else if (typeof error === "string") {
+    logger.error({ ...context, error }, "Error occurred (string)");
+  } else {
+    logger.error({ ...context, error }, "Error occurred (unknown type)");
+  }
+}
+
+export { maskToken, jsonRPCError, logError };

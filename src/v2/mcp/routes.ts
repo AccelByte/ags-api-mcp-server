@@ -8,7 +8,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 
 import setAuthFromToken from "../auth/middleware.js";
-import { jsonRPCError } from "../utils.js";
+import log from "../logger.js";
+import { jsonRPCError, logError } from "../utils.js";
 
 interface McpRequestContext {
   agsBaseUrl: string;
@@ -82,6 +83,8 @@ function registerMcpRoutes(
         await server.close();
       });
     } catch (error: unknown) {
+      // Log error for debugging with proper type narrowing
+      logError(error, log, { handler: "MCP POST" });
       res
         .status(500)
         .json(jsonRPCError(ErrorCode.InternalError, "Internal error"));
