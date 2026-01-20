@@ -23,6 +23,7 @@ const mcpServerFactory: McpServerFactory = async (context) =>
 if (config.mcp.enableAuth) {
   registerOAuthRoutes(app, config.mcp.serverUrl, config.openapi.serverUrl, {
     hostedMode: config.hosted.enabled,
+    mcpPath: config.mcp.path,
   });
 }
 

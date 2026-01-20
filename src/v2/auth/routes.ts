@@ -36,6 +36,12 @@ interface RegisterOAuthRoutesOptions {
    * When true, the authorization server URL is derived from req.ags.baseUrl.
    */
   hostedMode?: boolean;
+
+  /**
+   * MCP endpoint path (e.g., "/mcp").
+   * Used to construct the protected resource URL.
+   */
+  mcpPath?: string;
 }
 
 function registerOAuthRoutes(
@@ -47,6 +53,7 @@ function registerOAuthRoutes(
   const {
     authorizationServerDiscoveryMode = AuthorizationServerDiscoveryMode.None,
     hostedMode = false,
+    mcpPath = "/mcp",
   } = options;
 
   const isDiscoveryWorkaroundEnabled =
@@ -55,17 +62,60 @@ function registerOAuthRoutes(
   app.get(
     "/.well-known/oauth-protected-resource",
     (req: Request, res: Response) => {
-      const effectiveBaseUrl =
-        hostedMode && req.ags?.baseUrl
-          ? req.ags.baseUrl
-          : authorizationServerUrl;
-      const effectiveAuthServer =
-        hostedMode && req.ags?.baseUrl
-          ? req.ags.baseUrl
-          : authorizationServerUrl;
+      // Check if we have request headers that indicate we're behind a reverse proxy
+      // NOTE: In production, these headers should be validated/whitelisted to prevent
+      // header injection attacks. Only trust headers from known reverse proxies.
+      const forwardedHost = req.get("x-forwarded-host");
+      const forwardedPort = req.get("x-forwarded-port");
+      const host = req.get("host");
+      const forwardedProto = req.get("x-forwarded-proto");
+
+      // Determine base URL, authorization server URL, and protected resource URL
+      let effectiveBaseUrl: string;
+      let effectiveAuthServer: string;
+      let protectedResourceUrl: string;
+
+      if (forwardedHost || (host && forwardedPort)) {
+        // Behind reverse proxy: construct from request headers
+        const protocol = forwardedProto || req.protocol || "http";
+        let requestHost = forwardedHost || host || "";
+
+        // Ensure port is included
+        if (requestHost && !requestHost.includes(":")) {
+          if (
+            forwardedPort &&
+            forwardedPort !== "80" &&
+            forwardedPort !== "443"
+          ) {
+            requestHost = `${requestHost}:${forwardedPort}`;
+          }
+        }
+
+        if (requestHost) {
+          const baseUrl = `${protocol}://${requestHost}`;
+          effectiveBaseUrl = baseUrl;
+          effectiveAuthServer = baseUrl;
+          protectedResourceUrl = `${baseUrl}${mcpPath}`;
+        } else {
+          // Fallback to configured URLs
+          effectiveBaseUrl = authorizationServerUrl;
+          effectiveAuthServer = authorizationServerUrl;
+          protectedResourceUrl = `${resourceServerUrl}${mcpPath}`;
+        }
+      } else if (hostedMode && req.ags?.baseUrl) {
+        // Hosted mode with ags baseUrl: use that
+        effectiveBaseUrl = req.ags.baseUrl;
+        effectiveAuthServer = req.ags.baseUrl;
+        protectedResourceUrl = `${req.ags.baseUrl}${mcpPath}`;
+      } else {
+        // Default: use configured URLs
+        effectiveBaseUrl = authorizationServerUrl;
+        effectiveAuthServer = authorizationServerUrl;
+        protectedResourceUrl = `${resourceServerUrl}${mcpPath}`;
+      }
 
       const metadata: OAuthProtectedResourceMetadata = {
-        resource: effectiveBaseUrl,
+        resource: protectedResourceUrl,
         authorization_servers: isDiscoveryWorkaroundEnabled
           ? [effectiveBaseUrl]
           : [effectiveAuthServer],
