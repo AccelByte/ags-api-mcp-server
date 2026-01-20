@@ -234,6 +234,36 @@ Edit your Gemini CLI settings file:
 
 See the [Gemini CLI MCP documentation](https://geminicli.com/docs/tools/mcp-server/#configure-the-mcp-server-in-settingsjson) for more details.
 
+## Running with OAuth Server (MCP_HOSTED)
+
+For testing the `MCP_HOSTED` feature, you can run both the MCP server and a minimal OAuth server together using Docker Compose:
+
+```bash
+# Run from the project root
+docker-compose -f tools/oauth/docker-compose.yml up -d
+
+# Or from the tools/oauth directory
+cd tools/oauth && docker-compose up -d
+```
+
+This starts:
+- **MCP Server** on `http://localhost:8080/mcp`
+- **OAuth Server** on `http://localhost:8080/oauth`
+- **Nginx Reverse Proxy** routing requests to both servers
+
+**Access Points:**
+- MCP Server: `http://localhost:8080/mcp`
+- OAuth Discovery: `http://localhost:8080/.well-known/oauth-authorization-server`
+- MCP Discovery: `http://localhost:8080/.well-known/oauth-protected-resource`
+
+**Test Credentials:**
+- Client ID: `test-client`
+- Client Secret: `test-secret`
+- Username: `test-user`
+- Password: `test123`
+
+See the header comment in `tools/oauth/minimal-oauth-server.js` for detailed documentation.
+
 ## Using the Tools
 
 Once configured, your AI assistant can use the following MCP tools to interact with AccelByte APIs:
