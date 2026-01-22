@@ -6,6 +6,21 @@ import type { Express, Request, Response, NextFunction } from "express";
 
 import { OAuthProtectedResourceMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
 
+import log from "../logger.js";
+
+/**
+ * Simple in-memory cache for authorization server metadata.
+ * Caches metadata per URL with a configurable TTL to avoid fetching on every request.
+ */
+interface MetadataCacheEntry {
+  metadata: unknown;
+  expiresAt: number;
+}
+
+const metadataCache = new Map<string, MetadataCacheEntry>();
+const METADATA_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const METADATA_FETCH_TIMEOUT_MS = 10_000; // 10 seconds
+
 /**
  * Authorization server discovery mode for OAuth.
  * - `none`: Use standard discovery (no workaround)
@@ -144,16 +159,86 @@ function registerOAuthRoutes(
             authorizationServerDiscoveryMode ===
             AuthorizationServerDiscoveryMode.Proxy
           ) {
-            const response = await fetch(metadataUrl);
-            if (!response.ok) {
-              throw new Error(
-                `Failed to fetch authorization server metadata: ${response.status} ${response.statusText}`,
-              );
+            // Check cache first
+            const cached = metadataCache.get(metadataUrl);
+            if (cached && cached.expiresAt > Date.now()) {
+              log.debug({ metadataUrl }, "Returning cached metadata");
+              res.status(200).json(cached.metadata);
+              return;
             }
-            const metadata = await response.json();
-            res.status(200).json(metadata);
+
+            // Fetch with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(
+              () => controller.abort(),
+              METADATA_FETCH_TIMEOUT_MS,
+            );
+
+            try {
+              const response = await fetch(metadataUrl, {
+                signal: controller.signal,
+              });
+              clearTimeout(timeoutId);
+
+              if (!response.ok) {
+                log.error(
+                  { metadataUrl, status: response.status },
+                  "Authorization server returned error",
+                );
+                res.status(502).json({
+                  error: "Bad Gateway",
+                  message: "Authorization server returned an error",
+                });
+                return;
+              }
+
+              // Validate content type
+              const contentType = response.headers.get("content-type");
+              if (!contentType?.includes("application/json")) {
+                log.error(
+                  { metadataUrl, contentType },
+                  "Authorization server returned non-JSON response",
+                );
+                res.status(502).json({
+                  error: "Bad Gateway",
+                  message: "Authorization server returned invalid content type",
+                });
+                return;
+              }
+
+              const metadata = await response.json();
+
+              // Cache the result
+              metadataCache.set(metadataUrl, {
+                metadata,
+                expiresAt: Date.now() + METADATA_CACHE_TTL_MS,
+              });
+
+              log.debug({ metadataUrl }, "Fetched and cached metadata");
+              res.status(200).json(metadata);
+            } catch (fetchError) {
+              clearTimeout(timeoutId);
+
+              if (
+                fetchError instanceof Error &&
+                fetchError.name === "AbortError"
+              ) {
+                log.error({ metadataUrl }, "Metadata fetch timed out");
+                res.status(504).json({
+                  error: "Gateway Timeout",
+                  message: "Authorization server did not respond in time",
+                });
+                return;
+              }
+
+              throw fetchError;
+            }
           }
         } catch (error) {
+          log.error(
+            { error: error instanceof Error ? error.message : error },
+            "Error in OAuth authorization server proxy",
+          );
           next(error);
         }
       },
