@@ -196,7 +196,7 @@ Per [MCP Specification](https://modelcontextprotocol.io/specification/2025-11-25
 | **Error Codes** | Proper McpError with ErrorCode enums |
 | **Structured Responses** | Both text content and structuredContent |
 | **Request ID Support** | Ready for distributed tracing (TODO) |
-| **Rate Limiting** | 100 req/15min by default |
+| **Rate Limiting** | 1000 req/15min by default |
 
 ---
 

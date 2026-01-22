@@ -118,8 +118,7 @@ See [docs/v1/README.md](v1/README.md) for the complete V1 documentation index.
 
 ### Deployment
 
-**V2**: [DOCKER.md](DOCKER.md) - Stateless containers  
-**V1**: [v1/DOCKER.md](v1/DOCKER.md) - With session management (if exists)
+**V2**: [DOCKER.md](DOCKER.md) - Stateless containers
 
 ### Development
 
@@ -128,8 +127,7 @@ See [docs/v1/README.md](v1/README.md) for the complete V1 documentation index.
 
 ### Testing
 
-**V2**: [TESTING.md](TESTING.md) - Stateless testing  
-**V1**: [v1/TESTING.md](v1/TESTING.md) - Session testing (if exists)
+**V2**: [TESTING.md](TESTING.md) - Stateless testing
 
 ---
 

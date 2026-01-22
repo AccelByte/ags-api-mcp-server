@@ -2,7 +2,7 @@
 
 Deploy the AGS API MCP Server V2 using Docker for easy containerization and deployment.
 
-> **Note:** This is the V2 Docker guide. For V1 documentation, see [docs/v1/DOCKER.md](v1/DOCKER.md) (if needed).
+> **Note:** This is the V2 Docker guide. V2's stateless architecture simplifies container deployment compared to V1.
 
 ---
 

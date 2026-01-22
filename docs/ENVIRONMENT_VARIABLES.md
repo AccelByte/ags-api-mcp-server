@@ -129,6 +129,63 @@ export MCP_AUTH=false
 
 ---
 
+## Rate Limiting
+
+### `RATE_LIMIT_ENABLED`
+- **Description**: Enable or disable rate limiting
+- **Default**: `true`
+- **Required**: No
+- **Options**: `true`, `false`
+- **Note**: Set to `false` to disable rate limiting entirely
+
+### `RATE_LIMIT_WINDOW_MINS`
+- **Description**: Rate limit window duration in minutes
+- **Default**: `15`
+- **Required**: No
+- **Example**: `30` (30-minute window)
+
+### `RATE_LIMIT_MAX`
+- **Description**: Maximum number of requests per IP within the rate limit window
+- **Default**: `1000`
+- **Required**: No
+- **Example**: `100` (stricter limit for production)
+
+**Example**:
+```bash
+# Stricter rate limiting for production
+export RATE_LIMIT_WINDOW_MINS=15
+export RATE_LIMIT_MAX=100
+```
+
+---
+
+## Hosted Mode
+
+Hosted mode enables multi-tenant deployment where the AGS base URL is derived from the request's Host header.
+
+### `MCP_HOSTED`
+- **Description**: Enable hosted mode for multi-tenant environments
+- **Default**: `false`
+- **Required**: No
+- **Options**: `true`, `false`
+- **Note**: When enabled, the AGS base URL is derived from the request's Host header
+
+### `MCP_VALIDATE_TOKEN_ISSUER`
+- **Description**: Validate that the JWT token issuer matches the derived AGS URL
+- **Default**: `true`
+- **Required**: No
+- **Options**: `true`, `false`
+- **Note**: Only applicable when `MCP_HOSTED=true`. Provides additional security by ensuring tokens were issued for the correct environment.
+
+**Example**:
+```bash
+# Enable hosted mode with issuer validation
+export MCP_HOSTED=true
+export MCP_VALIDATE_TOKEN_ISSUER=true
+```
+
+---
+
 ## Configuration Examples
 
 ### Minimal Configuration
@@ -257,6 +314,11 @@ New in V2:
 - `MCP_PROTOCOL` - Server protocol
 - `MCP_HOSTNAME` - Server hostname
 - `MCP_AUTH` - Toggle authentication
+- `MCP_HOSTED` - Multi-tenant hosted mode
+- `MCP_VALIDATE_TOKEN_ISSUER` - Token issuer validation
+- `RATE_LIMIT_ENABLED` - Toggle rate limiting
+- `RATE_LIMIT_WINDOW_MINS` - Rate limit window
+- `RATE_LIMIT_MAX` - Max requests per window
 - `OPENAPI_MAX_SEARCH_LIMIT` - Enforced max
 - `OPENAPI_DEFAULT_RUN_TIMEOUT_MS` - Request timeout
 - `OPENAPI_MAX_RUN_TIMEOUT_MS` - Max timeout

@@ -13,8 +13,7 @@ import log from "./logger.js";
 function create(): Express {
   const app = express();
 
-  // TODO: Review and tighten CSP directives based on actual requirements
-  // TODO: Consider adding more security headers (HSTS, X-Frame-Options, etc.)
+  // Security headers via helmet (includes HSTS, X-Frame-Options, etc.)
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -27,7 +26,7 @@ function create(): Express {
     }),
   );
 
-  // TODO: Add cors configuration
+  // CORS: Allow all origins by default. Configure via cors() options for production.
   app.use(cors({}));
 
   // Rate limit configuration (configurable via environment variables)
@@ -52,7 +51,6 @@ function create(): Express {
     );
   }
 
-  // TODO: Add cookie parser options
   app.use(cookieParser());
 
   // Request logging middleware
@@ -94,12 +92,8 @@ function create(): Express {
     next();
   });
 
-  // TODO: Make JSON body size limit configurable via environment variable
-  // TODO: Consider adding request ID middleware for tracing requests across services
-  //       (e.g., generate UUID, add to response headers, include in logs for correlation)
+  // Body parsing with 10mb limit
   app.use(express.json({ limit: "10mb" }));
-
-  // TODO: Add URL encoded body limit configuration
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
   // Error handling middleware (must be last)
@@ -153,7 +147,7 @@ function stop(server: Server): void {
 }
 
 function start(app: Express, port: number): Server {
-  // TODO: Validate port number is within valid range before starting
+  // Note: Port validation is handled by Zod schema in config.ts
   const server = app
     .listen(port, (error) => {
       if (error) {

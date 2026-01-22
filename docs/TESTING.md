@@ -2,7 +2,7 @@
 
 This guide covers testing strategies and practices for the AGS API MCP Server V2.
 
-> **Note:** This is the V2 testing guide. For V1 documentation, see [docs/v1/TESTING.md](v1/TESTING.md) if needed.
+> **Note:** This is the V2 testing guide. V1 tests are located in `tests/v1/`.
 
 ---
 
@@ -33,7 +33,7 @@ pnpm test -- --watch
 ### Specific Test File
 
 ```bash
-pnpm test tests/v2/config.test.ts
+pnpm test tests/config.test.ts
 ```
 
 ### With Coverage
@@ -50,14 +50,17 @@ Tests are in `tests/` directory:
 
 ```
 tests/
-├── v2/                              # V2-specific tests
-│   ├── config.test.ts               # Configuration tests
-│   ├── tools.test.ts                # Tool tests
-│   └── middleware.test.ts           # Middleware tests
-├── config.test.ts                   # Shared config tests
+├── config.test.ts                   # Configuration tests
 ├── openapi-tools.test.ts            # OpenAPI tools tests
-└── helpers/
-    └── mock-express.ts              # Express mocking utilities
+├── fixtures/                        # Test fixtures
+├── helpers/
+│   └── mock-express.ts              # Express mocking utilities
+└── v1/                              # V1-specific tests
+    ├── mcp-server.test.ts           # MCP server tests
+    ├── http-server-error-handling.test.ts
+    ├── otp-manager.test.ts          # OTP manager tests
+    ├── session-manager.test.ts      # Session manager tests
+    └── static-tools.test.ts         # Static tools tests
 ```
 
 ---
@@ -300,42 +303,58 @@ describe('Config', () => {
 
 ## Testing Middleware
 
-### Test Token Extraction
+### Test Auth Middleware
+
+The `setAuthFromToken()` middleware is an Express middleware that extracts auth info from the Authorization header and attaches it to `req.auth`.
 
 ```typescript
-import { test } from 'node:test';
+import { test, describe, mock } from 'node:test';
 import assert from 'node:assert';
-import { extractToken } from '../../src/v2/auth/middleware.js';
+import setAuthFromToken from '../src/v2/auth/middleware.js';
 
-test('extracts token from Authorization header', () => {
-  const mockReq = {
-    headers: {
-      authorization: 'Bearer my-token-123',
-    },
-  };
-  
-  const token = extractToken(mockReq);
-  assert.strictEqual(token, 'my-token-123');
-});
+describe('setAuthFromToken middleware', () => {
+  test('extracts token and sets req.auth for valid JWT', async () => {
+    // Create a valid JWT structure (header.payload.signature)
+    const mockToken = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJjbGllbnRfaWQiOiJ0ZXN0LWNsaWVudCJ9.signature';
+    const mockReq = {
+      headers: { authorization: `Bearer ${mockToken}` },
+    };
+    const mockRes = {};
+    const mockNext = mock.fn();
 
-test('returns null when no Authorization header', () => {
-  const mockReq = {
-    headers: {},
-  };
-  
-  const token = extractToken(mockReq);
-  assert.strictEqual(token, null);
-});
+    const middleware = setAuthFromToken();
+    await middleware(mockReq, mockRes, mockNext);
 
-test('returns null for invalid format', () => {
-  const mockReq = {
-    headers: {
-      authorization: 'InvalidFormat my-token',
-    },
-  };
-  
-  const token = extractToken(mockReq);
-  assert.strictEqual(token, null);
+    assert.ok(mockReq.auth, 'req.auth should be set');
+    assert.strictEqual(mockReq.auth.token, mockToken);
+    assert.ok(mockNext.mock.calls.length === 1, 'next() should be called');
+  });
+
+  test('does not set req.auth when no Authorization header', async () => {
+    const mockReq = { headers: {} };
+    const mockRes = {};
+    const mockNext = mock.fn();
+
+    const middleware = setAuthFromToken();
+    await middleware(mockReq, mockRes, mockNext);
+
+    assert.strictEqual(mockReq.auth, undefined);
+    assert.ok(mockNext.mock.calls.length === 1, 'next() should be called');
+  });
+
+  test('does not set req.auth for non-Bearer auth', async () => {
+    const mockReq = {
+      headers: { authorization: 'Basic dXNlcjpwYXNz' },
+    };
+    const mockRes = {};
+    const mockNext = mock.fn();
+
+    const middleware = setAuthFromToken();
+    await middleware(mockReq, mockRes, mockNext);
+
+    assert.strictEqual(mockReq.auth, undefined);
+    assert.ok(mockNext.mock.calls.length === 1, 'next() should be called');
+  });
 });
 ```
 

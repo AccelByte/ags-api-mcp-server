@@ -307,30 +307,40 @@ The script:
 
 V2 uses simple token extraction (no JWKS verification).
 
-### Token Extraction
+### Token Extraction Middleware
 
 **Location**: `src/v2/auth/middleware.ts`
 
+The `setAuthFromToken()` middleware extracts the bearer token from the Authorization header and attaches auth info to the request:
+
 ```typescript
-export function extractToken(req: Request): string | null {
-  const authHeader = req.headers.authorization;
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.substring(7);
-  }
-  return null;
-}
+import setAuthFromToken from "../auth/middleware.js";
+
+// Register middleware on protected routes
+app.post(path, setAuthFromToken(), postHandler);
 ```
+
+The middleware:
+1. Extracts the token from `Authorization: Bearer <token>` header
+2. Decodes the JWT (without verification)
+3. Attaches `req.auth` with `AuthInfo`: `{ token, clientId, scopes, expiresAt }`
 
 ### Using Token in Tools
 
-Token is passed to tool handlers via MCP server factory:
+Tools access the token via the MCP `extra.authInfo` context:
 
 ```typescript
-// In server.ts
-const extractedToken = extractToken(req);
+// In tool handler
+async (params, extra: { authInfo?: { token?: string } }) => {
+  const token = extra.authInfo?.token;
 
-// Pass to tool
-const tool = getTokenInfo(config, extractedToken);
+  if (!token) {
+    throw new McpError(ErrorCode.InvalidRequest, "Authorization required");
+  }
+
+  // Use token for API calls
+  await openApiTools.runApi(params, undefined, token);
+}
 ```
 
 ---
@@ -339,12 +349,12 @@ const tool = getTokenInfo(config, extractedToken);
 
 ### Unit Tests
 
-Create tests in `tests/v2/`:
+Create tests in `tests/`:
 
 ```typescript
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { myFunction } from '../../src/v2/my-module.js';
+import { myFunction } from '../src/v2/my-module.js';
 
 describe('MyModule', () => {
   test('should do something', async () => {

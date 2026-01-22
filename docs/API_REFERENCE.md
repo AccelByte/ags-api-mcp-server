@@ -219,15 +219,37 @@ Get information about the authenticated token and user.
 **Output**:
 ```json
 {
-  "namespace": "mygame",
-  "user_id": "user-uuid",
-  "display_name": "PlayerName",
-  "roles": ["User"],
-  "permissions": [...],
-  "expires_at": 1234567890,
+  "message": "Token information from authenticated token.",
+  "claims": {
+    "issuer": "https://yourgame.accelbyte.io",
+    "subject": "user-uuid",
+    "clientId": "my-client-id",
+    "namespace": "mygame",
+    "userId": "user-uuid",
+    "displayName": "PlayerName",
+    "roles": ["User"],
+    "permissions": [...],
+    "scope": "openid commerce",
+    "expiresAt": 1234567890,
+    "expiresAtISO": "2024-01-15T12:00:00.000Z"
+  },
+  "headers": {
+    "algorithm": "RS256",
+    "keyId": "key-id",
+    "type": "JWT"
+  },
   "hints": {
-    "namespace_usage": "This namespace should be used as the default...",
-    "token_validity": "Token is valid and active"
+    "namespace": {
+      "value": "mygame",
+      "message": "Use namespace \"mygame\" as the implicit default..."
+    }
+  },
+  "metadata": {
+    "type": "user_token",
+    "length": 1234,
+    "masked": "eyJ0eXAi...***...signature",
+    "isExpired": false,
+    "timeUntilExpiry": "2 hour(s) 30 minute(s)"
   }
 }
 ```
@@ -311,7 +333,7 @@ Execute API requests against endpoints.
 
 V2 includes built-in rate limiting:
 
-- **Default**: 100 requests per 15 minutes per IP
+- **Default**: 1000 requests per 15 minutes per IP
 - **Response**: `429 Too Many Requests` when exceeded
 - **Headers**: Rate limit info in response headers
 

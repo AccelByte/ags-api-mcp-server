@@ -18,7 +18,7 @@ if (config.hosted.enabled) {
 }
 
 const mcpServerFactory: McpServerFactory = async (context) =>
-  createServer("ags-api-mcp-server", "2025.9.0", config, context);
+  createServer("ags-api-mcp-server", "2026.1.0", config, context);
 
 if (config.mcp.enableAuth) {
   registerOAuthRoutes(app, config.mcp.serverUrl, config.openapi.serverUrl, {
