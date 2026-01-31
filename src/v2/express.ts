@@ -5,7 +5,7 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { Express } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { type Options } from "express-rate-limit";
 import helmet from "helmet";
 import { Server } from "http";
 import log from "./logger.js";
@@ -36,19 +36,15 @@ function create(): Express {
   const rateLimitEnabled = process.env.RATE_LIMIT_ENABLED !== "false"; // Default: enabled
 
   if (rateLimitEnabled) {
-    app.use(
-      rateLimit({
-        windowMs: rateLimitWindowMs,
-        max: rateLimitMax,
-        message: "Too many requests, please try again later.",
-        standardHeaders: true,
-        legacyHeaders: false,
-        // Use IP address as key (can be overridden by X-Forwarded-For header)
-        // In development/testing, you might want to use a more permissive key
-        // For production, use IP address
-        keyGenerator: (req) => req.ip || "unknown",
-      }),
-    );
+    const rateLimitOptions: Partial<Options> = {
+      windowMs: rateLimitWindowMs,
+      max: rateLimitMax,
+      message: "Too many requests, please try again later.",
+      standardHeaders: true,
+      legacyHeaders: false,
+      // Use default keyGenerator which properly handles IPv6 normalization
+    };
+    app.use(rateLimit(rateLimitOptions));
   }
 
   app.use(cookieParser());
