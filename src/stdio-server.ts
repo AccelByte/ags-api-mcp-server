@@ -79,6 +79,7 @@ export class StdioMCPServer {
               tools: {},
               resources: {},
               prompts: {},
+              completions: {},
             },
           },
         );
