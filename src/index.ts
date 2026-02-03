@@ -48,7 +48,10 @@ if (config.transport === "stdio") {
   registerPrompts(stdioServer);
 
   stdioServer.start().catch((error: unknown) => {
-    logger.fatal({ error }, "Failed to start stdio MCP server");
+    logger.fatal({ 
+      error,
+      message: error instanceof Error ? error.message : String(error),
+    }, "Failed to start stdio MCP server");
     process.exit(1);
   });
 
