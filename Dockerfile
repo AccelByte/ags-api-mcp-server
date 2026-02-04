@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 # Install pnpm
@@ -13,7 +13,7 @@ RUN pnpm run build
 RUN pnpm prune --prod
 
 # Runtime stage
-FROM node:20-alpine
+FROM node:24-alpine
 WORKDIR /app
 
 RUN apk add --no-cache curl
