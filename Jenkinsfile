@@ -69,7 +69,7 @@ pipeline {
     stage('Push to ECR') {
       when {
         expression {
-          return ! env.BITBUCKET_PULL_REQUEST_LATEST_COMMIT_FROM_TARGET_BRANCH
+          return (env.x_event_key == "pullrequest:fulfilled" && env.BITBUCKET_PULL_REQUEST_TARGET_BRANCH == "master")
         }
       }
       steps {
