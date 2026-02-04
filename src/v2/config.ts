@@ -42,6 +42,25 @@ const McpConfigSchema = z.object({
   path: z.string().default("/mcp"),
   serverUrl: z.string().url(),
   enableAuth: EnvBooleanSchema.default(true),
+  /**
+   * TEMPORARY WORKAROUND: OAuth authorization server discovery mode.
+   * Needed because VS Code (and some MCP clients) cannot discover the actual
+   * authorization server at /.well-known/oauth-authorization-server when it
+   * lives on a different host. This makes the MCP server proxy/redirect
+   * discovery and registration requests to the real auth server.
+   *
+   * Values: "none" | "redirect" | "proxy" | "proxyRegister"
+   * - none: Standard discovery (default, no workaround)
+   * - redirect: 307 redirect to actual auth server's discovery endpoint
+   * - proxy: Proxy the discovery document from actual auth server
+   * - proxyRegister: Like proxy, but also proxies the registration endpoint
+   *
+   * TODO: Remove once MCP clients (VS Code, etc.) properly support OAuth
+   * authorization server discovery when the auth server is on a different host.
+   */
+  authServerDiscoveryMode: z
+    .enum(["none", "redirect", "proxy", "proxyRegister"])
+    .default("none"),
 });
 
 const RuntimeConfigSchema = z.object({
@@ -108,6 +127,7 @@ function loadConfig(): Config {
         path: process.env.MCP_PATH,
         serverUrl: mcpServerUrl,
         enableAuth: process.env.MCP_AUTH,
+        authServerDiscoveryMode: process.env.MCP_AUTH_SERVER_DISCOVERY_MODE,
       },
       openapi: {
         specsDir: openapiSpecsDir,
@@ -130,6 +150,19 @@ function loadConfig(): Config {
 
     const config: Config = ConfigSchema.parse(raw);
 
+    // Auth server discovery workaround is for local use only; it must not
+    // be enabled in hosted (multi-tenant) mode where the server is publicly
+    // reachable, as it exposes an unauthenticated registration proxy.
+    if (
+      config.hosted.enabled &&
+      config.mcp.authServerDiscoveryMode !== "none"
+    ) {
+      throw new Error(
+        "MCP_AUTH_SERVER_DISCOVERY_MODE cannot be used with MCP_HOSTED=true. " +
+          "The auth server discovery workaround is intended for local use only.",
+      );
+    }
+
     log.info(
       {
         projectRoot,
@@ -140,6 +173,7 @@ function loadConfig(): Config {
         mcpPath: config.mcp.path,
         mcpServerUrl: config.mcp.serverUrl,
         mcpAuthEnabled: config.mcp.enableAuth,
+        mcpAuthServerDiscoveryMode: config.mcp.authServerDiscoveryMode,
         // OpenAPI Configuration
         openapiSpecsDir: config.openapi.specsDir,
         openapiServerUrl: config.openapi.serverUrl,
