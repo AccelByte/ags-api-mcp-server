@@ -7,7 +7,9 @@ import { create as createExpress, start as startExpress } from "./express.js";
 
 import config from "./config.js";
 import registerMcpRoutes, { McpServerFactory } from "./mcp/routes.js";
-import registerOAuthRoutes from "./auth/routes.js";
+import registerOAuthRoutes, {
+  AuthorizationServerDiscoveryMode,
+} from "./auth/routes.js";
 import { resolveAgsHost } from "./auth/host-resolver.js";
 import createServer from "./mcp/server.js";
 
@@ -22,6 +24,8 @@ const mcpServerFactory: McpServerFactory = async (context) =>
 
 if (config.mcp.enableAuth) {
   registerOAuthRoutes(app, config.mcp.serverUrl, config.openapi.serverUrl, {
+    authorizationServerDiscoveryMode: config.mcp
+      .authServerDiscoveryMode as AuthorizationServerDiscoveryMode,
     hostedMode: config.hosted.enabled,
     mcpPath: config.mcp.path,
   });

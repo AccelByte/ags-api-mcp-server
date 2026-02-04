@@ -28,19 +28,26 @@ const METADATA_FETCH_TIMEOUT_MS = 10_000; // 10 seconds
  *   clients to the actual authorization server
  * - `proxy`: Advertise this server as the authorization server and proxy
  *   the discovery document from the actual authorization server
+ * - `proxyRegister`: Like `proxy`, but also proxies the registration endpoint
+ *
+ * TEMPORARY WORKAROUND: All modes except `none` exist because VS Code and some
+ * MCP clients cannot discover the auth server when it's on a different host.
+ * TODO: Remove once MCP clients properly support cross-origin OAuth discovery.
  */
 enum AuthorizationServerDiscoveryMode {
   None = "none",
   Redirect = "redirect",
   Proxy = "proxy",
+  ProxyRegister = "proxyRegister",
 }
 
 interface RegisterOAuthRoutesOptions {
   /**
    * Workaround for MCP clients that cannot discover the actual authorization
-   * server using the standard discovery rules. When set to `redirect` or `proxy`,
-   * this MCP server advertises itself as the authorization server so that clients
-   * talk to it, and it can then redirect or proxy them to the actual authorization server.
+   * server using the standard discovery rules. When set to `redirect`, `proxy`,
+   * or `proxyRegister`, this MCP server advertises itself as the authorization
+   * server so that clients talk to it, and it can then redirect or proxy them
+   * to the actual authorization server.
    *
    * @default AuthorizationServerDiscoveryMode.None
    */
@@ -157,7 +164,9 @@ function registerOAuthRoutes(
             res.redirect(307, metadataUrl);
           } else if (
             authorizationServerDiscoveryMode ===
-            AuthorizationServerDiscoveryMode.Proxy
+              AuthorizationServerDiscoveryMode.Proxy ||
+            authorizationServerDiscoveryMode ===
+              AuthorizationServerDiscoveryMode.ProxyRegister
           ) {
             // Check cache first
             const cached = metadataCache.get(metadataUrl);
@@ -215,7 +224,19 @@ function registerOAuthRoutes(
               });
 
               log.debug({ metadataUrl }, "Fetched and cached metadata");
-              res.status(200).json(metadata);
+
+              // For ProxyRegister mode, rewrite registration_endpoint to go through this server
+              if (
+                authorizationServerDiscoveryMode ===
+                AuthorizationServerDiscoveryMode.ProxyRegister
+              ) {
+                res.status(200).json({
+                  ...metadata,
+                  registration_endpoint: `${resourceServerUrl}/oauth/register`,
+                });
+              } else {
+                res.status(200).json(metadata);
+              }
             } catch (fetchError) {
               clearTimeout(timeoutId);
 
@@ -243,6 +264,79 @@ function registerOAuthRoutes(
         }
       },
     );
+
+    // TEMPORARY WORKAROUND: Proxy registration endpoint for ProxyRegister mode.
+    // Proxies OAuth dynamic client registration to the actual auth server.
+    // TODO: Remove once MCP clients properly support cross-origin OAuth discovery.
+    if (
+      authorizationServerDiscoveryMode ===
+      AuthorizationServerDiscoveryMode.ProxyRegister
+    ) {
+      const baseUrl = authorizationServerUrl.replace(/\/+$/, "");
+
+      app.post(
+        "/oauth/register",
+        async (req: Request, res: Response, next: NextFunction) => {
+          try {
+            log.debug(
+              {
+                body: req.body,
+                headers: {
+                  "content-type": req.get("Content-Type"),
+                  "user-agent": req.get("User-Agent"),
+                },
+              },
+              "Incoming OAuth registration request (proxied)",
+            );
+
+            // Resolve actual registration endpoint from metadata
+            const metadataUrl = `${baseUrl}/.well-known/oauth-authorization-server`;
+            let registrationEndpoint = `${baseUrl}/iam/v3/oauth/register`; // fallback
+
+            try {
+              const metadataResponse = await fetch(metadataUrl);
+              if (metadataResponse.ok) {
+                const metadata = await metadataResponse.json();
+                if (metadata.registration_endpoint) {
+                  registrationEndpoint = metadata.registration_endpoint;
+                }
+              }
+            } catch (metadataError) {
+              log.warn(
+                { error: metadataError },
+                "Failed to fetch metadata for registration endpoint, using default",
+              );
+            }
+
+            log.debug(
+              { registrationEndpoint },
+              "Forwarding registration request to auth server",
+            );
+
+            const response = await fetch(registrationEndpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(req.body),
+            });
+
+            const data = await response.json();
+
+            log.debug(
+              {
+                status: response.status,
+                hasClientId: !!data.client_id,
+              },
+              "OAuth registration response received",
+            );
+
+            res.status(response.status).json(data);
+          } catch (error) {
+            log.error({ error }, "OAuth registration proxy error");
+            next(error);
+          }
+        },
+      );
+    }
   }
 }
 
