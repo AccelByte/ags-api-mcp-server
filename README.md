@@ -40,7 +40,6 @@ Start the server using Docker:
 docker run -d \
   --name ags-api-mcp-server \
   -e AB_BASE_URL=https://yourgame.accelbyte.io \
-  -e MCP_AUTH=true \
   -p 3000:3000 \
   ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0
 ```
@@ -69,7 +68,6 @@ Start the MCP server using Docker:
 docker run -d \
   --name ags-api-mcp-server \
   -e AB_BASE_URL=https://yourgame.accelbyte.io \
-  -e MCP_AUTH=true \
   -p 3000:3000 \
   ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0
 ```
@@ -234,35 +232,51 @@ Edit your Gemini CLI settings file:
 
 See the [Gemini CLI MCP documentation](https://geminicli.com/docs/tools/mcp-server/#configure-the-mcp-server-in-settingsjson) for more details.
 
-## Running with OAuth Server (MCP_HOSTED)
+## Advanced: Running Locally
 
-For testing the `MCP_HOSTED` feature, you can run both the MCP server and a minimal OAuth server together using Docker Compose:
+If you want to build and run the server yourself instead of using the pre-built image from `ghcr.io`.
+
+### Option 1: Docker (Local Build)
+
+Build the image from source and run it:
 
 ```bash
-# Run from the project root
-docker-compose -f tools/oauth/docker-compose.yml up -d
+git clone <repo-url> ags-api-mcp-server
+cd ags-api-mcp-server
 
-# Or from the tools/oauth directory
-cd tools/oauth && docker-compose up -d
+docker build -t ags-api-mcp-server .
+
+docker run -d \
+  --name ags-api-mcp-server \
+  -e AB_BASE_URL=https://yourgame.accelbyte.io \
+  -p 3000:3000 \
+  ags-api-mcp-server
 ```
 
-This starts:
-- **MCP Server** on `http://localhost:8080/mcp`
-- **OAuth Server** on `http://localhost:8080/oauth`
-- **Nginx Reverse Proxy** routing requests to both servers
+### Option 2: pnpm
 
-**Access Points:**
-- MCP Server: `http://localhost:8080/mcp`
-- OAuth Discovery: `http://localhost:8080/.well-known/oauth-authorization-server`
-- MCP Discovery: `http://localhost:8080/.well-known/oauth-protected-resource`
+Run directly with Node.js:
 
-**Test Credentials:**
-- Client ID: `test-client`
-- Client Secret: `test-secret`
-- Username: `test-user`
-- Password: `test123`
+```bash
+git clone <repo-url> ags-api-mcp-server
+cd ags-api-mcp-server
+pnpm install
+cp env.example .env
+```
 
-See the header comment in `tools/oauth/minimal-oauth-server.js` for detailed documentation.
+Edit `.env` and set at minimum:
+
+```bash
+AB_BASE_URL=https://yourgame.accelbyte.io
+```
+
+Then start the server:
+
+```bash
+pnpm build && pnpm start
+# Or use watch mode for development:
+pnpm dev
+```
 
 ## Using the Tools
 
@@ -313,20 +327,62 @@ Execute API requests against AccelByte endpoints. The server handles:
 
 The server also provides workflow resources and prompts for running predefined workflows. Ask your AI assistant about available workflows or use the `run-workflow` prompt.
 
-## Authentication
+## Troubleshooting
 
-V2 uses **Bearer token authentication**. Clients must obtain a JWT token from AccelByte's OAuth service and include it in the `Authorization` header:
+### OAuth Authorization Server Not Found
 
+Some MCP clients may fail to discover the OAuth authorization server when it lives on a different host than the MCP server. This typically manifests as an error when the client tries to fetch `/.well-known/oauth-authorization-server` from the MCP server's URL.
+
+To work around this, set `MCP_AUTH_SERVER_DISCOVERY_MODE` to make the MCP server proxy OAuth discovery and registration requests to AccelByte.
+
+**Docker:**
+
+```bash
+docker run -d \
+  --name ags-api-mcp-server \
+  -e AB_BASE_URL=https://yourgame.accelbyte.io \
+  -e MCP_AUTH_SERVER_DISCOVERY_MODE=proxyRegister \
+  -p 3000:3000 \
+  ags-api-mcp-server
 ```
-Authorization: Bearer <your-jwt-token>
+
+**pnpm (`.env`):**
+
+```bash
+MCP_AUTH_SERVER_DISCOVERY_MODE=proxyRegister
 ```
 
-The server validates the token on each request but does not manage OAuth flows or token refresh. Clients are responsible for:
-- Obtaining tokens from AccelByte OAuth
-- Refreshing tokens when they expire
-- Including tokens in requests
+This makes the MCP server:
+1. Serve `/.well-known/oauth-authorization-server` by proxying the document from AccelByte
+2. Rewrite the `registration_endpoint` in that document to point to the MCP server
+3. Proxy `POST /oauth/register` requests to AccelByte's actual registration endpoint
 
-See [API Reference](docs/API_REFERENCE.md) for authentication details.
+Available modes:
+
+| Mode | Behavior |
+|------|----------|
+| `none` | Standard discovery (default) |
+| `redirect` | 307 redirect to AccelByte's discovery endpoint |
+| `proxy` | Proxy the discovery document |
+| `proxyRegister` | Proxy discovery + registration endpoint (recommended) |
+
+> **Note:** This is a temporary workaround until MCP clients properly support cross-origin OAuth authorization server discovery.
+
+> **VS Code users:** VS Code Copilot is a known affected client. If you see OAuth errors when connecting, use `proxyRegister` mode.
+
+### Port 3000 Already in Use
+
+If port 3000 is already in use by another application, you'll see an error like `Bind for 0.0.0.0:3000 failed: port is already allocated`. Map to a different host port using `-p`:
+
+```bash
+docker run -d \
+  --name ags-api-mcp-server \
+  -e AB_BASE_URL=https://yourgame.accelbyte.io \
+  -p 8080:3000 \
+  ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0
+```
+
+Then update your MCP client configuration to use the new port (e.g., `http://localhost:8080/mcp`).
 
 ## Documentation
 
