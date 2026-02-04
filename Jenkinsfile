@@ -66,6 +66,36 @@ pipeline {
         }
       }
     }
+    stage('Push to ECR') {
+      when {
+        expression {
+          return ! env.BITBUCKET_PULL_REQUEST_LATEST_COMMIT_FROM_TARGET_BRANCH
+        }
+      }
+      steps {
+        withCredentials([
+            [
+                $class: 'AmazonWebServicesCredentialsBinding',
+                credentialsId: "AWS-Prod-Cluster",
+                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+            ]
+        ]) {
+          script {
+            def commitHash = sh(returnStdout: true, script: 'git rev-parse HEAD').trim().take(10)
+            def imageTag = "master-${commitHash}"
+            def ecrRepo = "144436415367.dkr.ecr.us-west-2.amazonaws.com/ags-api-mcp-server"
+
+            sh "docker run --rm -t -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY amazon/aws-cli ecr get-login-password --region 'us-west-2' | docker login --username AWS --password-stdin 144436415367.dkr.ecr.us-west-2.amazonaws.com"
+            sh "docker tag ${imageName}:test ${ecrRepo}:${imageTag}"
+            sh "docker tag ${imageName}:test ${ecrRepo}:latest"
+            sh "docker push ${ecrRepo}:${imageTag}"
+            sh "docker push ${ecrRepo}:latest"
+          }
+
+        }
+      }
+    }
   }
   post {
     success {
