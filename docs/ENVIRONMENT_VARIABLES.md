@@ -6,23 +6,18 @@ This document describes environment variables for the AGS API MCP Server V2.
 
 ## V2 Architecture
 
-V2 is **stateless** and **HTTP-only** with:
-- No server-side OAuth management
-- Client-managed bearer tokens
-- Simpler configuration
-- Focus on production deployment
-
-See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for architectural details.
+See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for the V2 stateless, HTTP-only architecture.
 
 ---
 
-## Required Variables
+## AccelByte Configuration
 
 ### `AB_BASE_URL`
 - **Description**: Base URL for AccelByte environment
 - **Example**: `https://yourgame.accelbyte.io`
-- **Required**: Yes
-- **Note**: Used for API calls to AccelByte services
+- **Default**: `https://development.accelbyte.io`
+- **Required**: No (but strongly recommended for non-development environments)
+- **Note**: Used for API calls to AccelByte services. If not set, defaults to the AccelByte development environment. Always set this explicitly in staging and production to avoid unintended API calls to the wrong environment.
 
 ---
 
@@ -69,6 +64,13 @@ See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for architectural details.
 # Disable auth for local testing (not recommended for production)
 export MCP_AUTH=false
 ```
+
+### `MCP_AUTH_SERVER_DISCOVERY_MODE`
+- **Description**: OAuth authorization server discovery workaround mode for MCP clients that don't support cross-host discovery (e.g., VS Code)
+- **Default**: `none`
+- **Required**: No
+- **Options**: `none`, `redirect`, `proxy`, `proxyRegister`
+- **Note**: Cannot be used with `MCP_HOSTED=true`. This is a temporary workaround; see [README troubleshooting](../README.md) for details.
 
 ---
 
@@ -190,10 +192,10 @@ export MCP_VALIDATE_TOKEN_ISSUER=true
 
 ### Minimal Configuration
 
-For most users, only `AB_BASE_URL` is required:
+For most users, only `AB_BASE_URL` needs to be set:
 
 ```bash
-# Required
+# Recommended (defaults to development.accelbyte.io if omitted)
 AB_BASE_URL=https://yourgame.accelbyte.io
 ```
 
@@ -202,7 +204,7 @@ All other settings use sensible defaults.
 ### Development Configuration
 
 ```bash
-# Required
+# Recommended
 AB_BASE_URL=https://yourgame.accelbyte.io
 
 # Optional - Development settings
@@ -215,7 +217,7 @@ LOG_LEVEL=debug
 ### Production Configuration
 
 ```bash
-# Required
+# Recommended
 AB_BASE_URL=https://yourgame.accelbyte.io
 
 # Optional - Production settings
@@ -314,6 +316,7 @@ New in V2:
 - `MCP_PROTOCOL` - Server protocol
 - `MCP_HOSTNAME` - Server hostname
 - `MCP_AUTH` - Toggle authentication
+- `MCP_AUTH_SERVER_DISCOVERY_MODE` - OAuth discovery workaround
 - `MCP_HOSTED` - Multi-tenant hosted mode
 - `MCP_VALIDATE_TOKEN_ISSUER` - Token issuer validation
 - `RATE_LIMIT_ENABLED` - Toggle rate limiting
@@ -378,9 +381,9 @@ LOG_LEVEL=warn
 
 ### Server won't start
 
-Check required variables:
+Check configuration:
 ```bash
-# Must be set
+# Recommended (defaults to development.accelbyte.io if unset)
 echo $AB_BASE_URL
 ```
 

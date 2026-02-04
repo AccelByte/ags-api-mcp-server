@@ -8,13 +8,7 @@ Deploy the AGS API MCP Server V2 using Docker for easy containerization and depl
 
 ## V2 Architecture
 
-V2 is **stateless** and **HTTP-only**, making it ideal for containerized deployments:
-- ✅ No session state to persist
-- ✅ No sticky sessions required
-- ✅ Horizontal scaling
-- ✅ Simple health checks
-
-See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for architectural details.
+V2's stateless, HTTP-only design makes it ideal for containerized deployments. See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for details.
 
 ---
 
@@ -38,11 +32,10 @@ The Dockerfile:
 docker build -t mycompany/ags-api-mcp-server:2.0.0 .
 ```
 
-### Build with Build Args
+### Build with Custom Tag
 
 ```bash
 docker build \
-  --build-arg NODE_VERSION=20 \
   -t ags-api-mcp-server:v2 \
   .
 ```
@@ -279,8 +272,8 @@ Expected response:
 
 Docker health check runs every 30 seconds:
 - ✅ **healthy** - Endpoint returns 200
-- ⚠️ **starting** - Initial 40s grace period
-- ❌ **unhealthy** - Failed 3 consecutive checks
+- ⚠️ **starting** - Initial 20s grace period
+- ❌ **unhealthy** - Failed 5 consecutive checks
 
 ---
 
@@ -339,9 +332,9 @@ docker run -d \
 
 All V2 environment variables work in Docker.
 
-### Required
+### Recommended
 
-- `AB_BASE_URL` - AccelByte environment URL
+- `AB_BASE_URL` - AccelByte environment URL (defaults to `https://development.accelbyte.io` if unset)
 
 ### Optional
 

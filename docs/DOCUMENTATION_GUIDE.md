@@ -1,6 +1,6 @@
 # Documentation Guide
 
-This document explains the documentation structure for the AGS API MCP Server.
+This document explains the documentation structure for the AGS API MCP Server, primarily for external contributors. Claude Code users can also refer to `CLAUDE.md` in the project root for a concise documentation map.
 
 ---
 
@@ -11,12 +11,7 @@ The project maintains **two sets of documentation**:
 ### V2 Documentation (Current)
 Location: `docs/` (root level)
 
-V2 is the **current, recommended** architecture:
-- ✅ Stateless design
-- ✅ HTTP-only transport
-- ✅ Client-managed authentication
-- ✅ Simple deployment
-- ✅ Horizontal scaling
+V2 is the **current, recommended** architecture. See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for details.
 
 ### V1 Documentation (Legacy)
 Location: `docs/v1/`
@@ -282,7 +277,6 @@ See [V2_ARCHITECTURE.md#migration-guide](V2_ARCHITECTURE.md#migration-guide)
 
 | Date | Change |
 |------|--------|
-| 2025-01 | Documentation reorganized for V2 |
-| 2024-12 | V2 architecture introduced |
-| 2024-11 | V1 documentation created |
+| 2026-02 | Documentation hygiene review and cleanup |
+| 2026-01 | V2 production release (v2026.1) |
 

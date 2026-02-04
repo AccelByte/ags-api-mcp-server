@@ -8,13 +8,7 @@ This guide covers the development workflow, project structure, and how to extend
 
 ## V2 Architecture Overview
 
-V2 uses a **stateless, HTTP-only** architecture:
-- ✅ No server-side sessions
-- ✅ Client-managed authentication
-- ✅ Factory pattern for MCP servers
-- ✅ Type-safe with Zod validation
-
-See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for detailed architecture.
+See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for the V2 stateless, HTTP-only architecture with factory pattern and Zod validation.
 
 ---
 
@@ -28,6 +22,7 @@ src/v2/
 ├── logger.ts                # Logging utilities (Pino)
 ├── utils.ts                 # Utility functions
 ├── auth/
+│   ├── host-resolver.ts     # Host resolution utilities
 │   ├── middleware.ts        # Token extraction middleware
 │   └── routes.ts            # Auth-related routes (minimal)
 └── mcp/
@@ -87,11 +82,11 @@ pnpm run build
 ### Run in Development Mode
 
 ```bash
-# Watch mode (auto-restart)
+# Watch mode (TypeScript recompilation only)
 pnpm run dev
 ```
 
-This compiles TypeScript and runs V2 with auto-restart on changes.
+This runs `tsc --watch`, which recompiles TypeScript files on changes. It does not start the server. Run `pnpm start` in a separate terminal to start the server.
 
 ### Build
 
@@ -127,10 +122,10 @@ pnpm run lint:fix
 
 ```bash
 # Check formatting
-pnpm run format
+pnpm run format:check
 
 # Auto-format
-pnpm run format:fix
+pnpm run format
 ```
 
 ---
@@ -225,36 +220,33 @@ export function myNewTool(openApiTools: OpenApiTools) {
 }
 ```
 
-**2. Register Tool** in `src/v2/mcp/server.ts`:
+**2. Register Tool** using `mcpServer.registerTool()`:
 
 ```typescript
-import { myNewTool } from "./tools/api.js";
-
-// In createServer function
-const tools = [
-  getTokenInfo(config, extractedToken),
-  searchApis(openApiTools, config),
-  describeApis(openApiTools),
-  runApis(openApiTools, config, extractedToken),
-  myNewTool(openApiTools),  // Add here
-];
-
-tools.forEach((tool) => {
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    if (request.params.name === tool.name) {
-      const params = tool.inputSchema.parse(request.params.arguments);
-      const result = await tool.handler(params);
+// In your setup function (e.g., src/v2/mcp/tools/api.ts)
+export default async function setupMyTools(mcpServer: McpServer, config: Config) {
+  mcpServer.registerTool(
+    "my-new-tool",
+    {
+      description: "Description of what this tool does.",
+      inputSchema: MyInputSchema.shape,
+      outputSchema: MyOutputSchema.shape,
+    },
+    async (params) => {
+      const result = await doSomething(params);
       return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
+        content: [{ type: "text", text: JSON.stringify(result) }],
+        structuredContent: result,
       };
-    }
-  });
-});
+    },
+  );
+}
+```
+
+Then call your setup function from `src/v2/mcp/server.ts`:
+
+```typescript
+await setupMyTools(server, effectiveConfig);
 ```
 
 ### Tool Best Practices
@@ -597,24 +589,36 @@ refactor: Simplify tool registration
 
 ### Add Express Route
 
+Routes are organized into dedicated modules. Follow the existing pattern:
+
 ```typescript
-// In src/v2/index.ts
-app.get('/my-route', (req, res) => {
-  res.json({ message: 'Hello' });
-});
+// src/v2/my-feature/routes.ts
+import { Router, Request, Response } from "express";
+
+export function registerMyRoutes(app: Router) {
+  app.get("/my-route", (req: Request, res: Response) => {
+    res.json({ message: "Hello" });
+  });
+}
 ```
+
+Then register in `src/v2/index.ts`:
+
+```typescript
+import { registerMyRoutes } from "./my-feature/routes.js";
+
+registerMyRoutes(app);
+```
+
+See `src/v2/auth/routes.ts` and `src/v2/mcp/routes.ts` for existing examples.
 
 ### Add Middleware
 
+Add middleware directly in `src/v2/express.ts` or in a dedicated module under the relevant feature directory (e.g., `src/v2/auth/middleware.ts`):
+
 ```typescript
 // src/v2/express.ts
-import { myMiddleware } from './middlewares/my-middleware.js';
-
-export function create(): Express {
-  const app = express();
-  app.use(myMiddleware);
-  // ... rest of setup
-}
+app.use(myMiddleware);
 ```
 
 ---

@@ -8,11 +8,7 @@ This guide covers testing strategies and practices for the AGS API MCP Server V2
 
 ## V2 Testing Philosophy
 
-V2 emphasizes:
-- ✅ **Stateless testing** - No session management needed
-- ✅ **HTTP-focused** - Test REST endpoints
-- ✅ **Type-safe mocks** - Zod validation in tests
-- ✅ **Fast unit tests** - No external dependencies
+V2's stateless architecture (see [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md)) enables straightforward testing: no session management, HTTP-focused, type-safe mocks via Zod, and fast unit tests with no external dependencies.
 
 ---
 
@@ -33,7 +29,7 @@ pnpm test -- --watch
 ### Specific Test File
 
 ```bash
-pnpm test tests/config.test.ts
+NODE_ENV=test node --import tsx --test tests/config.test.ts
 ```
 
 ### With Coverage
@@ -50,9 +46,11 @@ Tests are in `tests/` directory:
 
 ```
 tests/
+├── README.md                        # Test documentation
 ├── config.test.ts                   # Configuration tests
 ├── openapi-tools.test.ts            # OpenAPI tools tests
-├── fixtures/                        # Test fixtures
+├── fixtures/
+│   └── sample-api.yaml              # Sample OpenAPI spec for tests
 ├── helpers/
 │   └── mock-express.ts              # Express mocking utilities
 └── v1/                              # V1-specific tests
@@ -60,7 +58,9 @@ tests/
     ├── http-server-error-handling.test.ts
     ├── otp-manager.test.ts          # OTP manager tests
     ├── session-manager.test.ts      # Session manager tests
-    └── static-tools.test.ts         # Static tools tests
+    ├── static-tools.test.ts         # Static tools tests
+    ├── test-server.js               # V1 test server
+    └── test-streamable-http.js      # Streamable HTTP test
 ```
 
 ---

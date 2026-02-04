@@ -62,25 +62,7 @@ V2 uses HTTP transport, which requires the server to be running before configuri
 
 ### Step 1: Start the Server
 
-Start the MCP server using Docker:
-
-```bash
-docker run -d \
-  --name ags-api-mcp-server \
-  -e AB_BASE_URL=https://yourgame.accelbyte.io \
-  -p 3000:3000 \
-  ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0
-```
-
-**Note**: Replace `https://yourgame.accelbyte.io` with your actual AccelByte environment URL.
-
-Verify the server is running:
-
-```bash
-curl http://localhost:3000/health
-```
-
-You should see: `{"status":"ok","timestamp":"..."}`
+Start the server using the Docker command in [Running the Server](#running-the-server) above.
 
 ### Step 2: Configure Your MCP Client
 

@@ -6,13 +6,7 @@ Get the AGS API MCP Server V2 up and running in minutes!
 
 ## What is V2?
 
-V2 is a **stateless, HTTP-only** MCP server optimized for production deployments:
-- ✅ No server-side sessions
-- ✅ Client-managed authentication
-- ✅ Simple deployment
-- ✅ Horizontal scaling
-
-See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for detailed comparison with V1.
+V2 is a stateless, HTTP-only MCP server optimized for production deployments. See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for details and comparison with V1.
 
 ---
 
@@ -103,7 +97,7 @@ pnpm run setup
 Open `.env` and set your AccelByte environment:
 
 ```bash
-# Required
+# Recommended (defaults to development.accelbyte.io if unset)
 AB_BASE_URL=https://yourgame.accelbyte.io
 
 # Optional (defaults shown)
@@ -113,7 +107,7 @@ NODE_ENV=development
 LOG_LEVEL=info
 ```
 
-That's it! V2 requires only `AB_BASE_URL`.
+That's it! `AB_BASE_URL` is the only setting you typically need to configure (it defaults to the AccelByte development environment if unset).
 
 ### 4. Build
 
@@ -131,7 +125,7 @@ pnpm run build
 pnpm run dev
 ```
 
-This starts the server in watch mode (auto-restart on changes).
+This runs the TypeScript compiler in watch mode, recompiling on changes. You still need to run `pnpm start` in a separate terminal to start the server.
 
 ### Production Mode
 

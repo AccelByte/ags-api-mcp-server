@@ -3,109 +3,20 @@
 // and restrictions contact your company contract manager.
 
 /**
- * MCP v2 Auth Tools Implementation
+ * MCP v2 Auth Tools: get_token_info
  *
- * This file implements the get_token_info tool for the MCP v2 server.
- * It has been ported from src/tools/static-tools.ts with several intentional
- * design changes to align with the MCP v2 architecture.
+ * Ported from src/tools/static-tools.ts with V2 design changes.
+ * See docs/V2_ARCHITECTURE.md for architectural rationale and V1 comparison.
  *
- * ============================================================================
- * FEATURES NOT PORTED (and reasons):
- * ============================================================================
- *
- * 1. SESSION-BASED REFRESH TOKEN INFORMATION
- *    - NOT PORTED: refreshTokenInfo object with:
- *      * refresh_token_expires_at (ISO string)
- *      * refresh_token_expires_in_minutes
- *      * refresh_token_expired (boolean)
- *      * refresh_token_time_until_expiry (formatted string)
- *      * has_refresh_token (boolean)
- *    - REASON: This MCP server does not and should not store any sessions or
- *      tokens. All tokens come from the MCP client, and the server operates
- *      in a stateless manner. Session management is the responsibility of
- *      the client, not the server.
- *    - NOTE: If a refresh_token is embedded in the JWT payload itself (not
- *      common), it will be masked and its length reported in metadata, but
- *      expiry information is not extracted since it's not a standard JWT claim.
- *
- * 2. CACHE STATUS FLAG
- *    - NOT PORTED: isFromCache flag in tokenMetadata
- *    - REASON: Same as above - the server doesn't cache tokens, so this
- *      information is not relevant. All tokens are provided by the client
- *      on each request.
- *
- * 3. USER CONTEXT OBJECT
- *    - NOT PORTED: userContext object with sub, client_id, scope, namespace, user
- *    - REASON: The v2 architecture uses a different authentication flow where
- *      tokens are passed via extra.authInfo rather than a userContext object.
- *      The token itself contains all necessary information, making a separate
- *      userContext redundant. This also maintains statelessness.
- *
- * 4. TOKEN PREFIX (first 20 characters)
- *    - NOT PORTED: prefix field showing first 20 characters of token
- *    - REASON: The masked token (showing start and end) is more secure and
- *      provides better human readability. Most tokens start with the same
- *      characters anyway, so showing the end helps differentiate multiple
- *      tokens better.
- *
- * 5. TOP-LEVEL NAMESPACE FIELDS
- *    - NOT PORTED: default_namespace and namespace_usage_hint as top-level fields
- *    - REASON: V2 restructures this information into a structured hints section
- *      that can be extended for other token-based guidance. This provides better
- *      organization and allows for future expansion of agent guidance features.
- *
- * 6. FIELD NAMING CHANGES
- *    - NOT PORTED: tokenClaims, tokenHeader, tokenMetadata naming
- *    - REASON: V2 uses simplified names (claims, header, metadata) for cleaner
- *      API design. The "token" prefix is redundant since the entire response is
- *      about token information.
- *
- * 7. TIMESTAMP FIELD NAMING
- *    - NOT PORTED: expiresAtTimestamp, issuedAtTimestamp as separate fields
- *    - REASON: V2 provides both numeric timestamps (expiresAt, issuedAt) and ISO
- *      string formats (expiresAtISO, issuedAtISO) with clearer naming. The
- *      numeric fields are the primary values, with ISO strings for convenience.
- *
- * ============================================================================
- * FEATURES IMPROVED:
- * ============================================================================
- *
- * 1. Zod Schema Validation: All output is validated against strict schemas
- *    for type safety and consistency. This ensures the response structure
- *    matches the documented schema and catches errors early.
- *
- * 2. Structured MCP Response: Returns both content (text) and structuredContent
- *    following MCP protocol specifications. This enables clients to consume
- *    structured data without parsing JSON strings, improving performance and
- *    type safety.
- *
- * 3. Better Error Handling: Uses McpError with proper error codes (ErrorCode)
- *    instead of generic Error objects, providing structured error information
- *    that clients can handle programmatically.
- *
- * 4. Token Masking: Uses maskToken utility for secure token display, showing
- *    only the first and last N characters (default 10) to help differentiate
- *    tokens while maintaining security.
- *
- * 5. ISO Date Formatting: Provides both timestamp (number) and ISO string
- *    formats for date fields (expiresAt/expiresAtISO, issuedAt/issuedAtISO,
- *    notBefore/notBeforeISO) for better compatibility and readability. The
- *    numeric format is the primary value for programmatic use, while ISO
- *    strings are convenient for human-readable output.
- *
- * 6. Hints Section: Provides actionable guidance for agents in a structured
- *    format. Currently includes namespace usage hints, but the structure
- *    allows for future expansion with additional guidance (e.g., scope usage,
- *    permission hints, etc.).
- *
- * 7. Output Schema Definition: Explicit output schema (GetTokenInfoOutputSchema)
- *    enables better client-side type generation, validation, and IDE support.
- *
- * 8. Conditional Field Inclusion: Only includes sections (claims, header,
- *    hints, metadata) if they contain data, reducing response size and improving
- *    clarity when certain information is not available.
- *
- * ============================================================================
+ * Key V2 differences from V1:
+ * - Stateless: no session-based refresh token info, no cache status, no userContext
+ * - Zod schema validation for all outputs
+ * - Structured MCP responses (content + structuredContent)
+ * - Simplified field names (claims, headers, metadata instead of tokenClaims, etc.)
+ * - Structured hints section for agent guidance (namespace usage, etc.)
+ * - Masked token display (start + end) instead of prefix-only
+ * - Both numeric timestamps and ISO strings for date fields
+ * - Conditional field inclusion (omits empty sections)
  */
 
 import jwt from "jsonwebtoken";
@@ -232,7 +143,7 @@ const GetTokenInfoOutputSchema = z.object({
       "A short summary for the agent explaining the purpose and recommended use of the returned data fields.",
     ),
   claims: ClaimsSchema.optional(),
-  header: HeaderSchema.optional(),
+  headers: HeaderSchema.optional(),
   hints: HintsSchema.optional(),
   metadata: MetadataSchema.optional(),
 });

@@ -22,8 +22,8 @@
     "format": "prettier --write 'src/**/*.ts'",
     "format:check": "prettier --check 'src/**/*.ts'",
     "test": "pnpm run test:unit",
-    "test:env": "node -r dotenv/config tests/test-server.js",
-    "test:integration": "node tests/test-server.js",
+    "test:env": "node -r dotenv/config tests/v1/test-server.js",
+    "test:integration": "node tests/v1/test-server.js",
     "test:unit": "NODE_ENV=test node --import tsx --test tests/**/*.test.ts",
     "type-check": "tsc --noEmit",
     "setup": "node setup-env.js",
@@ -32,9 +32,9 @@
   "keywords": [
     "mcp",
     "server",
-    "oauth",
     "http",
-    "streamable"
+    "openapi",
+    "accelbyte"
   ],
   "author": "",
   "dependencies": {

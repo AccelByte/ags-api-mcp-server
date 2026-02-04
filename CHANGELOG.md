@@ -12,7 +12,7 @@
 - ✨ User consent via elicitation for write operations (POST/PUT/PATCH/DELETE)
 - ✨ Zod schema validation for all tool inputs/outputs
 - ✨ Output schemas defined for all tools
-- ✨ Rate limiting middleware (100 req/15min)
+- ✨ Rate limiting middleware (1000 req/15min default, configurable via `RATE_LIMIT_MAX`)
 - ✨ Instance caching for OpenApiTools and workflows
 - ✨ Configurable max limits (search results, timeouts)
 - ✨ Structured MCP responses (content + structuredContent)
@@ -36,7 +36,7 @@
 - ⚠️ Automatic token refresh - client responsibility
 - ⚠️ Client credentials fallback - explicit auth only
 
-**MCP Tools (4/6 ported):**
+**MCP Tools:**
 - ✅ `get_token_info` - Improved with hints section, better structure
 - ✅ `search-apis` - Added Zod validation, output schema
 - ✅ `describe-apis` - Added Zod validation, output schema

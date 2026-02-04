@@ -3,229 +3,25 @@
 // and restrictions contact your company contract manager.
 
 /**
- * MCP v2 Workflows Prompt and Resources Implementation
+ * MCP v2 Workflows: run-workflow prompt and workflow resources
  *
- * This file implements the run-workflow prompt and related MCP resources for the
- * MCP v2 server. It has been ported from src/prompts/run-workflow.ts with several
- * intentional design changes to align with the MCP v2 architecture.
- *
- * ============================================================================
- * OVERVIEW
- * ============================================================================
+ * Ported from src/prompts/run-workflow.ts with V2 design changes.
+ * See docs/V2_ARCHITECTURE.md for architectural rationale and V1 comparison.
  *
  * This module provides:
+ * - PROMPT: run-workflow - generates structured execution instructions for agents
+ * - RESOURCES: workflow schema, technical specification, and definitions (YAML)
  *
- * 1. PROMPT: run-workflow
- *    - Generates structured instructions for LLM agents to execute workflows
- *    - Includes workflow definition, execution guide, and resource references
- *    - Supports autocomplete for workflow names with fuzzy matching
+ * Key V2 differences from V1:
+ * - Stateless: no session-based user context; auth via Authorization header
+ * - Unified setup: single setupWorkflows() handles resources + prompt registration
+ * - In-memory caching: workflows cached per-process to avoid repeated file I/O
+ * - Autocomplete: MCP completable() API for workflow name suggestions
+ * - McpError: structured error codes instead of generic Error objects
  *
- * 2. RESOURCES: Workflow documentation and definitions
- *    - resource://workflows/schema - JSON schema for workflow YAML format
- *    - resource://workflows/technical-specification - Full specification document
- *    - resource://workflows - All workflow definitions (workflows.yaml)
- *
- * Workflows enable complex task automation by orchestrating multiple API calls
- * with dependency management, data flow, input/output mapping, and error handling.
- *
- * ============================================================================
- * WORKFLOW EXECUTION MODEL
- * ============================================================================
- *
- * When an agent uses the run-workflow prompt, it receives:
- *
- * 1. WORKFLOW DEFINITION (YAML)
- *    - Full workflow specification including inputs, steps, and dependencies
- *    - Rendered as formatted YAML for easy parsing
- *
- * 2. EXECUTION INSTRUCTIONS
- *    - Preparation: How to collect required inputs from the user
- *    - Step Execution: How to run each step in order with proper dependencies
- *    - Input Resolution: How to replace workflow/* and step/* references
- *    - Output Capture: How to extract and store outputs for downstream steps
- *
- * 3. REFERENCE MATERIALS
- *    - Technical specification (via fetch_mcp_resource)
- *    - JSON Schema definition (via fetch_mcp_resource)
- *
- * The agent is expected to:
- * - Use search-apis and describe-apis to understand operations before execution
- * - Use run-apis to execute API calls with proper parameters
- * - Manage dependencies and data flow between steps
- * - Handle nested workflows via workflowRef recursion
- *
- * ============================================================================
- * REGISTERED RESOURCES
- * ============================================================================
- *
- * Three MCP resources are registered to provide workflow documentation:
- *
- * 1. resource://workflows/schema
- *    - Name: "Workflow Schema"
- *    - MIME Type: application/x-yaml
- *    - Source: dist/assets/workflows/schema.yaml
- *    - Purpose: JSON Schema definition for validating workflow YAML structure
- *
- * 2. resource://workflows/technical-specification
- *    - Name: "Workflow Specification"
- *    - MIME Type: text/markdown
- *    - Source: dist/assets/workflows/SPECIFICATION.md
- *    - Purpose: Complete technical specification with behavior rules, data flow,
- *      composition patterns, and best practices
- *
- * 3. resource://workflows
- *    - Name: "Workflows"
- *    - MIME Type: application/x-yaml
- *    - Source: dist/assets/workflows/workflows.yaml
- *    - Purpose: All workflow definitions available for execution
- *
- * Resources are loaded on-demand when accessed via fetch_mcp_resource and are
- * not cached by this module (caching is the responsibility of the MCP client).
- *
- * ============================================================================
- * WORKFLOW CACHING STRATEGY
- * ============================================================================
- *
- * Since the MCP v2 server is stateless, setupWorkflows() is called on every
- * server initialization. To avoid expensive file I/O on every call, workflows
- * are cached in memory using two module-level variables:
- *
- * - cachedFilePath: Tracks which file was loaded
- * - cachedWorkflows: Stores the parsed workflow definitions
- *
- * The cache is invalidated only when the file path changes (which should never
- * happen in production, but could occur in tests or during development). This
- * design balances statelessness with performance.
- *
- * IMPORTANT: The cache is per-process, not per-request. In a clustered
- * deployment, each process maintains its own cache. File changes require
- * process restart to take effect.
- *
- * ============================================================================
- * AUTOCOMPLETE SUPPORT
- * ============================================================================
- *
- * The workflow argument uses MCP's completable() API to provide autocomplete
- * suggestions as the user types:
- *
- * - Filters workflow names by prefix (case-insensitive)
- * - Returns up to 100 matching workflows (sorted alphabetically)
- * - Loads workflows on-demand for suggestion generation
- *
- * Example: Typing "user" might suggest:
- *   - user-creation
- *   - user-deletion
- *   - user-profile-update
- *
- * ============================================================================
- * FEATURES NOT PORTED (and reasons):
- * ============================================================================
- *
- * 1. SESSION-BASED USER CONTEXT
- *    - NOT PORTED: userContext parameter with session-based token information
- *    - REASON: The v2 architecture is stateless and does not store sessions or
- *      tokens. All authentication is handled via the Authorization header passed
- *      by the MCP client on each request. Workflow instructions reference the
- *      run-apis tool which automatically uses tokens from extra.authInfo.
- *
- * 2. EXPLICIT WORKFLOW PRELOADING
- *    - NOT PORTED: Separate loadWorkflows() export function called explicitly
- *    - REASON: V2 integrates workflow loading into setupWorkflows() with automatic
- *      caching, eliminating the need for manual preloading. The cache persists
- *      across setupWorkflows() calls within the same process, maintaining efficiency
- *      while simplifying the API surface.
- *
- * 3. SEPARATE registerRunWorkflowPrompt() FUNCTION
- *    - NOT PORTED: Separate function for registering the prompt
- *    - REASON: V2 uses a single setupWorkflows() function that handles both
- *      resource registration and prompt registration, providing a cleaner API
- *      and ensuring resources are always registered alongside the prompt.
- *
- * ============================================================================
- * FEATURES IMPROVED:
- * ============================================================================
- *
- * 1. Resource Registration: Registers three workflow-related MCP resources
- *    (schema, specification, definitions) alongside the prompt, enabling agents
- *    to access comprehensive documentation on-demand without external file access.
- *
- * 2. Completable Workflow Names: Uses MCP's completable() API for rich
- *    autocomplete support, enabling agents and IDEs to suggest workflow names
- *    as users type. Supports prefix matching and returns sorted results.
- *
- * 3. File-Based Caching: Implements smart caching strategy that avoids repeated
- *    file I/O while maintaining stateless architecture. Cache is keyed by file
- *    path and persists across prompt invocations within the same process.
- *
- * 4. Structured Prompt Format: Generates well-formatted markdown prompts with
- *    clear sections (Definition, Instructions, Reference Material) that guide
- *    agents through workflow execution with minimal ambiguity.
- *
- * 5. Error Handling: Uses McpError with proper error codes (ErrorCode) instead
- *    of generic Error objects, providing structured error information that
- *    clients can handle programmatically.
- *
- * 6. Enhanced Instructions: Adds explicit guidance to use search-apis and
- *    describe-apis before executing operations, ensuring agents understand
- *    API parameters and schemas before making requests.
- *
- * 7. Step-by-Step Execution Guide: Provides detailed instructions for each phase
- *    of workflow execution (preparation, operation lookup, input resolution,
- *    dependency management, output capture) with clear action items.
- *
- * 8. Nested Workflow Support: Documents workflowRef execution pattern, enabling
- *    recursive workflow composition with proper input/output mapping across
- *    workflow boundaries.
- *
- * 9. Logging Integration: Logs workflow loading events with workflow count and
- *    names for observability, helping debug configuration issues and monitor
- *    workflow availability.
- *
- * ============================================================================
- * USAGE EXAMPLES
- * ============================================================================
- *
- * Example 1: Load a simple workflow
- *   Prompt: run-workflow
- *   Arguments: { workflow: "create-user" }
- *   Result: Generates prompt with workflow definition and execution instructions
- *
- * Example 2: Use autocomplete to find workflows
- *   Start typing: "user"
- *   Autocomplete suggestions: ["user-creation", "user-deletion", "user-profile"]
- *   Select: "user-creation"
- *
- * Example 3: Execute workflow with dependencies
- *   Workflow: has steps with dependencies: ["step/create-user", "step/assign-role"]
- *   Agent behavior:
- *     1. Run create-user step
- *     2. Wait for success
- *     3. Run assign-role step using output from create-user
- *
- * Example 4: Handle nested workflows
- *   Workflow: step with workflowRef: "setup-user-permissions"
- *   Agent behavior:
- *     1. Load setup-user-permissions workflow
- *     2. Collect nested workflow inputs
- *     3. Execute nested workflow steps
- *     4. Continue with parent workflow steps
- *
- * Example 5: Access workflow documentation
- *   fetch_mcp_resource("resource://workflows/schema")
- *   fetch_mcp_resource("resource://workflows/technical-specification")
- *   fetch_mcp_resource("resource://workflows")
- *
- * ============================================================================
- * RELATED RESOURCES
- * ============================================================================
- *
- * - Workflow definitions: dist/assets/workflows/workflows.yaml
- * - Technical specification: dist/assets/workflows/SPECIFICATION.md
- * - JSON Schema: dist/assets/workflows/schema.yaml
- * - API tools: src/v2/mcp/tools/api.ts (search-apis, describe-apis, run-apis)
- * - V1 implementation: src/prompts/run-workflow.ts
- *
- * ============================================================================
+ * Related files:
+ * - dist/assets/workflows/ (schema.yaml, SPECIFICATION.md, workflows.yaml)
+ * - src/v2/mcp/tools/api.ts (search-apis, describe-apis, run-apis)
  */
 
 import { readFile } from "fs/promises";

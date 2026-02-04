@@ -89,13 +89,7 @@ Tests for V1-specific features:
 
 ### V2 Tests
 
-**Status**: V2 tests should be added in `tests/v2/` directory.
-
-**Needed**:
-- `v2/config.test.ts` - V2 Zod configuration
-- `v2/tools.test.ts` - V2 MCP tools
-- `v2/middleware.test.ts` - V2 auth middleware
-- `v2/server.test.ts` - V2 MCP server factory
+**Status**: No V2-specific tests exist yet. V2 test files should be added in a `tests/v2/` directory. Coverage gaps include V2 Zod configuration, MCP tools, auth middleware, and server factory.
 
 ---
 
@@ -202,6 +196,6 @@ Tests run automatically in CI/CD pipelines:
 ## References
 
 - [Testing Guide](../docs/TESTING.md) - V2 testing guide
-- [V1 Testing Guide](../docs/v1/TESTING.md) - V1 testing guide (if exists)
+- [V1 Documentation](../docs/v1/) - V1 documentation directory
 - [Node.js Test Runner](https://nodejs.org/api/test.html)
 

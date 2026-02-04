@@ -6,13 +6,7 @@ This document describes all available API endpoints for the AGS API MCP Server V
 
 ## Architecture Overview
 
-V2 is **stateless** and uses **HTTP-only** transport with:
-- POST-only MCP endpoint
-- Bearer token authentication (client-managed)
-- No server-side sessions
-- No SSE streams
-
-See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for detailed architectural information.
+See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for the V2 stateless, HTTP-only architecture.
 
 ---
 
@@ -319,9 +313,20 @@ Execute API requests against endpoints.
 **Output**:
 ```json
 {
-  "status": 200,
-  "data": { ... },
-  "headers": { ... }
+  "request": {
+    "method": "GET",
+    "url": "https://yourgame.accelbyte.io/iam/v3/public/users/me/profiles",
+    "headers": { ... },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "statusText": "OK",
+    "headers": { ... },
+    "data": { ... },
+    "durationMs": 150
+  },
+  "error": null
 }
 ```
 
@@ -341,7 +346,9 @@ V2 includes built-in rate limiting:
 
 ## Error Responses
 
-All endpoints return errors in this format:
+### MCP Protocol Errors (POST /mcp)
+
+MCP endpoint errors follow the JSON-RPC 2.0 format:
 
 ```json
 {
@@ -349,31 +356,39 @@ All endpoints return errors in this format:
   "id": 1,
   "error": {
     "code": -32600,
-    "message": "Invalid Request",
-    "data": {
-      "details": "Additional error information"
-    }
+    "message": "Invalid Request"
   }
+}
+```
+
+### Express-Level Errors (Non-MCP Endpoints)
+
+Non-MCP endpoint errors (e.g., health check, auth routes) return plain JSON:
+
+```json
+{
+  "error": "Internal server error",
+  "message": "Details (development mode only)"
 }
 ```
 
 ### Common Error Codes
 
-| HTTP Status | JSON-RPC Code | Meaning |
-|------------|---------------|---------|
-| 400 | -32600 | Invalid Request |
-| 401 | -32000 | Unauthorized (missing/invalid token) |
-| 405 | - | Method Not Allowed (GET/DELETE on /mcp) |
-| 429 | -32000 | Rate Limit Exceeded |
-| 500 | -32603 | Internal Server Error |
+| HTTP Status | Context | Meaning |
+|------------|---------|---------|
+| 400 | MCP (JSON-RPC -32600) | Invalid Request |
+| 401 | Express | Unauthorized (missing/invalid token) |
+| 405 | Express | Method Not Allowed (GET/DELETE on /mcp) |
+| 429 | Express | Rate Limit Exceeded |
+| 500 | Express / MCP (JSON-RPC -32603) | Internal Server Error |
 
 ---
 
 ## CORS
 
-V2 includes CORS support with sensible defaults:
-- Allows common origins for development
-- Configurable via middleware
+V2 includes CORS support:
+- Allows all origins by default (`cors({})`)
+- Configure the `cors()` options in `src/v2/express.ts` to restrict origins for production
 
 ---
 

@@ -143,7 +143,7 @@ Per [MCP Specification](https://modelcontextprotocol.io/specification/2025-11-25
 | `/mcp` | DELETE | ✅ | ⛔ | V2 returns 405 (allowed by spec) |
 | `/auth/login` | GET | ✅ | ❌ | OAuth removed |
 | `/oauth/callback` | GET | ✅ | ❌ | OAuth removed |
-| `/.well-known/oauth-authorization-server` | GET | ✅ | ❌ | OAuth removed |
+| `/.well-known/oauth-authorization-server` | GET | ✅ | ⚙️ | Conditionally registered via `MCP_AUTH_SERVER_DISCOVERY_MODE` |
 | `/.well-known/openid-configuration` | GET | ✅ | ❌ | OAuth removed |
 | `/.well-known/oauth-protected-resource` | GET | ✅ | ✅ | Resource metadata |
 | `/` | GET | ✅ | ✅ | Root info |
@@ -340,7 +340,7 @@ Potential V2 additions (not roadmapped):
 - [ ] Optional session management
 - [ ] Token verification middleware
 - [ ] Request ID middleware (tracing)
-- [ ] Configurable CORS
+- [ ] User-configurable CORS (via environment variables; basic CORS middleware already exists)
 - [ ] Custom rate limiting per endpoint
 - [ ] Metrics/monitoring endpoints
 
