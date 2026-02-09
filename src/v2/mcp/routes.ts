@@ -9,10 +9,11 @@ import { ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 
 import setAuthFromToken from "../auth/middleware.js";
 import log from "../logger.js";
-import { jsonRPCError, logError } from "../utils.js";
+import { jsonRPCError, logError, deriveBaseUrl } from "../utils.js";
 
 interface McpRequestContext {
   agsBaseUrl: string;
+  namespace?: string;
 }
 
 /**
@@ -57,7 +58,27 @@ function registerMcpRoutes(
   const { path = "/mcp", enableAuth = false, defaultAgsBaseUrl } = options;
 
   const postHandler = async (req: Request, res: Response) => {
+    const namespace: string | undefined = req.params.namespace;
+
+    // Validate namespace if present to prevent path injection
+    if (namespace && !/^[a-zA-Z0-9_-]+$/.test(namespace)) {
+      res
+        .status(400)
+        .json(jsonRPCError(ErrorCode.InvalidRequest, "Invalid namespace"));
+      return;
+    }
+
     if (enableAuth && !req.headers.authorization) {
+      // Construct resource_metadata URL for WWW-Authenticate header
+      const baseUrl = deriveBaseUrl(req, defaultAgsBaseUrl);
+      const resourceMetadataPath = namespace
+        ? `/.well-known/oauth-protected-resource/${namespace}`
+        : `/.well-known/oauth-protected-resource`;
+
+      res.set(
+        "WWW-Authenticate",
+        `Bearer resource_metadata="${baseUrl}${resourceMetadataPath}"`,
+      );
       res
         .status(401)
         .json(jsonRPCError(ErrorCode.InvalidRequest, "Unauthorized"));
@@ -69,6 +90,7 @@ function registerMcpRoutes(
         req.ags?.baseUrl ||
         defaultAgsBaseUrl ||
         "https://development.accelbyte.io",
+      namespace,
     };
 
     try {
@@ -84,30 +106,35 @@ function registerMcpRoutes(
       });
     } catch (error: unknown) {
       // Log error for debugging with proper type narrowing
-      logError(error, log, { handler: "MCP POST" });
+      logError(error, log, { handler: "MCP POST", namespace });
       res
         .status(500)
         .json(jsonRPCError(ErrorCode.InternalError, "Internal error"));
     }
   };
 
-  if (enableAuth) {
-    app.post(path, setAuthFromToken(), postHandler);
-  } else {
-    app.post(path, postHandler);
+  // Register routes for both the base path and the namespace-parameterized path
+  const routePatterns = [path, `${path}/:namespace`];
+
+  for (const routePattern of routePatterns) {
+    if (enableAuth) {
+      app.post(routePattern, setAuthFromToken(), postHandler);
+    } else {
+      app.post(routePattern, postHandler);
+    }
+
+    app.get(routePattern, async (_: Request, res: Response) => {
+      res
+        .status(405)
+        .json(jsonRPCError(ErrorCode.InvalidRequest, "Method not allowed"));
+    });
+
+    app.delete(routePattern, async (_: Request, res: Response) => {
+      res
+        .status(405)
+        .json(jsonRPCError(ErrorCode.InvalidRequest, "Method not allowed"));
+    });
   }
-
-  app.get(path, async (_: Request, res: Response) => {
-    res
-      .status(405)
-      .json(jsonRPCError(ErrorCode.InvalidRequest, "Method not allowed"));
-  });
-
-  app.delete(path, async (_: Request, res: Response) => {
-    res
-      .status(405)
-      .json(jsonRPCError(ErrorCode.InvalidRequest, "Method not allowed"));
-  });
 }
 
 export type { McpRequestContext, McpServerFactory, RegisterMcpRoutesOptions };
