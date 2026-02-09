@@ -41,7 +41,8 @@ async function createServer(
     },
   };
 
-  await setupApiTools(server, effectiveConfig);
+  // Pass namespace from requestContext to setupApiTools for default path param
+  await setupApiTools(server, effectiveConfig, requestContext?.namespace);
   setupAuthTools(server);
   await setupWorkflows(server);
 

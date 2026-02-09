@@ -312,7 +312,17 @@ async function getOrCreateOpenApiTools(config: Config): Promise<OpenApiTools> {
   return cachedOpenApiTools;
 }
 
-async function setupApiTools(mcpServer: McpServer, config: Config) {
+/**
+ * Registers API tools on the MCP server.
+ * @param mcpServer MCP server instance
+ * @param config Effective config (may be per-request)
+ * @param defaultNamespace If provided, used as the default for pathParams.namespace in run-apis
+ */
+async function setupApiTools(
+  mcpServer: McpServer,
+  config: Config,
+  defaultNamespace?: string,
+) {
   // Create schemas with config values
   const SearchApisInputSchema = createSearchApisInputSchema(config);
   const RunApisInputSchema = createRunApisInputSchema(config);
@@ -397,7 +407,7 @@ async function setupApiTools(mcpServer: McpServer, config: Config) {
         method,
         path,
         serverUrl,
-        pathParams,
+        pathParams = {},
         query,
         headers,
         body,
@@ -448,6 +458,12 @@ async function setupApiTools(mcpServer: McpServer, config: Config) {
       const shouldUseToken = useAccessToken !== false;
       const token = shouldUseToken ? extra.authInfo?.token : undefined;
 
+      // If pathParams.namespace is not set, use defaultNamespace from the URL
+      const effectivePathParams = { ...pathParams };
+      if (!effectivePathParams.namespace && defaultNamespace) {
+        effectivePathParams.namespace = defaultNamespace;
+      }
+
       const rawResult = await openApiTools.runApi(
         {
           apiId,
@@ -455,7 +471,7 @@ async function setupApiTools(mcpServer: McpServer, config: Config) {
           method,
           path,
           serverUrl,
-          pathParams,
+          pathParams: effectivePathParams,
           query,
           headers,
           body,
