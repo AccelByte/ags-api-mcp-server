@@ -101,4 +101,58 @@ function logError(
   }
 }
 
-export { maskToken, jsonRPCError, logError };
+/**
+ * Derives a base URL from the incoming request, handling reverse proxy
+ * headers, hosted-mode `req.ags.baseUrl`, and a static fallback.
+ *
+ * Priority:
+ *  1. Reverse-proxy headers (`x-forwarded-host` + optional port/proto)
+ *  2. Plain `host` header **only** when accompanied by `x-forwarded-port`
+ *     (indicates the request came through a proxy that set the port)
+ *  3. `req.ags.baseUrl` (hosted mode)
+ *  4. `fallbackUrl`
+ *
+ * TODO: In production, the Host / X-Forwarded-* headers should be validated
+ * against an allowlist of trusted proxies to prevent host-header injection.
+ * Without that, an attacker can control the returned URL by sending a
+ * crafted Host header. See OWASP "Host Header Injection".
+ */
+function deriveBaseUrl(
+  req: {
+    get: (name: string) => string | undefined;
+    protocol: string;
+    ags?: { baseUrl: string };
+  },
+  fallbackUrl?: string,
+): string {
+  const forwardedHost = req.get("x-forwarded-host");
+  const forwardedPort = req.get("x-forwarded-port");
+  const host = req.get("host");
+  const forwardedProto = req.get("x-forwarded-proto");
+
+  // Only trust the plain Host header when a forwarded-port header is also
+  // present, which signals the request came through a known reverse proxy.
+  if (forwardedHost || (host && forwardedPort)) {
+    const protocol = forwardedProto || req.protocol || "http";
+    let requestHost = forwardedHost || host || "";
+
+    if (requestHost && !requestHost.includes(":")) {
+      if (forwardedPort && forwardedPort !== "80" && forwardedPort !== "443") {
+        requestHost = `${requestHost}:${forwardedPort}`;
+      }
+    }
+
+    if (requestHost) {
+      return `${protocol}://${requestHost}`;
+    }
+  }
+
+  // Hosted mode
+  if (req.ags?.baseUrl) {
+    return req.ags.baseUrl;
+  }
+
+  return fallbackUrl || "https://development.accelbyte.io";
+}
+
+export { maskToken, jsonRPCError, logError, deriveBaseUrl };
