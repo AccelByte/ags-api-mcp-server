@@ -924,7 +924,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}.{{SHARED_CLOUD_URL}}/config/v1/admin/namespaces/{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}/configs/dcrAllowedRedirectUris",
+							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}.{{SHARED_CLOUD_URL}}/config/v1/admin/namespaces/{{SHARED_PUBLISHER_NAMESPACE}}/configs/dcrAllowedRedirectUris",
 							"protocol": "https",
 							"host": [
 								"{{SHARED_STUDIO_NAMESPACE}}",
@@ -935,7 +935,7 @@
 								"v1",
 								"admin",
 								"namespaces",
-								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+								"{{SHARED_PUBLISHER_NAMESPACE}}",
 								"configs",
 								"dcrAllowedRedirectUris"
 							]
@@ -1000,7 +1000,7 @@
 							}
 						},
 						"url": {
-							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}.{{SHARED_CLOUD_URL}}/config/v1/admin/namespaces/{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}/configs",
+							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}.{{SHARED_CLOUD_URL}}/config/v1/admin/namespaces/{{SHARED_PUBLISHER_NAMESPACE}}/configs",
 							"protocol": "https",
 							"host": [
 								"{{SHARED_STUDIO_NAMESPACE}}",
@@ -1011,7 +1011,7 @@
 								"v1",
 								"admin",
 								"namespaces",
-								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+								"{{SHARED_PUBLISHER_NAMESPACE}}",
 								"configs"
 							]
 						}
@@ -1071,7 +1071,7 @@
 							}
 						},
 						"url": {
-							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}.{{SHARED_CLOUD_URL}}/config/v1/admin/namespaces/{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}/configs/dcrAllowedRedirectUris",
+							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}.{{SHARED_CLOUD_URL}}/config/v1/admin/namespaces/{{SHARED_PUBLISHER_NAMESPACE}}/configs/dcrAllowedRedirectUris",
 							"protocol": "https",
 							"host": [
 								"{{SHARED_STUDIO_NAMESPACE}}",
@@ -1082,7 +1082,7 @@
 								"v1",
 								"admin",
 								"namespaces",
-								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+								"{{SHARED_PUBLISHER_NAMESPACE}}",
 								"configs",
 								"dcrAllowedRedirectUris"
 							]
@@ -1129,6 +1129,10 @@
 		{
 			"key": "PRIVATE_PUBLISHER_NAMESPACE",
 			"value": "accelbyte"
+		},
+		{
+			"key": "SHARED_PUBLISHER_NAMESPACE",
+			"value": "foundations"
 		},
 		{
 			"key": "DEFAULT_REDIRECT_URIS",
