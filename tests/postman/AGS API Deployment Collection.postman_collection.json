@@ -1,0 +1,1166 @@
+{
+	"info": {
+		"_postman_id": "f52cbf1b-50cc-4c36-afdd-3e54381c03a9",
+		"name": "AGS API Deployment Collection",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "17100405"
+	},
+	"item": [
+		{
+			"name": "Private Cloud",
+			"item": [
+				{
+					"name": "Initialize",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 401\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "https://{{PRIVATE_CLOUD_URL}}/mcp",
+							"protocol": "https",
+							"host": [
+								"{{PRIVATE_CLOUD_URL}}"
+							],
+							"path": [
+								"mcp"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Protected Resource",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://{{PRIVATE_CLOUD_URL}}/.well-known/oauth-protected-resource/mcp",
+							"protocol": "https",
+							"host": [
+								"{{PRIVATE_CLOUD_URL}}"
+							],
+							"path": [
+								".well-known",
+								"oauth-protected-resource",
+								"mcp"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Authorization Server",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Registration endpoint is not empty\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.registration_endpoint).to.not.empty;",
+									"    pm.collectionVariables.set('REGISTRATION_ENDPOINT', jsonData.registration_endpoint);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://{{PRIVATE_CLOUD_URL}}/.well-known/oauth-authorization-server",
+							"protocol": "https",
+							"host": [
+								"{{PRIVATE_CLOUD_URL}}"
+							],
+							"path": [
+								".well-known",
+								"oauth-authorization-server"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Register Client",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"var jsonData = pm.response.json();",
+									"",
+									"pm.test(\"Client ID is not empty\", function () {",
+									"    pm.expect(jsonData.client_id).to.not.empty;",
+									"});",
+									"",
+									"pm.test(\"Client namespace is correct\", function () {",
+									"    pm.expect(jsonData.namespace).to.eql(pm.collectionVariables.get('PUBLISHER_NAMESPACE'));",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"client_name\": \"Claude Code (test)\",\n    \"redirect_uris\": [\n        \"http://localhost:61834/callback\"\n    ],\n    \"grant_types\": [\n        \"authorization_code\",\n        \"refresh_token\"\n    ],\n    \"response_types\": [\n        \"code\"\n    ],\n    \"token_endpoint_auth_method\": \"none\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{REGISTRATION_ENDPOINT}}",
+							"host": [
+								"{{REGISTRATION_ENDPOINT}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Private Cloud with Namespace",
+			"item": [
+				{
+					"name": "Initialize",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 401\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "https://{{PRIVATE_CLOUD_URL}}/mcp/{{PRIVATE_GAME_NAMESPACE}}",
+							"protocol": "https",
+							"host": [
+								"{{PRIVATE_CLOUD_URL}}"
+							],
+							"path": [
+								"mcp",
+								"{{PRIVATE_GAME_NAMESPACE}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Protected Resource",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://{{PRIVATE_CLOUD_URL}}/.well-known/oauth-protected-resource/mcp/{{PRIVATE_GAME_NAMESPACE}}",
+							"protocol": "https",
+							"host": [
+								"{{PRIVATE_CLOUD_URL}}"
+							],
+							"path": [
+								".well-known",
+								"oauth-protected-resource",
+								"mcp",
+								"{{PRIVATE_GAME_NAMESPACE}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Authorization Server",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Registration endpoint is not empty\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.registration_endpoint).to.not.empty;",
+									"    pm.collectionVariables.set('REGISTRATION_ENDPOINT', jsonData.registration_endpoint);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://{{PRIVATE_CLOUD_URL}}/.well-known/oauth-authorization-server/{{PRIVATE_GAME_NAMESPACE}}",
+							"protocol": "https",
+							"host": [
+								"{{PRIVATE_CLOUD_URL}}"
+							],
+							"path": [
+								".well-known",
+								"oauth-authorization-server",
+								"{{PRIVATE_GAME_NAMESPACE}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Register Client",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"var jsonData = pm.response.json();",
+									"",
+									"pm.test(\"Client ID is not empty\", function () {",
+									"    pm.expect(jsonData.client_id).to.not.empty;",
+									"});",
+									"",
+									"pm.test(\"Client namespace is correct\", function () {",
+									"    pm.expect(jsonData.namespace).to.eql(pm.collectionVariables.get('PRIVATE_GAME_NAMESPACE'));",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"client_name\": \"Claude Code (test)\",\n    \"redirect_uris\": [\n        \"http://localhost:61834/callback\"\n    ],\n    \"grant_types\": [\n        \"authorization_code\",\n        \"refresh_token\"\n    ],\n    \"response_types\": [\n        \"code\"\n    ],\n    \"token_endpoint_auth_method\": \"none\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{REGISTRATION_ENDPOINT}}",
+							"host": [
+								"{{REGISTRATION_ENDPOINT}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Shared Cloud",
+			"item": [
+				{
+					"name": "Initialize",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 401\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}.{{SHARED_CLOUD_URL}}/mcp",
+							"protocol": "https",
+							"host": [
+								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+								"{{SHARED_CLOUD_URL}}"
+							],
+							"path": [
+								"mcp"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Protected Resource",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}.{{SHARED_CLOUD_URL}}/.well-known/oauth-protected-resource/mcp",
+							"protocol": "https",
+							"host": [
+								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+								"{{SHARED_CLOUD_URL}}"
+							],
+							"path": [
+								".well-known",
+								"oauth-protected-resource",
+								"mcp"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Authorization Server",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Registration endpoint is not empty\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.registration_endpoint).to.not.empty;",
+									"    pm.collectionVariables.set('REGISTRATION_ENDPOINT', jsonData.registration_endpoint);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}.{{SHARED_CLOUD_URL}}/.well-known/oauth-authorization-server",
+							"protocol": "https",
+							"host": [
+								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+								"{{SHARED_CLOUD_URL}}"
+							],
+							"path": [
+								".well-known",
+								"oauth-authorization-server"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Register Client",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"var jsonData = pm.response.json();",
+									"",
+									"pm.test(\"Client ID is not empty\", function () {",
+									"    pm.expect(jsonData.client_id).to.not.empty;",
+									"});",
+									"",
+									"pm.test(\"Client namespace is correct\", function () {",
+									"    pm.expect(jsonData.namespace).to.eql(pm.collectionVariables.get('SHARED_STUDIO_NAMESPACE'));",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"client_name\": \"Claude Code (test)\",\n    \"redirect_uris\": [\n        \"http://localhost:61834/callback\"\n    ],\n    \"grant_types\": [\n        \"authorization_code\",\n        \"refresh_token\"\n    ],\n    \"response_types\": [\n        \"code\"\n    ],\n    \"token_endpoint_auth_method\": \"none\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{REGISTRATION_ENDPOINT}}",
+							"host": [
+								"{{REGISTRATION_ENDPOINT}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Shared Cloud with Namespace",
+			"item": [
+				{
+					"name": "Initialize",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 401\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}.{{SHARED_CLOUD_URL}}/mcp/{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+							"protocol": "https",
+							"host": [
+								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+								"{{SHARED_CLOUD_URL}}"
+							],
+							"path": [
+								"mcp",
+								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Protected Resource",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}.{{SHARED_CLOUD_URL}}/.well-known/oauth-protected-resource/mcp/{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+							"protocol": "https",
+							"host": [
+								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+								"{{SHARED_CLOUD_URL}}"
+							],
+							"path": [
+								".well-known",
+								"oauth-protected-resource",
+								"mcp",
+								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Authorization Server",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Registration endpoint is not empty\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.registration_endpoint).to.not.empty;",
+									"    pm.collectionVariables.set('REGISTRATION_ENDPOINT', jsonData.registration_endpoint);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}.{{SHARED_CLOUD_URL}}/.well-known/oauth-authorization-server/{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+							"protocol": "https",
+							"host": [
+								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+								"{{SHARED_CLOUD_URL}}"
+							],
+							"path": [
+								".well-known",
+								"oauth-authorization-server",
+								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Register Client",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"var jsonData = pm.response.json();",
+									"",
+									"pm.test(\"Client ID is not empty\", function () {",
+									"    pm.expect(jsonData.client_id).to.not.empty;",
+									"});",
+									"",
+									"pm.test(\"Client namespace is correct\", function () {",
+									"    pm.expect(jsonData.namespace).to.eql(pm.collectionVariables.get('SHARED_STUDIO_NAMESPACE')+\"-\"+pm.collectionVariables.get('SHARED_GAME_NAMESPACE'));",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"client_name\": \"Claude Code (test)\",\n    \"redirect_uris\": [\n        \"http://localhost:61834/callback\"\n    ],\n    \"grant_types\": [\n        \"authorization_code\",\n        \"refresh_token\"\n    ],\n    \"response_types\": [\n        \"code\"\n    ],\n    \"token_endpoint_auth_method\": \"none\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{REGISTRATION_ENDPOINT}}",
+							"host": [
+								"{{REGISTRATION_ENDPOINT}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Private Cloud Utils",
+			"item": [
+				{
+					"name": "Get DCR Allowed Redirect URIs",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.collectionVariables.set('REDIRECT_URIS', null);",
+									"",
+									"if (!pm.collectionVariables.get('PRIVATE_CLOUD_TOKEN')) {",
+									"    console.warn(`PRIVATE_CLOUD_TOKEN not set, skipping request (${pm.execution.location})`);",
+									"    pm.execution.skipRequest();",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code == 200) {",
+									"    pm.test(\"Store redirect URIs in collection variable\", function () {",
+									"        var jsonData = pm.response.json();",
+									"        pm.expect(jsonData.value).to.not.empty;",
+									"        pm.collectionVariables.set('REDIRECT_URIS', jsonData.value);",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{PRIVATE_CLOUD_TOKEN}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://{{PRIVATE_CLOUD_URL}}/config/v1/admin/namespaces/{{PRIVATE_PUBLISHER_NAMESPACE}}/configs/dcrAllowedRedirectUris",
+							"protocol": "https",
+							"host": [
+								"{{PRIVATE_CLOUD_URL}}"
+							],
+							"path": [
+								"config",
+								"v1",
+								"admin",
+								"namespaces",
+								"{{PRIVATE_PUBLISHER_NAMESPACE}}",
+								"configs",
+								"dcrAllowedRedirectUris"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create DCR Allowed Redirect URIs",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('PRIVATE_CLOUD_TOKEN')) {",
+									"    console.warn(`PRIVATE_CLOUD_TOKEN not set, skipping request (${pm.execution.location})`);",
+									"    pm.execution.skipRequest();",
+									"}",
+									"",
+									"if (pm.collectionVariables.get('REDIRECT_URIS')) {",
+									"    console.warn(`REDIRECT_URIS found, skipping request (${pm.execution.location})`);",
+									"    pm.execution.skipRequest();",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{PRIVATE_CLOUD_TOKEN}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"isPublic\": false,\n  \"key\": \"dcrAllowedRedirectUris\",\n  \"value\": \"http://localhost/oauth/callback,http://localhost/app\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://{{PRIVATE_CLOUD_URL}}/config/v1/admin/namespaces/{{PRIVATE_PUBLISHER_NAMESPACE}}/configs",
+							"protocol": "https",
+							"host": [
+								"{{PRIVATE_CLOUD_URL}}"
+							],
+							"path": [
+								"config",
+								"v1",
+								"admin",
+								"namespaces",
+								"{{PRIVATE_PUBLISHER_NAMESPACE}}",
+								"configs"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update DCR Allowed Redirect URIs",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('PRIVATE_CLOUD_TOKEN')) {",
+									"    console.warn(`PRIVATE_CLOUD_TOKEN not set, skipping request (${pm.execution.location})`);",
+									"    pm.execution.skipRequest();",
+									"}",
+									"",
+									"if (!pm.collectionVariables.get('DEFAULT_REDIRECT_URIS')) {",
+									"    console.warn(`DEFAULT_REDIRECT_URIS not set, skipping request (${pm.execution.location})`);",
+									"    pm.execution.skipRequest();",
+									"}",
+									"",
+									"let requestBody = {",
+									"    isPublic: false,",
+									"    value: pm.collectionVariables.get('DEFAULT_REDIRECT_URIS')",
+									"};",
+									"",
+									"pm.variables.set(\"requestBody\", JSON.stringify(requestBody));"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{PRIVATE_CLOUD_TOKEN}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{{requestBody}}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://{{PRIVATE_CLOUD_URL}}/config/v1/admin/namespaces/{{PRIVATE_PUBLISHER_NAMESPACE}}/configs/dcrAllowedRedirectUris",
+							"protocol": "https",
+							"host": [
+								"{{PRIVATE_CLOUD_URL}}"
+							],
+							"path": [
+								"config",
+								"v1",
+								"admin",
+								"namespaces",
+								"{{PRIVATE_PUBLISHER_NAMESPACE}}",
+								"configs",
+								"dcrAllowedRedirectUris"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Shared Cloud Utils",
+			"item": [
+				{
+					"name": "Get DCR Allowed Redirect URIs",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.collectionVariables.set('REDIRECT_URIS', null);",
+									"",
+									"if (!pm.collectionVariables.get('SHARED_CLOUD_TOKEN')) {",
+									"    console.warn(`SHARED_CLOUD_TOKEN not set, skipping request (${pm.execution.location})`);",
+									"    pm.execution.skipRequest();",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code == 200) {",
+									"    pm.test(\"Store redirect URIs in collection variable\", function () {",
+									"        var jsonData = pm.response.json();",
+									"        pm.expect(jsonData.value).to.not.empty;",
+									"        pm.collectionVariables.set('REDIRECT_URIS', jsonData.value);",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{SHARED_CLOUD_TOKEN}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}.{{SHARED_CLOUD_URL}}/config/v1/admin/namespaces/{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}/configs/dcrAllowedRedirectUris",
+							"protocol": "https",
+							"host": [
+								"{{SHARED_STUDIO_NAMESPACE}}",
+								"{{SHARED_CLOUD_URL}}"
+							],
+							"path": [
+								"config",
+								"v1",
+								"admin",
+								"namespaces",
+								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+								"configs",
+								"dcrAllowedRedirectUris"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create DCR Allowed Redirect URIs",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('SHARED_CLOUD_TOKEN')) {",
+									"    console.warn(`SHARED_CLOUD_TOKEN not set, skipping request (${pm.execution.location})`);",
+									"    pm.execution.skipRequest();",
+									"}",
+									"",
+									"if (pm.collectionVariables.get('REDIRECT_URIS')) {",
+									"    console.warn(`REDIRECT_URIS found, skipping request (${pm.execution.location})`);",
+									"    pm.execution.skipRequest();",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{SHARED_CLOUD_TOKEN}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"isPublic\": false,\n  \"key\": \"dcrAllowedRedirectUris\",\n  \"value\": \"http://localhost/oauth/callback,http://localhost/app\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}.{{SHARED_CLOUD_URL}}/config/v1/admin/namespaces/{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}/configs",
+							"protocol": "https",
+							"host": [
+								"{{SHARED_STUDIO_NAMESPACE}}",
+								"{{SHARED_CLOUD_URL}}"
+							],
+							"path": [
+								"config",
+								"v1",
+								"admin",
+								"namespaces",
+								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+								"configs"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update DCR Allowed Redirect URIs",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('SHARED_CLOUD_TOKEN')) {",
+									"    console.warn(`SHARED_CLOUD_TOKEN not set, skipping request (${pm.execution.location})`);",
+									"    pm.execution.skipRequest();",
+									"}",
+									"",
+									"if (!pm.collectionVariables.get('DEFAULT_REDIRECT_URIS')) {",
+									"    console.warn(`DEFAULT_REDIRECT_URIS not set, skipping request (${pm.execution.location})`);",
+									"    pm.execution.skipRequest();",
+									"}",
+									"",
+									"let requestBody = {",
+									"    isPublic: false,",
+									"    value: pm.collectionVariables.get('DEFAULT_REDIRECT_URIS')",
+									"};",
+									"",
+									"pm.variables.set(\"requestBody\", JSON.stringify(requestBody));"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{SHARED_CLOUD_TOKEN}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{{requestBody}}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://{{SHARED_STUDIO_NAMESPACE}}.{{SHARED_CLOUD_URL}}/config/v1/admin/namespaces/{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}/configs/dcrAllowedRedirectUris",
+							"protocol": "https",
+							"host": [
+								"{{SHARED_STUDIO_NAMESPACE}}",
+								"{{SHARED_CLOUD_URL}}"
+							],
+							"path": [
+								"config",
+								"v1",
+								"admin",
+								"namespaces",
+								"{{SHARED_STUDIO_NAMESPACE}}-{{SHARED_GAME_NAMESPACE}}",
+								"configs",
+								"dcrAllowedRedirectUris"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "PRIVATE_CLOUD_URL",
+			"value": "development.accelbyte.io"
+		},
+		{
+			"key": "SHARED_CLOUD_URL",
+			"value": "internal.gamingservices.accelbyte.io"
+		},
+		{
+			"key": "PRIVATE_PUBLISHER_NAMESPACE",
+			"value": "accelbyte"
+		},
+		{
+			"key": "DEFAULT_REDIRECT_URIS",
+			"value": "http://localhost,https://claude.ai/api/mcp/auth_callback,https://claude.com/api/mcp/auth_callback,http://localhost:8080/oauth_redirect,http://localhost/oauth/callback,http://localhost/oauth/callback/debug,http://127.0.0.1/,http://127.0.0.1:33418/,https://vscode.dev/redirect,https://insiders.vscode.dev/redirect,https://chatgpt.com/connector_platform_oauth_redirect,cursor://anysphere.cursor-mcp/oauth/callback,cursor://anysphere.cursor-mcp/oauth/*/callback"
+		},
+		{
+			"key": "PRIVATE_GAME_NAMESPACE",
+			"value": ""
+		},
+		{
+			"key": "SHARED_STUDIO_NAMESPACE",
+			"value": ""
+		},
+		{
+			"key": "SHARED_GAME_NAMESPACE",
+			"value": ""
+		},
+		{
+			"key": "REGISTRATION_ENDPOINT",
+			"value": ""
+		},
+		{
+			"key": "PRIVATE_CLOUD_TOKEN",
+			"value": ""
+		},
+		{
+			"key": "SHARED_CLOUD_TOKEN",
+			"value": ""
+		},
+		{
+			"key": "REDIRECT_URIS",
+			"value": ""
+		}
+	]
+}
