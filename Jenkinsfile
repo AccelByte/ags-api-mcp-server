@@ -89,8 +89,9 @@ pipeline {
             sh "docker run --rm -t -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY amazon/aws-cli ecr get-login-password --region 'us-west-2' | docker login --username AWS --password-stdin 144436415367.dkr.ecr.us-west-2.amazonaws.com"
             sh "docker tag ${imageName}:test ${ecrRepo}:${imageTag}"
             sh "docker tag ${imageName}:test ${ecrRepo}:latest"
-            sh "docker push ${ecrRepo}:${imageTag}"
-            sh "docker push ${ecrRepo}:latest"
+            // We only run amd64 at the moment.
+            sh "docker push --platform linux/amd64 ${ecrRepo}:${imageTag}"
+            sh "docker push --platform linux/amd64 ${ecrRepo}:latest"
           }
 
         }
