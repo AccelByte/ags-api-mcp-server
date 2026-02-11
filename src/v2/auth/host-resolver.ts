@@ -45,7 +45,8 @@ export function validateUrlMatchesIssuer(
 
   return (
     normalizedIssuer === normalizedDerived ||
-    normalizedIssuer.startsWith(`${normalizedDerived}/`)
+    normalizedIssuer.startsWith(`${normalizedDerived}/`) ||
+    normalizedDerived.endsWith(`.${normalizedIssuer}`)
   );
 }
 
