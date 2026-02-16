@@ -210,8 +210,8 @@ function createRunApisInputSchema(config: Config) {
         z.string(),
         z.number(),
         z.boolean(),
-        z.array(z.any()), // keep as any - user provided data
-        z.record(z.any()), // keep as any - user provided data
+        z.array(z.unknown()),
+        z.record(z.string(), z.unknown()),
       ])
       .optional()
       .describe(

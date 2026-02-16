@@ -66,7 +66,7 @@ const ClaimsSchema = z
       .describe("Whether the email is verified"),
     clientId: z.string().optional().describe("The client ID of the token"),
     scope: z.string().optional().describe("The scope of the token"),
-    roles: z.array(z.any()).describe("The roles of the token"),
+    roles: z.array(z.unknown()).describe("The roles of the token"),
     // Custom Claims
     country: z.string().optional().describe("The country of the token"),
     dateOfBirth: z
@@ -81,7 +81,7 @@ const ClaimsSchema = z
     grantType: z.string().optional().describe("The grant type of the token"),
     isComply: z.boolean().optional().describe("Whether the token is compliant"),
     namespace: z.string().optional().describe("The namespace of the token"),
-    permissions: z.array(z.any()).describe("The permissions of the token"),
+    permissions: z.array(z.unknown()).describe("The permissions of the token"),
     phoneVerified: z
       .boolean()
       .optional()
