@@ -8,6 +8,7 @@ import jwksClient from "jwks-client";
 import { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 
 import log from "../logger.js";
+import securityLog from "../security-logger.js";
 
 interface TokenPayload extends JwtPayload {
   client_id?: string;
@@ -182,14 +183,17 @@ function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
           scopes,
           expiresAt,
         } satisfies AuthInfo;
+        securityLog.authSuccess({
+          ip: req.ip,
+          clientId,
+          scopeCount: scopes.length,
+        });
       } catch (err) {
-        log.warn(
-          {
-            error: err instanceof Error ? err.message : "Unknown error",
-            agsBaseUrl,
-          },
-          "JWT signature verification failed",
-        );
+        securityLog.authFailure({
+          ip: req.ip,
+          reason: err instanceof Error ? err.message : "Unknown error",
+          agsBaseUrl,
+        });
         res.status(401).json({
           error: "Unauthorized",
           message: "Invalid or expired token",

@@ -9,6 +9,7 @@ import { ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 
 import setAuthFromToken from "../auth/middleware.js";
 import log from "../logger.js";
+import securityLog from "../security-logger.js";
 import { jsonRPCError, logError, deriveBaseUrl } from "../utils.js";
 
 interface McpRequestContext {
@@ -69,6 +70,11 @@ function registerMcpRoutes(
     }
 
     if (enableAuth && !req.headers.authorization) {
+      securityLog.authFailure({
+        ip: req.ip,
+        reason: "missing_authorization_header",
+        path: req.path,
+      });
       // Construct resource_metadata URL for WWW-Authenticate header
       const baseUrl = deriveBaseUrl(req, defaultAgsBaseUrl);
       const resourceMetadataPath = namespace

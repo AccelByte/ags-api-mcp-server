@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 
 import type { HostedConfig } from "../config.js";
 import log from "../logger.js";
+import securityLog from "../security-logger.js";
 
 interface AgsContext {
   baseUrl: string;
@@ -86,13 +87,12 @@ export function resolveAgsHost(config: HostedConfig): RequestHandler {
         const issuer = extractTokenIssuer(token);
 
         if (!issuer) {
-          log.warn(
-            {
-              host,
-              derivedUrl: baseUrl,
-            },
-            "Token missing issuer claim",
-          );
+          securityLog.suspiciousRequest({
+            ip: req.ip,
+            reason: "missing_issuer_claim",
+            host,
+            derivedUrl: baseUrl,
+          });
           return res.status(403).json({
             error: "Forbidden",
             message: "Token is missing issuer claim",
@@ -100,14 +100,13 @@ export function resolveAgsHost(config: HostedConfig): RequestHandler {
         }
 
         if (!validateUrlMatchesIssuer(baseUrl, issuer)) {
-          log.warn(
-            {
-              host,
-              derivedUrl: baseUrl,
-              tokenIssuer: issuer,
-            },
-            "Token issuer does not match request host",
-          );
+          securityLog.suspiciousRequest({
+            ip: req.ip,
+            reason: "issuer_host_mismatch",
+            host,
+            tokenIssuer: issuer,
+            derivedUrl: baseUrl,
+          });
           return res.status(403).json({
             error: "Forbidden",
             message: "Token was issued for a different environment",

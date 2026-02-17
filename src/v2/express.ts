@@ -9,6 +9,7 @@ import rateLimit, { type Options } from "express-rate-limit";
 import helmet from "helmet";
 import { Server } from "http";
 import log from "./logger.js";
+import securityLog from "./security-logger.js";
 
 function create(): Express {
   const app = express();
@@ -43,6 +44,10 @@ function create(): Express {
       standardHeaders: true,
       legacyHeaders: false,
       // Use default keyGenerator which properly handles IPv6 normalization
+      handler: (req, res, _next, options) => {
+        securityLog.rateLimitExceeded({ ip: req.ip });
+        res.status(options.statusCode).send(options.message);
+      },
     };
     app.use(rateLimit(rateLimitOptions));
   }
