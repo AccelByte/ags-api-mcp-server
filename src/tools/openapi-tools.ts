@@ -101,7 +101,6 @@ interface RunApiArgs {
   spec?: string;
   method?: string;
   path?: string;
-  serverUrl?: string;
   pathParams?: Record<string, string | number>;
   query?: Record<string, string | number | Array<string | number>>;
   headers?: Record<string, string>;
@@ -276,7 +275,6 @@ export class OpenApiTools {
       {
         tool: "run-apis",
         operationId: operation.id,
-        suppliedServerUrl: args.serverUrl,
         availableServers: operation.servers,
         defaultServerUrl: this.options.defaultServerUrl,
         hasAccessToken: Boolean(userContext?.accessToken),
@@ -289,18 +287,13 @@ export class OpenApiTools {
       "Preparing to execute run-apis operation",
     );
 
-    if (
-      !operation.servers.length &&
-      !args.serverUrl &&
-      !this.options.defaultServerUrl
-    ) {
+    if (!operation.servers.length && !this.options.defaultServerUrl) {
       throw new Error(
-        `No server URL available for ${operation.id}. Provide serverUrl explicitly.`,
+        `No server URL available for ${operation.id}. Configure AB_BASE_URL or ensure the OpenAPI spec defines servers.`,
       );
     }
 
     const baseUrl = (
-      args.serverUrl ||
       operation.servers[0] ||
       this.options.defaultServerUrl ||
       ""
@@ -335,6 +328,9 @@ export class OpenApiTools {
       baseUrl +
         (resolvedPath.startsWith("/") ? resolvedPath : `/${resolvedPath}`),
     );
+
+    this.assertNotPrivateUrl(url);
+
     if (args.query) {
       const params = new URLSearchParams(url.search);
       for (const [key, value] of Object.entries(args.query)) {
@@ -1452,6 +1448,38 @@ export class OpenApiTools {
       return [this.options.defaultServerUrl];
     }
     return uniqueServers;
+  }
+
+  /**
+   * Defense-in-depth: block requests targeting private/internal IP ranges.
+   * Prevents SSRF even if OpenAPI specs or config contain internal addresses.
+   */
+  private assertNotPrivateUrl(url: URL): void {
+    const hostname = url.hostname;
+
+    // Match IPv4 private/internal ranges
+    const privatePatterns = [
+      /^127\./, // loopback
+      /^10\./, // RFC 1918 Class A
+      /^172\.(1[6-9]|2\d|3[01])\./, // RFC 1918 Class B
+      /^192\.168\./, // RFC 1918 Class C
+      /^169\.254\./, // link-local (AWS metadata, ECS)
+      /^0\.0\.0\.0$/, // unspecified
+      /^localhost$/i, // localhost hostname
+      /^\[::1\]$/, // IPv6 loopback
+    ];
+
+    for (const pattern of privatePatterns) {
+      if (pattern.test(hostname)) {
+        logger.warn(
+          { url: url.toString(), hostname },
+          "Blocked request to private/internal IP address",
+        );
+        throw new Error(
+          `Request to private/internal address is not allowed: ${hostname}`,
+        );
+      }
+    }
   }
 
   private normalizeServerUrl(url: string): string {

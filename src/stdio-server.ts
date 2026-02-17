@@ -212,11 +212,6 @@ export class StdioMCPServer {
                   description:
                     "Path template from the OpenAPI document (required when apiId is not provided).",
                 },
-                serverUrl: {
-                  type: "string",
-                  description:
-                    "Override the server URL; defaults to the first server defined in the spec.",
-                },
                 pathParams: {
                   type: "object",
                   description:

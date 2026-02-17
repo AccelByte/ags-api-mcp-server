@@ -180,12 +180,6 @@ const DescribeApisOutputSchema = ApiOperationBaseSchema.extend({
 
 function createRunApisInputSchema(config: Config) {
   return ApiOperationIdentifierSchema.extend({
-    serverUrl: z
-      .string()
-      .optional()
-      .describe(
-        "Override the server URL; defaults to the first server defined in the spec.",
-      ),
     pathParams: z
       .record(z.string(), z.union([z.string(), z.number()]))
       .optional()
@@ -406,7 +400,6 @@ async function setupApiTools(
         spec,
         method,
         path,
-        serverUrl,
         pathParams = {},
         query,
         headers,
@@ -470,7 +463,6 @@ async function setupApiTools(
           spec,
           method,
           path,
-          serverUrl,
           pathParams: effectivePathParams,
           query,
           headers,
