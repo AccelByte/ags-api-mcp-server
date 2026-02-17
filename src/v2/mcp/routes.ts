@@ -118,7 +118,14 @@ function registerMcpRoutes(
 
   for (const routePattern of routePatterns) {
     if (enableAuth) {
-      app.post(routePattern, setAuthFromToken(), postHandler);
+      app.post(
+        routePattern,
+        setAuthFromToken({
+          defaultAgsBaseUrl:
+            defaultAgsBaseUrl || "https://development.accelbyte.io",
+        }),
+        postHandler,
+      );
     } else {
       app.post(routePattern, postHandler);
     }

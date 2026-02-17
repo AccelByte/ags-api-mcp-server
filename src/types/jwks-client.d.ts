@@ -6,7 +6,7 @@ declare module "jwks-client" {
   interface JwksClientOptions {
     jwksUri: string;
     cache?: boolean;
-    cacheMaxAge?: number;
+    cacheMaxAge?: string | number;
     rateLimit?: boolean;
     jwksRequestsPerMinute?: number;
   }
