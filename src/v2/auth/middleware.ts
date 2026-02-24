@@ -31,7 +31,10 @@ const JWKS_URI_CACHE_TTL_MS = parseInt(
   process.env.JWKS_CACHE_TTL_MS || String(10 * 60 * 1000),
   10,
 ); // default 10 minutes
-const DISCOVERY_FETCH_TIMEOUT_MS = 10_000; // 10 seconds
+const DISCOVERY_FETCH_TIMEOUT_MS = parseInt(
+  process.env.JWKS_DISCOVERY_TIMEOUT_MS || "10000",
+  10,
+); // default 10 seconds
 const JWKS_CACHE_MAX_AGE = process.env.JWKS_CACHE_MAX_AGE || "10m";
 const JWKS_REQUESTS_PER_MINUTE = parseInt(
   process.env.JWKS_RATE_LIMIT || "10",

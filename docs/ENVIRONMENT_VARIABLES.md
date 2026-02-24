@@ -151,6 +151,13 @@ export MCP_AUTH=false
 - **Required**: No
 - **Note**: Accepts both string duration (`"10m"`) and milliseconds (`600000`)
 
+### `JWKS_DISCOVERY_TIMEOUT_MS`
+- **Description**: Timeout for JWKS URI discovery endpoint fetches (milliseconds)
+- **Default**: `10000` (10 seconds)
+- **Required**: No
+- **Recommended range**: `3000`–`30000`
+- **Note**: Lower values improve responsiveness during discovery outages; higher values accommodate slow network environments (VPN, airgapped)
+
 ### `JWKS_RATE_LIMIT`
 - **Description**: Maximum JWKS key retrieval requests per minute
 - **Default**: `10`
