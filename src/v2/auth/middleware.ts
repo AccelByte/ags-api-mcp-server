@@ -162,6 +162,7 @@ function verifyToken(
       },
       {
         algorithms: ["RS256"],
+        clockTolerance: 30, // 30 seconds tolerance for clock skew
         ...(options.audience ? { audience: options.audience } : {}),
       },
       (err, decoded) => {
