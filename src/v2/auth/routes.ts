@@ -75,6 +75,7 @@ function registerOAuthRoutes(
 ): void {
   const {
     authorizationServerDiscoveryMode = AuthorizationServerDiscoveryMode.None,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     hostedMode = false,
     mcpPath = "/mcp",
   } = options;
@@ -105,7 +106,7 @@ function registerOAuthRoutes(
   app.get(
     "/.well-known/oauth-protected-resource/:namespace",
     (req: Request, res: Response) => {
-      const namespace = req.params.namespace;
+      const { namespace } = req.params;
 
       // Validate namespace to prevent path traversal / URL injection
       if (!namespace || !/^[a-zA-Z0-9_-]+$/.test(namespace)) {
@@ -135,7 +136,7 @@ function registerOAuthRoutes(
       next: NextFunction,
     ) => {
       try {
-        const namespace = req.params.namespace;
+        const { namespace } = req.params;
 
         // Validate namespace if present to prevent path traversal / URL injection
         if (namespace && !/^[a-zA-Z0-9_-]+$/.test(namespace)) {
@@ -285,7 +286,7 @@ function registerOAuthRoutes(
         next: NextFunction,
       ) => {
         try {
-          const namespace = req.params.namespace;
+          const { namespace } = req.params;
 
           // Validate namespace if present to prevent path traversal / URL injection
           if (namespace && !/^[a-zA-Z0-9_-]+$/.test(namespace)) {

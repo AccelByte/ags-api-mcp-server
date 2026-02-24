@@ -59,7 +59,7 @@ function registerMcpRoutes(
   const { path = "/mcp", enableAuth = false, defaultAgsBaseUrl } = options;
 
   const postHandler = async (req: Request, res: Response) => {
-    const namespace: string | undefined = req.params.namespace;
+    const { namespace }: { namespace?: string } = req.params;
 
     // Validate namespace if present to prevent path injection
     if (namespace && !/^[a-zA-Z0-9_-]+$/.test(namespace)) {
@@ -122,7 +122,7 @@ function registerMcpRoutes(
   // Register routes for both the base path and the namespace-parameterized path
   const routePatterns = [path, `${path}/:namespace`];
 
-  for (const routePattern of routePatterns) {
+  routePatterns.forEach((routePattern) => {
     if (enableAuth) {
       app.post(
         routePattern,
@@ -147,7 +147,7 @@ function registerMcpRoutes(
         .status(405)
         .json(jsonRPCError(ErrorCode.InvalidRequest, "Method not allowed"));
     });
-  }
+  });
 }
 
 export type { McpRequestContext, McpServerFactory, RegisterMcpRoutesOptions };
