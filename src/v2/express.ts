@@ -19,6 +19,14 @@ function create(): Express {
   // TRUST_PROXY env var (e.g. "1", "loopback", "uniquelocal", CIDR).
   const trustProxy = process.env.TRUST_PROXY;
   if (trustProxy) {
+    if (trustProxy === "true" || trustProxy === "*") {
+      log.error(
+        { trustProxy },
+        "TRUST_PROXY is set to an unsafe value that trusts all proxies, enabling IP spoofing. " +
+          'Use specific values like "1", "loopback", or a CIDR range instead.',
+      );
+      process.exit(1);
+    }
     const numeric = parseInt(trustProxy, 10);
     app.set("trust proxy", Number.isNaN(numeric) ? trustProxy : numeric);
   }
