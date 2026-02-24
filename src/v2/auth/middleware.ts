@@ -26,19 +26,45 @@ interface JwksUriCacheEntry {
   expiresAt: number;
 }
 
+/** Parse an integer env var with range validation; falls back to default on invalid input. */
+function parseEnvInt(
+  key: string,
+  defaultValue: number,
+  min: number,
+  max: number,
+): number {
+  const raw = process.env[key];
+  if (!raw) return defaultValue;
+  const parsed = parseInt(raw, 10);
+  if (isNaN(parsed) || parsed < min || parsed > max) {
+    log.warn(
+      { key, raw, defaultValue, min, max },
+      "Invalid env var value, using default",
+    );
+    return defaultValue;
+  }
+  return parsed;
+}
+
 const jwksUriCache = new Map<string, JwksUriCacheEntry>();
-const JWKS_URI_CACHE_TTL_MS = parseInt(
-  process.env.JWKS_CACHE_TTL_MS || String(10 * 60 * 1000),
-  10,
-); // default 10 minutes
-const DISCOVERY_FETCH_TIMEOUT_MS = parseInt(
-  process.env.JWKS_DISCOVERY_TIMEOUT_MS || "10000",
-  10,
-); // default 10 seconds
+const JWKS_URI_CACHE_TTL_MS = parseEnvInt(
+  "JWKS_CACHE_TTL_MS",
+  10 * 60 * 1000,
+  60_000,
+  3_600_000,
+); // default 10 min, range 1 min – 1 hr
+const DISCOVERY_FETCH_TIMEOUT_MS = parseEnvInt(
+  "JWKS_DISCOVERY_TIMEOUT_MS",
+  10_000,
+  3_000,
+  30_000,
+); // default 10s, range 3s – 30s
 const JWKS_CACHE_MAX_AGE = process.env.JWKS_CACHE_MAX_AGE || "10m";
-const JWKS_REQUESTS_PER_MINUTE = parseInt(
-  process.env.JWKS_RATE_LIMIT || "10",
+const JWKS_REQUESTS_PER_MINUTE = parseEnvInt(
+  "JWKS_RATE_LIMIT",
   10,
+  1,
+  100,
 );
 
 // Maximum number of distinct AGS base URLs / JWKS URIs to cache.
