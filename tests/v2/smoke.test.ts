@@ -196,4 +196,37 @@ describe("MCP server smoke tests", () => {
       `Missing prompt: run-workflow. Got: ${promptNames}`,
     );
   });
+
+  // ── Negative / error-handling tests ──────────────────────────────────────
+
+  it("returns error for unknown method", async () => {
+    await mcpRequest("initialize", {
+      protocolVersion: "2025-03-26",
+      capabilities: {},
+      clientInfo: { name: "smoke-test", version: "1.0.0" },
+    });
+
+    const res = await mcpRequest("nonexistent/method", {}, 11);
+    assert.ok(
+      res.error,
+      `Expected error for unknown method, got: ${JSON.stringify(res)}`,
+    );
+  });
+
+  it("server does not crash on malformed JSON body", async () => {
+    const res = await fetch(MCP_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: "not-valid-json{{{",
+    });
+    // Server should respond (not crash) — any 4xx/5xx is acceptable
+    assert.ok(res.status >= 400, `Expected error status, got ${res.status}`);
+
+    // Verify server is still alive after bad request
+    const health = await fetch(`${BASE}/health`);
+    assert.equal(health.status, 200);
+  });
 });
