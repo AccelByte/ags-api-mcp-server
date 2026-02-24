@@ -221,6 +221,7 @@ function verifyToken(
       {
         algorithms: ["RS256"],
         clockTolerance: 30, // 30 seconds tolerance for clock skew
+        ignoreNotBefore: false, // explicitly enforce nbf claim validation
         ...(options.audience ? { audience: options.audience } : {}),
       },
       (err, decoded) => {
