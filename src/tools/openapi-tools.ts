@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { resolve4, resolve6 } from "node:dns/promises";
 import axios, { AxiosError, AxiosRequestConfig, Method } from "axios";
 import { parse as parseYaml } from "yaml";
 import { UserContext } from "../mcp-server.js";
@@ -329,7 +330,7 @@ export class OpenApiTools {
         (resolvedPath.startsWith("/") ? resolvedPath : `/${resolvedPath}`),
     );
 
-    this.assertNotPrivateUrl(url);
+    await this.assertNotPrivateUrl(url);
 
     if (args.query) {
       const params = new URLSearchParams(url.search);
@@ -1463,7 +1464,37 @@ export class OpenApiTools {
    * (e.g. `::ffff:127.0.0.1`) into hex form (`::ffff:7f00:1`).
    * We extract the embedded IPv4 address so the IPv4 patterns still match.
    */
-  private assertNotPrivateUrl(url: URL): void {
+  private static readonly ipv4Patterns = [
+    /^127\./, // loopback (127.0.0.0/8)
+    /^10\./, // RFC 1918 Class A
+    /^172\.(1[6-9]|2\d|3[01])\./, // RFC 1918 Class B
+    /^192\.168\./, // RFC 1918 Class C
+    /^169\.254\./, // link-local (AWS/Azure metadata, ECS)
+    /^100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])\./, // CGNAT (100.64.0.0/10)
+    /^198\.1[8-9]\./, // benchmarking (198.18.0.0/15)
+    /^0\.0\.0\.0$/, // unspecified
+    /^255\.255\.255\.255$/, // broadcast
+  ];
+
+  private static readonly otherPatterns = [
+    // IPv6 private/reserved ranges
+    /^\[::1\]$/, // IPv6 loopback
+    /^\[fe[89ab][0-9a-f]:/i, // IPv6 link-local (fe80::/10)
+    /^\[fc[0-9a-f]{2}:/i, // IPv6 unique local (fc00::/7)
+    /^\[fd[0-9a-f]{2}:/i, // IPv6 unique local (fd00::/8)
+
+    // Hostnames
+    /^localhost$/i, // localhost
+    /^.*\.localhost$/i, // *.localhost subdomains
+    /^metadata\.google\.internal$/i, // GCP metadata service
+  ];
+
+  /** Check whether a bare IPv4 string matches any private range. */
+  private isPrivateIPv4(ip: string): boolean {
+    return OpenApiTools.ipv4Patterns.some((p) => p.test(ip));
+  }
+
+  private async assertNotPrivateUrl(url: URL): Promise<void> {
     const hostname = url.hostname;
 
     // If hostname is an IPv4-mapped IPv6 address in hex form produced by URL,
@@ -1471,32 +1502,7 @@ export class OpenApiTools {
     const effectiveHostname =
       this.extractIPv4FromMappedIPv6(hostname) ?? hostname;
 
-    const ipv4Patterns = [
-      /^127\./, // loopback (127.0.0.0/8)
-      /^10\./, // RFC 1918 Class A
-      /^172\.(1[6-9]|2\d|3[01])\./, // RFC 1918 Class B
-      /^192\.168\./, // RFC 1918 Class C
-      /^169\.254\./, // link-local (AWS/Azure metadata, ECS)
-      /^100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])\./, // CGNAT (100.64.0.0/10)
-      /^198\.1[8-9]\./, // benchmarking (198.18.0.0/15)
-      /^0\.0\.0\.0$/, // unspecified
-      /^255\.255\.255\.255$/, // broadcast
-    ];
-
-    const otherPatterns = [
-      // IPv6 private/reserved ranges
-      /^\[::1\]$/, // IPv6 loopback
-      /^\[fe[89ab][0-9a-f]:/i, // IPv6 link-local (fe80::/10)
-      /^\[fc[0-9a-f]{2}:/i, // IPv6 unique local (fc00::/7)
-      /^\[fd[0-9a-f]{2}:/i, // IPv6 unique local (fd00::/8)
-
-      // Hostnames
-      /^localhost$/i, // localhost
-      /^.*\.localhost$/i, // *.localhost subdomains
-      /^metadata\.google\.internal$/i, // GCP metadata service
-    ];
-
-    for (const pattern of ipv4Patterns) {
+    for (const pattern of OpenApiTools.ipv4Patterns) {
       if (pattern.test(effectiveHostname)) {
         logger.warn(
           { event: "ssrf_blocked", url: url.toString(), hostname },
@@ -1508,7 +1514,7 @@ export class OpenApiTools {
       }
     }
 
-    for (const pattern of otherPatterns) {
+    for (const pattern of OpenApiTools.otherPatterns) {
       if (pattern.test(hostname)) {
         logger.warn(
           { event: "ssrf_blocked", url: url.toString(), hostname },
@@ -1516,6 +1522,68 @@ export class OpenApiTools {
         );
         throw new Error(
           `Request to private/internal address is not allowed: ${hostname}`,
+        );
+      }
+    }
+
+    // DNS rebinding mitigation: resolve the hostname and verify all
+    // resolved addresses are public.  This prevents an attacker from
+    // returning a public IP during hostname validation and a private IP
+    // during the actual HTTP request.
+    const isIP = /^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname.startsWith("[");
+    if (!isIP) {
+      try {
+        const [v4Addrs, v6Addrs] = await Promise.all([
+          resolve4(hostname).catch(() => [] as string[]),
+          resolve6(hostname).catch(() => [] as string[]),
+        ]);
+
+        for (const addr of v4Addrs) {
+          if (this.isPrivateIPv4(addr)) {
+            logger.warn(
+              { event: "ssrf_blocked", url: url.toString(), hostname, resolvedIp: addr },
+              "DNS resolves to private IP address",
+            );
+            throw new Error(
+              `Request to private/internal address is not allowed: ${hostname} resolves to ${addr}`,
+            );
+          }
+        }
+
+        for (const addr of v6Addrs) {
+          // Wrap in brackets for pattern matching (URL-style)
+          const bracketed = `[${addr}]`;
+          const mapped = this.extractIPv4FromMappedIPv6(bracketed);
+          if (mapped && this.isPrivateIPv4(mapped)) {
+            logger.warn(
+              { event: "ssrf_blocked", url: url.toString(), hostname, resolvedIp: addr },
+              "DNS resolves to private IPv4-mapped IPv6 address",
+            );
+            throw new Error(
+              `Request to private/internal address is not allowed: ${hostname} resolves to ${addr}`,
+            );
+          }
+          for (const pattern of OpenApiTools.otherPatterns) {
+            if (pattern.test(bracketed)) {
+              logger.warn(
+                { event: "ssrf_blocked", url: url.toString(), hostname, resolvedIp: addr },
+                "DNS resolves to private IPv6 address",
+              );
+              throw new Error(
+                `Request to private/internal address is not allowed: ${hostname} resolves to ${addr}`,
+              );
+            }
+          }
+        }
+      } catch (err) {
+        // Re-throw our own SSRF errors
+        if (err instanceof Error && err.message.includes("private/internal address")) {
+          throw err;
+        }
+        // DNS resolution failure — log but allow (the HTTP request will fail naturally)
+        logger.debug(
+          { hostname, error: err instanceof Error ? err.message : err },
+          "DNS resolution failed during SSRF check (request may still succeed via system resolver)",
         );
       }
     }
