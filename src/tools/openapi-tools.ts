@@ -743,6 +743,26 @@ export class OpenApiTools {
       );
     }
 
+    // Warn at load time if spec contains private/internal server URLs
+    for (const serverUrl of specServers) {
+      try {
+        const parsed = new URL(serverUrl);
+        const effectiveHostname =
+          this.extractIPv4FromMappedIPv6(parsed.hostname) ?? parsed.hostname;
+        const isPrivate =
+          OpenApiTools.ipv4Patterns.some((p) => p.test(effectiveHostname)) ||
+          OpenApiTools.otherPatterns.some((p) => p.test(parsed.hostname));
+        if (isPrivate) {
+          logger.warn(
+            { specName, filePath, serverUrl },
+            "OpenAPI spec contains private/internal server URL (will be blocked at runtime by SSRF protection)",
+          );
+        }
+      } catch {
+        // Invalid URL — skip validation, will fail at runtime
+      }
+    }
+
     const metadata: SpecMetadata = {
       name: specName,
       baseName,
