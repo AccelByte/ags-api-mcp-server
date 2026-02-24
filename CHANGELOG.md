@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (Security - VAPT Fixes)
+## v2026.1.1 (2026-02-24) — Security VAPT Fixes
 
 ### Security
 - **[CRITICAL]** JWT tokens are now cryptographically verified using JWKS instead of just decoded (AGS-MCP-001)
