@@ -42,11 +42,26 @@ const JWKS_REQUESTS_PER_MINUTE = parseInt(
 // Prevents unbounded memory growth if many different URLs are encountered.
 const MAX_CACHE_ENTRIES = 50;
 
-/** Evict the oldest entry from a Map when it exceeds the max size. */
-function evictOldest<K, V>(map: Map<K, V>, max: number): void {
-  if (map.size > max) {
-    const oldest = map.keys().next().value;
-    if (oldest !== undefined) map.delete(oldest);
+/**
+ * Evict the least-recently-used entry when the map reaches the max size.
+ *
+ * Uses ES2015+ Map insertion-order guarantee: entries are iterated in
+ * insertion order. Callers promote entries on access by deleting and
+ * re-inserting, so the first key is always the LRU candidate.
+ */
+function evictLRU<K, V>(map: Map<K, V>, max: number): void {
+  if (map.size >= max) {
+    const lru = map.keys().next().value;
+    if (lru !== undefined) map.delete(lru);
+  }
+}
+
+/** Promote `key` to most-recently-used position in a Map. */
+function touchMapEntry<K, V>(map: Map<K, V>, key: K): void {
+  const value = map.get(key);
+  if (value !== undefined) {
+    map.delete(key);
+    map.set(key, value);
   }
 }
 
@@ -54,18 +69,21 @@ function evictOldest<K, V>(map: Map<K, V>, max: number): void {
 const jwksClients = new Map<string, ReturnType<typeof jwksClient>>();
 
 function getOrCreateJwksClient(jwksUri: string): ReturnType<typeof jwksClient> {
-  let client = jwksClients.get(jwksUri);
-  if (!client) {
-    client = jwksClient({
-      jwksUri,
-      cache: true,
-      cacheMaxAge: JWKS_CACHE_MAX_AGE,
-      rateLimit: true,
-      jwksRequestsPerMinute: JWKS_REQUESTS_PER_MINUTE,
-    });
-    jwksClients.set(jwksUri, client);
-    evictOldest(jwksClients, MAX_CACHE_ENTRIES);
+  const existing = jwksClients.get(jwksUri);
+  if (existing) {
+    touchMapEntry(jwksClients, jwksUri);
+    return existing;
   }
+
+  const client = jwksClient({
+    jwksUri,
+    cache: true,
+    cacheMaxAge: JWKS_CACHE_MAX_AGE,
+    rateLimit: true,
+    jwksRequestsPerMinute: JWKS_REQUESTS_PER_MINUTE,
+  });
+  jwksClients.set(jwksUri, client);
+  evictLRU(jwksClients, MAX_CACHE_ENTRIES);
   return client;
 }
 
@@ -89,7 +107,7 @@ function checkDiscoveryRateLimit(agsBaseUrl: string): void {
   if (!entry || now - entry.windowStart >= DISCOVERY_RATE_WINDOW_MS) {
     // Window expired or first request — start fresh
     discoveryRateLimit.set(agsBaseUrl, { requests: 1, windowStart: now });
-    evictOldest(discoveryRateLimit, MAX_CACHE_ENTRIES);
+    evictLRU(discoveryRateLimit, MAX_CACHE_ENTRIES);
     return;
   }
 
@@ -117,6 +135,7 @@ function checkDiscoveryRateLimit(agsBaseUrl: string): void {
 async function discoverJwksUri(agsBaseUrl: string): Promise<string> {
   const cached = jwksUriCache.get(agsBaseUrl);
   if (cached && cached.expiresAt > Date.now()) {
+    touchMapEntry(jwksUriCache, agsBaseUrl);
     return cached.jwksUri;
   }
 
@@ -150,7 +169,7 @@ async function discoverJwksUri(agsBaseUrl: string): Promise<string> {
       jwksUri,
       expiresAt: Date.now() + JWKS_URI_CACHE_TTL_MS,
     });
-    evictOldest(jwksUriCache, MAX_CACHE_ENTRIES);
+    evictLRU(jwksUriCache, MAX_CACHE_ENTRIES);
 
     log.debug({ agsBaseUrl, jwksUri }, "Discovered JWKS URI");
     return jwksUri;
