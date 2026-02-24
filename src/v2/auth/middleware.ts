@@ -38,6 +38,18 @@ const JWKS_REQUESTS_PER_MINUTE = parseInt(
   10,
 );
 
+// Maximum number of distinct AGS base URLs / JWKS URIs to cache.
+// Prevents unbounded memory growth if many different URLs are encountered.
+const MAX_CACHE_ENTRIES = 50;
+
+/** Evict the oldest entry from a Map when it exceeds the max size. */
+function evictOldest<K, V>(map: Map<K, V>, max: number): void {
+  if (map.size > max) {
+    const oldest = map.keys().next().value;
+    if (oldest !== undefined) map.delete(oldest);
+  }
+}
+
 // Cache JWKS clients by URI to avoid creating new clients per request
 const jwksClients = new Map<string, ReturnType<typeof jwksClient>>();
 
@@ -54,6 +66,7 @@ function getOrCreateJwksClient(
       jwksRequestsPerMinute: JWKS_REQUESTS_PER_MINUTE,
     });
     jwksClients.set(jwksUri, client);
+    evictOldest(jwksClients, MAX_CACHE_ENTRIES);
   }
   return client;
 }
@@ -101,6 +114,7 @@ async function discoverJwksUri(agsBaseUrl: string): Promise<string> {
       jwksUri,
       expiresAt: Date.now() + JWKS_URI_CACHE_TTL_MS,
     });
+    evictOldest(jwksUriCache, MAX_CACHE_ENTRIES);
 
     log.debug({ agsBaseUrl, jwksUri }, "Discovered JWKS URI");
     return jwksUri;
