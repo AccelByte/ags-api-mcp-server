@@ -51,14 +51,29 @@ export function validateUrlMatchesIssuer(
   );
 }
 
+/** Validate that a hostname contains only legal characters (RFC 952 / 1123). */
+const VALID_HOSTNAME_RE =
+  /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/i;
+
 function getRequestHost(
   req: Parameters<RequestHandler>[0],
 ): string | undefined {
   const forwarded = req.headers["x-forwarded-host"];
+  let raw: string | undefined;
   if (forwarded) {
-    return Array.isArray(forwarded) ? forwarded[0] : forwarded;
+    raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  } else {
+    raw = req.headers.host;
   }
-  return req.headers.host;
+  if (!raw) return undefined;
+
+  // Strip port if present and validate hostname format
+  const hostname = raw.split(":")[0];
+  if (!VALID_HOSTNAME_RE.test(hostname)) {
+    return undefined;
+  }
+
+  return raw;
 }
 
 export function resolveAgsHost(config: HostedConfig): RequestHandler {
@@ -70,10 +85,13 @@ export function resolveAgsHost(config: HostedConfig): RequestHandler {
     const host = getRequestHost(req);
 
     if (!host) {
-      log.warn({ path: req.path }, "Missing Host header in hosted mode");
+      log.warn(
+        { path: req.path },
+        "Missing or invalid Host header in hosted mode",
+      );
       return res.status(400).json({
         error: "Bad Request",
-        message: "Host header is required",
+        message: "Valid Host header is required",
       });
     }
 

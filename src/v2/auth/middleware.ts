@@ -126,6 +126,14 @@ const DISCOVERY_MAX_REQUESTS_PER_WINDOW = 5;
 
 function checkDiscoveryRateLimit(agsBaseUrl: string): void {
   const now = Date.now();
+
+  // Sweep expired entries to prevent unbounded growth in multi-tenant environments
+  [...discoveryRateLimit.entries()].forEach(([url, e]) => {
+    if (now - e.windowStart >= DISCOVERY_RATE_WINDOW_MS * 2) {
+      discoveryRateLimit.delete(url);
+    }
+  });
+
   const entry = discoveryRateLimit.get(agsBaseUrl);
 
   if (!entry || now - entry.windowStart >= DISCOVERY_RATE_WINDOW_MS) {
@@ -171,7 +179,8 @@ function assertNotPrivateHostname(url: URL): void {
     /^\[::1\]$/.test(h) ||
     /^\[fe[89ab]/i.test(h) ||
     /^\[fc/i.test(h) ||
-    /^\[fd/i.test(h)
+    /^\[fd/i.test(h) ||
+    /^metadata\.azure\.com$/i.test(h)
   ) {
     throw new Error(`Refusing to fetch from private/internal address: ${h}`);
   }
@@ -227,18 +236,26 @@ async function discoverJwksUri(agsBaseUrl: string): Promise<string> {
         `JWKS URI must use HTTPS, got: ${jwksUrl.protocol} (${jwksUri})`,
       );
     }
-    // Warn (but allow) if JWKS host differs from the authorization server
+    // Block if JWKS host differs from the authorization server (prevents
+    // compromised discovery endpoints from redirecting to attacker JWKS).
     const agsHost = new URL(agsBaseUrl).hostname;
     if (jwksUrl.hostname !== agsHost) {
-      log.warn(
-        {
-          agsBaseUrl,
-          jwksUri,
-          expectedHost: agsHost,
-          actualHost: jwksUrl.hostname,
-        },
-        "JWKS URI hostname differs from authorization server (verify this is expected)",
-      );
+      if (process.env.ALLOW_CROSS_DOMAIN_JWKS === "true") {
+        log.warn(
+          {
+            agsBaseUrl,
+            jwksUri,
+            expectedHost: agsHost,
+            actualHost: jwksUrl.hostname,
+          },
+          "JWKS URI hostname differs from authorization server (cross-domain JWKS enabled)",
+        );
+      } else {
+        throw new Error(
+          `JWKS URI hostname '${jwksUrl.hostname}' does not match authorization server '${agsHost}'. ` +
+            `Set ALLOW_CROSS_DOMAIN_JWKS=true if this is intentional.`,
+        );
+      }
     }
 
     jwksUriCache.set(agsBaseUrl, {
@@ -282,8 +299,14 @@ function verifyToken(
             callback(err);
             return;
           }
+          if (!key) {
+            callback(
+              new Error(`No signing key returned for kid: ${header.kid}`),
+            );
+            return;
+          }
           const signingKey =
-            key?.getPublicKey?.() || key?.publicKey || key?.rsaPublicKey;
+            key.getPublicKey?.() || key.publicKey || key.rsaPublicKey;
           if (!signingKey) {
             callback(new Error(`No signing key found for kid: ${header.kid}`));
             return;
@@ -395,10 +418,20 @@ async function prewarmJwksCache(agsBaseUrl: string): Promise<void> {
     await discoverJwksUri(agsBaseUrl);
     log.info({ agsBaseUrl }, "JWKS cache pre-warmed");
   } catch (err) {
-    log.warn(
-      { agsBaseUrl, error: err instanceof Error ? err.message : err },
-      "Failed to pre-warm JWKS cache (will retry on first request)",
-    );
+    const allowColdStart = process.env.ALLOW_JWKS_COLD_START === "true";
+    if (allowColdStart) {
+      log.warn(
+        { agsBaseUrl, error: err instanceof Error ? err.message : err },
+        "JWKS cache pre-warming failed (cold start enabled, will retry on first request)",
+      );
+    } else {
+      log.error(
+        { agsBaseUrl, error: err instanceof Error ? err.message : err },
+        "JWKS cache pre-warming failed — server cannot authenticate requests. " +
+          "Set ALLOW_JWKS_COLD_START=true to start anyway.",
+      );
+      process.exit(1);
+    }
   }
 }
 

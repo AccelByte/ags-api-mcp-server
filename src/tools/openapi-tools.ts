@@ -1501,12 +1501,13 @@ export class OpenApiTools {
     /^\[::1\]$/, // IPv6 loopback
     /^\[fe[89ab][0-9a-f]:/i, // IPv6 link-local (fe80::/10)
     /^\[fc[0-9a-f]{2}:/i, // IPv6 unique local (fc00::/7)
-    /^\[fd[0-9a-f]{2}:/i, // IPv6 unique local (fd00::/8)
+    /^\[fd[0-9a-f]{2}:/i, // IPv6 unique local (fd00::/8) — covers AWS EC2 metadata IPv6 [fd00:ec2::254]
 
     // Hostnames
     /^localhost$/i, // localhost
     /^.*\.localhost$/i, // *.localhost subdomains
     /^metadata\.google\.internal$/i, // GCP metadata service
+    /^metadata\.azure\.com$/i, // Azure metadata service
   ];
 
   /** Check whether a bare IPv4 string matches any private range. */
@@ -1556,9 +1557,20 @@ export class OpenApiTools {
       /^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname.startsWith("[");
     if (!isIP) {
       try {
-        const [v4Addrs, v6Addrs] = await Promise.all([
+        const DNS_TIMEOUT_MS = 5_000;
+        const dnsPromise = Promise.all([
           resolve4(hostname).catch(() => [] as string[]),
           resolve6(hostname).catch(() => [] as string[]),
+        ]);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`DNS resolution timeout after ${DNS_TIMEOUT_MS}ms`)),
+            DNS_TIMEOUT_MS,
+          ),
+        );
+        const [v4Addrs, v6Addrs] = await Promise.race([
+          dnsPromise,
+          timeoutPromise,
         ]);
 
         for (const addr of v4Addrs) {

@@ -333,3 +333,34 @@ describe("setAuthFromToken with audience validation", () => {
     assert.equal(res.statusCode, 401);
   });
 });
+
+describe("algorithm confusion attack prevention", () => {
+  before(async () => {
+    if (!server?.listening) {
+      await startMockServer();
+    }
+  });
+  after(async () => stopMockServer());
+
+  test("rejects HS256 token signed with public key as HMAC secret (algorithm confusion)", async () => {
+    const middleware = setAuthFromToken({ defaultAgsBaseUrl: agsBaseUrl });
+
+    // Attack scenario: sign with HS256 using the RSA public key as HMAC secret
+    const maliciousToken = jwt.sign(
+      { client_id: "attacker", scope: "admin", iss: agsBaseUrl },
+      publicKey,
+      { algorithm: "HS256", keyid: KID, expiresIn: "1h" },
+    );
+
+    const req = createReq(`Bearer ${maliciousToken}`);
+    const res = createRes();
+    let nextCalled = false;
+
+    await middleware(req, res, () => {
+      nextCalled = true;
+    });
+
+    assert.equal(nextCalled, false, "Should reject HS256 tokens");
+    assert.equal(res.statusCode, 401);
+  });
+});

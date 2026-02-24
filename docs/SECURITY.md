@@ -72,6 +72,7 @@ As defense-in-depth, all outbound requests are checked against private/internal 
 **Hostnames:**
 - `localhost` and `*.localhost`
 - `metadata.google.internal` (GCP metadata service)
+- `metadata.azure.com` (Azure metadata service)
 
 Blocked requests are logged with `event: "ssrf_blocked"` for security monitoring.
 

@@ -176,6 +176,20 @@ export MCP_AUTH=false
 - **Default**: `10`
 - **Required**: No
 
+### `ALLOW_CROSS_DOMAIN_JWKS`
+- **Description**: Allow JWKS URI hostname to differ from the authorization server hostname
+- **Default**: `false`
+- **Required**: No
+- **Options**: `true`, `false`
+- **Note**: By default, JWKS discovery rejects responses where the `jwks_uri` hostname doesn't match the authorization server. Set to `true` only if your JWKS is intentionally hosted on a different domain (e.g., CDN-backed key distribution).
+
+### `ALLOW_JWKS_COLD_START`
+- **Description**: Allow server to start even if JWKS cache pre-warming fails
+- **Default**: `false`
+- **Required**: No
+- **Options**: `true`, `false`
+- **Note**: By default, the server exits on startup if it cannot reach the JWKS discovery endpoint (indicates misconfiguration). Set to `true` to allow degraded startup where JWKS will be fetched on the first request instead.
+
 ---
 
 ## Rate Limiting
@@ -377,6 +391,8 @@ New in V2:
 - `JWKS_CACHE_TTL_MS` - JWKS URI discovery cache TTL
 - `JWKS_CACHE_MAX_AGE` - JWKS signing key cache TTL
 - `JWKS_RATE_LIMIT` - JWKS requests per minute
+- `ALLOW_CROSS_DOMAIN_JWKS` - Allow cross-domain JWKS URI
+- `ALLOW_JWKS_COLD_START` - Allow startup without JWKS
 
 ---
 
