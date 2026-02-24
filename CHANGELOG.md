@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased (Security - VAPT Fixes)
+
+### Security
+- **[CRITICAL]** JWT tokens are now cryptographically verified using JWKS instead of just decoded (AGS-MCP-001)
+  - Signature verification via `jwks-client` with RS256
+  - JWKS URI discovery from `.well-known/oauth-authorization-server`
+  - Issuer (`iss`) claim validated against expected AGS environment
+  - Caching for JWKS URIs and signing keys (10 min, configurable)
+  - Pre-warming of JWKS cache on server startup
+  - Returns 401 on invalid/forged tokens
+- **[HIGH]** Removed user-controlled `serverUrl` parameter to prevent SSRF (AGS-MCP-002)
+  - Removed from `run-apis` tool in all implementations (V1 HTTP, V1 stdio, V2 MCP)
+  - Defense-in-depth private IP blocking (IPv4, IPv6, IPv4-mapped IPv6, hostnames)
+  - Covers RFC 1918, CGNAT, link-local, cloud metadata, and more
+- **[MEDIUM]** Structured security logging for auth failures and suspicious requests (AGS-MCP-003)
+- Added configurable `TRUST_PROXY` for accurate client IP logging behind proxies
+- Added `clockTolerance` (30s) to JWT verification for clock skew resilience
+- Added cache size limits (max 50 entries) to prevent unbounded memory growth
+
+### Changed
+- **BREAKING:** `serverUrl` parameter removed from `run-apis` tool — use `AB_BASE_URL` env var
+- Auth success logs lowered from INFO to DEBUG to reduce volume
+- Auth failure logs now include request path for correlation
+
+### Added
+- `TRUST_PROXY`, `JWKS_CACHE_TTL_MS`, `JWKS_CACHE_MAX_AGE`, `JWKS_RATE_LIMIT` env vars
+- `docs/SECURITY.md` — security architecture documentation
+- Unit tests for JWT verification (10 tests), SSRF protection (33 tests), security logger (7 tests)
+
+---
+
 ## v2026.1 (V2 Architecture)
 
 ### 🎉 V2 Release - Complete Rewrite

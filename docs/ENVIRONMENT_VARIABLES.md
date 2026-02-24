@@ -131,6 +131,33 @@ export MCP_AUTH=false
 
 ---
 
+## Security Configuration
+
+### `TRUST_PROXY`
+- **Description**: Configure Express trust proxy for accurate `req.ip` behind reverse proxies
+- **Default**: Not set (disabled)
+- **Required**: No (but recommended in Docker/Kubernetes deployments)
+- **Options**: `1` (trust single proxy), `loopback`, `uniquelocal`, or CIDR range
+- **Example**: `1`
+
+### `JWKS_CACHE_TTL_MS`
+- **Description**: TTL for the JWKS URI discovery cache (milliseconds)
+- **Default**: `600000` (10 minutes)
+- **Required**: No
+
+### `JWKS_CACHE_MAX_AGE`
+- **Description**: TTL for the JWKS signing key cache
+- **Default**: `10m`
+- **Required**: No
+- **Note**: Accepts both string duration (`"10m"`) and milliseconds (`600000`)
+
+### `JWKS_RATE_LIMIT`
+- **Description**: Maximum JWKS key retrieval requests per minute
+- **Default**: `10`
+- **Required**: No
+
+---
+
 ## Rate Limiting
 
 ### `RATE_LIMIT_ENABLED`
@@ -296,10 +323,10 @@ These V1 variables are **not used** in V2:
 - `OAUTH_AUTHORIZATION_URL` - No OAuth flow
 - `OAUTH_TOKEN_URL` - No OAuth flow
 - `OAUTH_REDIRECT_URI` - No OAuth flow
-- `JWKS_URI` - No token verification
-- `JWT_ISSUER` - No token verification
-- `JWT_AUDIENCE` - No token verification
-- `JWT_ALGORITHMS` - No token verification
+- `JWKS_URI` - Discovered automatically via `.well-known/oauth-authorization-server`
+- `JWT_ISSUER` - Validated against `AB_BASE_URL` automatically
+- `JWT_AUDIENCE` - Not currently enforced (available via middleware options)
+- `JWT_ALGORITHMS` - Hardcoded to RS256
 - `TRANSPORT` - HTTP-only (no stdio)
 - `ENABLE_CLIENT_CREDENTIALS_FALLBACK` - No server-side auth
 - `ADVERTISED_PROTOCOL` - Simplified
@@ -326,6 +353,10 @@ New in V2:
 - `OPENAPI_DEFAULT_RUN_TIMEOUT_MS` - Request timeout
 - `OPENAPI_MAX_RUN_TIMEOUT_MS` - Max timeout
 - `INCLUDE_WRITE_REQUESTS` - Control write ops
+- `TRUST_PROXY` - Proxy trust for accurate IP logging
+- `JWKS_CACHE_TTL_MS` - JWKS URI discovery cache TTL
+- `JWKS_CACHE_MAX_AGE` - JWKS signing key cache TTL
+- `JWKS_RATE_LIMIT` - JWKS requests per minute
 
 ---
 
