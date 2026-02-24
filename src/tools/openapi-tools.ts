@@ -1493,7 +1493,7 @@ export class OpenApiTools {
     for (const pattern of ipv4Patterns) {
       if (pattern.test(effectiveHostname)) {
         logger.warn(
-          { url: url.toString(), hostname },
+          { event: "ssrf_blocked", url: url.toString(), hostname },
           "Blocked request to private/internal IP address",
         );
         throw new Error(
@@ -1505,7 +1505,7 @@ export class OpenApiTools {
     for (const pattern of otherPatterns) {
       if (pattern.test(hostname)) {
         logger.warn(
-          { url: url.toString(), hostname },
+          { event: "ssrf_blocked", url: url.toString(), hostname },
           "Blocked request to private/internal IP address",
         );
         throw new Error(
