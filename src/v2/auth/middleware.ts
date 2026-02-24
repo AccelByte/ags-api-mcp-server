@@ -156,6 +156,27 @@ function checkDiscoveryRateLimit(agsBaseUrl: string): void {
  * Results are cached to avoid repeated discovery fetches.
  * Discovery requests are rate-limited per base URL to prevent abuse.
  */
+/** Quick check that a URL hostname is not a private/internal address. */
+function assertNotPrivateHostname(url: URL): void {
+  const h = url.hostname;
+  if (
+    /^127\./.test(h) ||
+    /^10\./.test(h) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
+    /^192\.168\./.test(h) ||
+    /^169\.254\./.test(h) ||
+    /^0\.0\.0\.0$/.test(h) ||
+    /^localhost$/i.test(h) ||
+    /\.localhost$/i.test(h) ||
+    /^\[::1\]$/.test(h) ||
+    /^\[fe[89ab]/i.test(h) ||
+    /^\[fc/i.test(h) ||
+    /^\[fd/i.test(h)
+  ) {
+    throw new Error(`Refusing to fetch from private/internal address: ${h}`);
+  }
+}
+
 async function discoverJwksUri(agsBaseUrl: string): Promise<string> {
   const cached = jwksUriCache.get(agsBaseUrl);
   if (cached && cached.expiresAt > Date.now()) {
@@ -166,6 +187,11 @@ async function discoverJwksUri(agsBaseUrl: string): Promise<string> {
   checkDiscoveryRateLimit(agsBaseUrl);
 
   const metadataUrl = `${agsBaseUrl}/.well-known/oauth-authorization-server`;
+
+  // SSRF guard: prevent discovery fetches to private/internal addresses.
+  // In hosted mode agsBaseUrl is derived from the Host header, so an attacker
+  // could attempt to reach internal services.
+  assertNotPrivateHostname(new URL(metadataUrl));
 
   const controller = new AbortController();
   const timeoutId = setTimeout(
@@ -188,6 +214,32 @@ async function discoverJwksUri(agsBaseUrl: string): Promise<string> {
     }
 
     const jwksUri: string = metadata.jwks_uri;
+
+    // Validate the returned JWKS URI is well-formed and uses HTTPS
+    let jwksUrl: URL;
+    try {
+      jwksUrl = new URL(jwksUri);
+    } catch {
+      throw new Error(`Discovery returned malformed jwks_uri: ${jwksUri}`);
+    }
+    if (jwksUrl.protocol !== "https:") {
+      throw new Error(
+        `JWKS URI must use HTTPS, got: ${jwksUrl.protocol} (${jwksUri})`,
+      );
+    }
+    // Warn (but allow) if JWKS host differs from the authorization server
+    const agsHost = new URL(agsBaseUrl).hostname;
+    if (jwksUrl.hostname !== agsHost) {
+      log.warn(
+        {
+          agsBaseUrl,
+          jwksUri,
+          expectedHost: agsHost,
+          actualHost: jwksUrl.hostname,
+        },
+        "JWKS URI hostname differs from authorization server (verify this is expected)",
+      );
+    }
 
     jwksUriCache.set(agsBaseUrl, {
       jwksUri,
