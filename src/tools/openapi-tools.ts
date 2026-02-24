@@ -1454,6 +1454,11 @@ export class OpenApiTools {
    * Defense-in-depth: block requests targeting private/internal IP ranges.
    * Prevents SSRF even if OpenAPI specs or config contain internal addresses.
    *
+   * Limitation: This checks the hostname/IP at URL-construction time. A DNS
+   * rebinding attack could return a public IP for initial resolution and a
+   * private IP for the actual request. For full protection, resolved IPs
+   * should also be validated (requires async dns.resolve + IP check).
+   *
    * Note: The URL constructor normalises IPv4-mapped IPv6 addresses
    * (e.g. `::ffff:127.0.0.1`) into hex form (`::ffff:7f00:1`).
    * We extract the embedded IPv4 address so the IPv4 patterns still match.
