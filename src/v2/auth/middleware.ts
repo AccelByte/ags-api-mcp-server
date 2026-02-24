@@ -238,6 +238,7 @@ function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
           ip: req.ip,
           reason: err instanceof Error ? err.message : "Unknown error",
           agsBaseUrl,
+          path: req.path,
         });
         res.status(401).json({
           error: "Unauthorized",
