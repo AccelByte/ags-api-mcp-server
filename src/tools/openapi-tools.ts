@@ -1453,12 +1453,19 @@ export class OpenApiTools {
   /**
    * Defense-in-depth: block requests targeting private/internal IP ranges.
    * Prevents SSRF even if OpenAPI specs or config contain internal addresses.
+   *
+   * Note: The URL constructor normalises IPv4-mapped IPv6 addresses
+   * (e.g. `::ffff:127.0.0.1`) into hex form (`::ffff:7f00:1`).
+   * We extract the embedded IPv4 address so the IPv4 patterns still match.
    */
   private assertNotPrivateUrl(url: URL): void {
     const hostname = url.hostname;
 
-    const privatePatterns = [
-      // IPv4 private/reserved ranges
+    // If hostname is an IPv4-mapped IPv6 address in hex form produced by URL,
+    // extract the mapped IPv4 so the IPv4 patterns below can match it.
+    const effectiveHostname = this.extractIPv4FromMappedIPv6(hostname) ?? hostname;
+
+    const ipv4Patterns = [
       /^127\./, // loopback (127.0.0.0/8)
       /^10\./, // RFC 1918 Class A
       /^172\.(1[6-9]|2\d|3[01])\./, // RFC 1918 Class B
@@ -1468,13 +1475,11 @@ export class OpenApiTools {
       /^198\.1[8-9]\./, // benchmarking (198.18.0.0/15)
       /^0\.0\.0\.0$/, // unspecified
       /^255\.255\.255\.255$/, // broadcast
+    ];
 
+    const otherPatterns = [
       // IPv6 private/reserved ranges
       /^\[::1\]$/, // IPv6 loopback
-      /^\[::ffff:127\./, // IPv4-mapped loopback
-      /^\[::ffff:10\./, // IPv4-mapped RFC 1918 Class A
-      /^\[::ffff:192\.168\./, // IPv4-mapped RFC 1918 Class C
-      /^\[::ffff:172\.(1[6-9]|2\d|3[01])\./, // IPv4-mapped RFC 1918 Class B
       /^\[fe[89ab][0-9a-f]:/i, // IPv6 link-local (fe80::/10)
       /^\[fc[0-9a-f]{2}:/i, // IPv6 unique local (fc00::/7)
       /^\[fd[0-9a-f]{2}:/i, // IPv6 unique local (fd00::/8)
@@ -1485,7 +1490,19 @@ export class OpenApiTools {
       /^metadata\.google\.internal$/i, // GCP metadata service
     ];
 
-    for (const pattern of privatePatterns) {
+    for (const pattern of ipv4Patterns) {
+      if (pattern.test(effectiveHostname)) {
+        logger.warn(
+          { url: url.toString(), hostname },
+          "Blocked request to private/internal IP address",
+        );
+        throw new Error(
+          `Request to private/internal address is not allowed: ${hostname}`,
+        );
+      }
+    }
+
+    for (const pattern of otherPatterns) {
       if (pattern.test(hostname)) {
         logger.warn(
           { url: url.toString(), hostname },
@@ -1496,6 +1513,22 @@ export class OpenApiTools {
         );
       }
     }
+  }
+
+  /**
+   * Extracts the embedded IPv4 address from an IPv4-mapped IPv6 hostname.
+   * The URL constructor normalises `::ffff:a.b.c.d` into hex form
+   * `[::ffff:XXYY:ZZWW]`, so we convert the two hex groups back to
+   * dotted-decimal.  Returns `null` if the hostname is not an IPv4-mapped
+   * IPv6 address.
+   */
+  private extractIPv4FromMappedIPv6(hostname: string): string | null {
+    // Match hex-form: [::ffff:HHHH:HHHH]
+    const match = hostname.match(/^\[::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})\]$/i);
+    if (!match) return null;
+    const hi = parseInt(match[1], 16);
+    const lo = parseInt(match[2], 16);
+    return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
   }
 
   private normalizeServerUrl(url: string): string {
