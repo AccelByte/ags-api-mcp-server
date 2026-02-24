@@ -252,4 +252,21 @@ function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
   };
 }
 
+/**
+ * Pre-warms the JWKS discovery cache for the given AGS base URL.
+ * Call at server startup to avoid cold-start latency on the first request.
+ */
+async function prewarmJwksCache(agsBaseUrl: string): Promise<void> {
+  try {
+    await discoverJwksUri(agsBaseUrl);
+    log.info({ agsBaseUrl }, "JWKS cache pre-warmed");
+  } catch (err) {
+    log.warn(
+      { agsBaseUrl, error: err instanceof Error ? err.message : err },
+      "Failed to pre-warm JWKS cache (will retry on first request)",
+    );
+  }
+}
+
 export default setAuthFromToken;
+export { prewarmJwksCache };

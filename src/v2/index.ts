@@ -11,6 +11,7 @@ import registerOAuthRoutes, {
   AuthorizationServerDiscoveryMode,
 } from "./auth/routes.js";
 import { resolveAgsHost } from "./auth/host-resolver.js";
+import { prewarmJwksCache } from "./auth/middleware.js";
 import createServer from "./mcp/server.js";
 
 const app: Express = createExpress();
@@ -75,3 +76,8 @@ app.get("/health", (_, res) => {
 });
 
 startExpress(app, config.mcp.port);
+
+// Pre-warm JWKS discovery cache to avoid cold-start latency
+if (config.mcp.enableAuth) {
+  prewarmJwksCache(config.openapi.serverUrl);
+}
