@@ -90,10 +90,13 @@ export class StdioMCPServer {
         logger.info("MCP Server instance created");
         return this.server;
       } catch (error) {
-        logger.error({ 
-          error,
-          message: error instanceof Error ? error.message : String(error),
-        }, "Failed to initialize MCP Server");
+        logger.error(
+          {
+            error,
+            message: error instanceof Error ? error.message : String(error),
+          },
+          "Failed to initialize MCP Server",
+        );
         throw error;
       }
     })();

@@ -1468,7 +1468,8 @@ export class OpenApiTools {
 
     // If hostname is an IPv4-mapped IPv6 address in hex form produced by URL,
     // extract the mapped IPv4 so the IPv4 patterns below can match it.
-    const effectiveHostname = this.extractIPv4FromMappedIPv6(hostname) ?? hostname;
+    const effectiveHostname =
+      this.extractIPv4FromMappedIPv6(hostname) ?? hostname;
 
     const ipv4Patterns = [
       /^127\./, // loopback (127.0.0.0/8)
@@ -1529,7 +1530,9 @@ export class OpenApiTools {
    */
   private extractIPv4FromMappedIPv6(hostname: string): string | null {
     // Match hex-form: [::ffff:HHHH:HHHH]
-    const match = hostname.match(/^\[::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})\]$/i);
+    const match = hostname.match(
+      /^\[::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})\]$/i,
+    );
     if (!match) return null;
     const hi = parseInt(match[1], 16);
     const lo = parseInt(match[2], 16);

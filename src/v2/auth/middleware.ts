@@ -53,9 +53,7 @@ function evictOldest<K, V>(map: Map<K, V>, max: number): void {
 // Cache JWKS clients by URI to avoid creating new clients per request
 const jwksClients = new Map<string, ReturnType<typeof jwksClient>>();
 
-function getOrCreateJwksClient(
-  jwksUri: string,
-): ReturnType<typeof jwksClient> {
+function getOrCreateJwksClient(jwksUri: string): ReturnType<typeof jwksClient> {
   let client = jwksClients.get(jwksUri);
   if (!client) {
     client = jwksClient({
@@ -97,9 +95,7 @@ async function discoverJwksUri(agsBaseUrl: string): Promise<string> {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(
-        `Discovery endpoint returned HTTP ${response.status}`,
-      );
+      throw new Error(`Discovery endpoint returned HTTP ${response.status}`);
     }
 
     const metadata = await response.json();
@@ -154,7 +150,7 @@ function verifyToken(
           const signingKey =
             key?.getPublicKey?.() || key?.publicKey || key?.rsaPublicKey;
           if (!signingKey) {
-            callback(new Error("No signing key found for kid: " + header.kid));
+            callback(new Error(`No signing key found for kid: ${header.kid}`));
             return;
           }
           callback(null, signingKey);
@@ -166,8 +162,10 @@ function verifyToken(
         ...(options.audience ? { audience: options.audience } : {}),
       },
       (err, decoded) => {
-        if (err) return reject(err);
-        resolve(decoded as TokenPayload);
+        if (err) {
+          return reject(err);
+        }
+        return resolve(decoded as TokenPayload);
       },
     );
   });

@@ -20,7 +20,7 @@ function create(): Express {
   const trustProxy = process.env.TRUST_PROXY;
   if (trustProxy) {
     const numeric = parseInt(trustProxy, 10);
-    app.set("trust proxy", isNaN(numeric) ? trustProxy : numeric);
+    app.set("trust proxy", Number.isNaN(numeric) ? trustProxy : numeric);
   }
 
   // Security headers via helmet (includes HSTS, X-Frame-Options, etc.)
