@@ -42,7 +42,7 @@ const securityLog = {
   },
 
   authSuccess(details: AuthSuccessDetails): void {
-    securityLogger.info(
+    securityLogger.debug(
       { event: "auth_success", ...details },
       "Authentication success for client %s",
       details.clientId,
