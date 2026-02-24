@@ -103,6 +103,34 @@ describe("SSRF private IP blocking", () => {
     });
   }
 
+  // ----- SSRF bypass attempts -----
+  // These alternative IP representations are normalised by Node.js URL
+  // constructor, but we test them explicitly to ensure the defence holds
+  // even if normalisation behavior changes.
+  const bypassAttempts = [
+    ["http://0x7f.0.0.1", "hex-encoded IP octet"],
+    ["http://0177.0.0.1", "octal-encoded IP"],
+    ["http://2130706433", "decimal IP (127.0.0.1)"],
+    ["http://127.1", "short-form loopback"],
+    ["http://[::ffff:127.0.0.1]", "IPv4-mapped IPv6 (dotted-decimal)"],
+    ["http://0x0a.0.0.1", "hex 10.0.0.1"],
+    ["http://0xc0a80001", "hex decimal 192.168.0.1"],
+  ] as const;
+
+  for (const [url, label] of bypassAttempts) {
+    test(`blocks bypass attempt: ${label} (${url})`, async () => {
+      const tools = createToolsWithServer(url);
+      await assert.rejects(
+        tools.runApi({
+          spec: "no-server-api",
+          method: "get",
+          path: "/ping",
+        }),
+        /private\/internal address/i,
+      );
+    });
+  }
+
   // ----- Allowed public addresses -----
   const allowedAddresses = [
     "https://development.accelbyte.io",
