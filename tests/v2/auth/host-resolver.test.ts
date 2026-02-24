@@ -86,3 +86,77 @@ test("validateUrlMatchesIssuer - case insensitive", () => {
     true,
   );
 });
+
+// --- Edge cases requested in VAPT review ---
+
+test("validateUrlMatchesIssuer - trailing slash on derived only", () => {
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://dev.accelbyte.io/",
+      "https://dev.accelbyte.io",
+    ),
+    true,
+  );
+});
+
+test("validateUrlMatchesIssuer - trailing slash on issuer only", () => {
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://dev.accelbyte.io",
+      "https://dev.accelbyte.io/",
+    ),
+    true,
+  );
+});
+
+test("validateUrlMatchesIssuer - issuer with path component (e.g. /iam)", () => {
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://dev.accelbyte.io",
+      "https://dev.accelbyte.io/iam",
+    ),
+    true,
+  );
+});
+
+test("validateUrlMatchesIssuer - issuer with deeper path component", () => {
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://dev.accelbyte.io",
+      "https://dev.accelbyte.io/iam/v3",
+    ),
+    true,
+  );
+});
+
+test("validateUrlMatchesIssuer - rejects issuer that is a subdomain of derived", () => {
+  // issuer 'api.dev.accelbyte.io' should NOT match derived 'dev.accelbyte.io'
+  // because the issuer's hostname is more specific (subdomain)
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://dev.accelbyte.io",
+      "https://api.dev.accelbyte.io",
+    ),
+    false,
+  );
+});
+
+test("validateUrlMatchesIssuer - rejects entirely different TLD", () => {
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://accelbyte.io",
+      "https://accelbyte.com",
+    ),
+    false,
+  );
+});
+
+test("validateUrlMatchesIssuer - protocol mismatch still matches (http vs https)", () => {
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "http://dev.accelbyte.io",
+      "https://dev.accelbyte.io",
+    ),
+    true,
+  );
+});
