@@ -49,7 +49,7 @@ describe("SSRF private IP blocking", () => {
           method: "get",
           path: "/ping",
         }),
-        /private\/internal address/i,
+        /SSRF protection/i,
       );
     });
   }
@@ -77,7 +77,7 @@ describe("SSRF private IP blocking", () => {
           method: "get",
           path: "/ping",
         }),
-        /private\/internal address/i,
+        /SSRF protection/i,
       );
     });
   }
@@ -98,7 +98,7 @@ describe("SSRF private IP blocking", () => {
           method: "get",
           path: "/ping",
         }),
-        /private\/internal address/i,
+        /SSRF protection/i,
       );
     });
   }
@@ -126,7 +126,7 @@ describe("SSRF private IP blocking", () => {
           method: "get",
           path: "/ping",
         }),
-        /private\/internal address/i,
+        /SSRF protection/i,
       );
     });
   }
@@ -154,7 +154,7 @@ describe("SSRF private IP blocking", () => {
         });
       } catch (err: any) {
         assert.ok(
-          !/private\/internal address/i.test(err.message),
+          !/SSRF protection/i.test(err.message),
           `public address ${addr} should not be blocked, got: ${err.message}`,
         );
       }

@@ -1529,7 +1529,8 @@ export class OpenApiTools {
           "Blocked request to private/internal IP address",
         );
         throw new Error(
-          `Request to private/internal address is not allowed: ${hostname}`,
+          `Request blocked by SSRF protection: '${hostname}' is a private/internal address. ` +
+            `Public internet-accessible URLs are required. Verify your AB_BASE_URL and OpenAPI server definitions.`,
         );
       }
     }
@@ -1541,7 +1542,8 @@ export class OpenApiTools {
           "Blocked request to private/internal IP address",
         );
         throw new Error(
-          `Request to private/internal address is not allowed: ${hostname}`,
+          `Request blocked by SSRF protection: '${hostname}' is a private/internal address. ` +
+            `Public internet-accessible URLs are required. Verify your AB_BASE_URL and OpenAPI server definitions.`,
         );
       }
     }
@@ -1565,7 +1567,8 @@ export class OpenApiTools {
               "DNS resolves to private IP address",
             );
             throw new Error(
-              `Request to private/internal address is not allowed: ${hostname} resolves to ${addr}`,
+              `Request blocked by SSRF protection: '${hostname}' resolves to private address ${addr}. ` +
+              `Public internet-accessible URLs are required. Verify your AB_BASE_URL and OpenAPI server definitions.`,
             );
           }
         }
@@ -1580,7 +1583,8 @@ export class OpenApiTools {
               "DNS resolves to private IPv4-mapped IPv6 address",
             );
             throw new Error(
-              `Request to private/internal address is not allowed: ${hostname} resolves to ${addr}`,
+              `Request blocked by SSRF protection: '${hostname}' resolves to private address ${addr}. ` +
+              `Public internet-accessible URLs are required. Verify your AB_BASE_URL and OpenAPI server definitions.`,
             );
           }
           for (const pattern of OpenApiTools.otherPatterns) {
@@ -1590,7 +1594,8 @@ export class OpenApiTools {
                 "DNS resolves to private IPv6 address",
               );
               throw new Error(
-                `Request to private/internal address is not allowed: ${hostname} resolves to ${addr}`,
+                `Request blocked by SSRF protection: '${hostname}' resolves to private address ${addr}. ` +
+              `Public internet-accessible URLs are required. Verify your AB_BASE_URL and OpenAPI server definitions.`,
               );
             }
           }
