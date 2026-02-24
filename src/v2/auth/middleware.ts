@@ -9,6 +9,7 @@ import { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 
 import log from "../logger.js";
 import securityLog from "../security-logger.js";
+import { validateUrlMatchesIssuer } from "./host-resolver.js";
 
 interface TokenPayload extends JwtPayload {
   client_id?: string;
@@ -163,6 +164,13 @@ function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
       try {
         const jwksUri = await discoverJwksUri(agsBaseUrl);
         const decoded = await verifyToken(token, jwksUri);
+
+        // Validate issuer claim matches the expected AGS environment
+        if (decoded.iss && !validateUrlMatchesIssuer(agsBaseUrl, decoded.iss)) {
+          throw new Error(
+            `Token issuer '${decoded.iss}' does not match expected AGS environment '${agsBaseUrl}'`,
+          );
+        }
 
         const clientId =
           typeof decoded.client_id === "string" ? decoded.client_id : "";
