@@ -25,6 +25,7 @@
     "test:env": "node -r dotenv/config tests/v1/test-server.js",
     "test:integration": "node tests/v1/test-server.js",
     "test:unit": "NODE_ENV=test node --import tsx --test tests/**/*.test.ts",
+    "test:smoke": "NODE_ENV=test node --import tsx --test tests/v2/smoke.test.ts",
     "type-check": "tsc --noEmit",
     "setup": "node setup-env.js",
     "process-specs": "node process-openapi-specs.cjs"
