@@ -137,8 +137,21 @@ export MCP_AUTH=false
 - **Description**: Configure Express trust proxy for accurate `req.ip` behind reverse proxies
 - **Default**: Not set (disabled)
 - **Required**: No (but recommended in Docker/Kubernetes deployments)
-- **Options**: `1` (trust single proxy), `loopback`, `uniquelocal`, or CIDR range
-- **Example**: `1`
+
+| Deployment | Setting | Explanation |
+|------------|---------|-------------|
+| Single proxy (nginx, ALB) | `TRUST_PROXY=1` | Trust the first proxy's `X-Forwarded-For` header |
+| Multiple proxies | `TRUST_PROXY=2` | Trust the first 2 proxies in the chain |
+| Localhost proxy | `TRUST_PROXY=loopback` | Trust proxies on 127.0.0.1, ::1 |
+| Docker internal network | `TRUST_PROXY=172.17.0.0/16` | Trust proxies in Docker's default network |
+| Kubernetes | `TRUST_PROXY=uniquelocal,loopback` | Trust local and unique local addresses |
+
+**Security Warning:** Never set `TRUST_PROXY=true` (trusts all proxies), as this allows client-controlled IP spoofing via `X-Forwarded-For`.
+
+**How to verify:**
+1. Make a request and check `req.ip` in logs
+2. If it shows the proxy IP (e.g., `172.17.0.1`), enable trust proxy
+3. Verify `req.ip` now shows the real client IP
 
 ### `JWKS_CACHE_TTL_MS`
 - **Description**: TTL for the JWKS URI discovery cache (milliseconds)
