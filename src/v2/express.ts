@@ -14,6 +14,15 @@ import securityLog from "./security-logger.js";
 function create(): Express {
   const app = express();
 
+  // Trust proxy headers so req.ip reflects the real client IP when behind
+  // a reverse proxy (e.g. Docker, Kubernetes ingress). Configurable via
+  // TRUST_PROXY env var (e.g. "1", "loopback", "uniquelocal", CIDR).
+  const trustProxy = process.env.TRUST_PROXY;
+  if (trustProxy) {
+    const numeric = parseInt(trustProxy, 10);
+    app.set("trust proxy", isNaN(numeric) ? trustProxy : numeric);
+  }
+
   // Security headers via helmet (includes HSTS, X-Frame-Options, etc.)
   app.use(
     helmet({
