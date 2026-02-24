@@ -75,9 +75,9 @@ As defense-in-depth, all outbound requests are checked against private/internal 
 
 Blocked requests are logged with `event: "ssrf_blocked"` for security monitoring.
 
-### Known Limitation
+### DNS Rebinding Mitigation
 
-Hostname-based checks do not protect against DNS rebinding attacks where the resolved IP changes between check time and request time.
+Hostnames are resolved via `dns.resolve4`/`dns.resolve6` and all resolved IP addresses are validated against the private IP patterns before the HTTP request is made. This prevents attackers from returning a public IP during initial validation and a private IP when the actual connection is established.
 
 ---
 
@@ -94,6 +94,27 @@ Structured security events are logged for monitoring and incident response:
 | `ssrf_blocked` | WARN | Outbound request to private/internal address blocked |
 
 All security events include the client IP address. Configure `TRUST_PROXY` when behind a reverse proxy to ensure accurate IP logging.
+
+### Monitoring and Alerting
+
+Security events are emitted as structured JSON logs. Forward them to your log aggregation/SIEM system and configure alerts for the following conditions:
+
+| Alert | Filter | Threshold | Action |
+|-------|--------|-----------|--------|
+| High auth failure rate | `event = "auth_failure"` | > 10% of total auth requests over 5 min | Investigate for credential stuffing or misconfigured clients |
+| SSRF attempts detected | `event = "ssrf_blocked"` | Any occurrence (should be rare) | Review source IP, inspect request patterns |
+| Suspicious requests | `event = "suspicious_request"` | > 5 events from single IP in 1 min | Review auth logs, consider IP blocking |
+| Rate limit exceeded | `event = "rate_limit_exceeded"` | Frequent from legitimate users | Review rate limit configuration |
+
+**Log aggregation filter:**
+```
+event IN ("auth_failure", "ssrf_blocked", "suspicious_request", "rate_limit_exceeded")
+```
+
+**Dashboard suggestions:**
+- Event counts by type over time
+- Top source IPs by auth failure count
+- Auth failure reasons breakdown (expired, wrong issuer, invalid signature)
 
 ---
 
@@ -124,5 +145,47 @@ Helmet middleware provides:
 1. **`serverUrl` parameter removed**: Configure `AB_BASE_URL` environment variable instead
 2. **JWT verification enforced**: Only AGS-signed tokens are accepted; forged/unsigned tokens now return 401
 3. **Auth failures block requests**: Previously, invalid tokens were silently ignored; now they return 401
+
+### Migration Guide
+
+#### 1. Removing `serverUrl` parameter
+
+**Before:**
+```typescript
+await tools.runApi({
+  spec: 'iam',
+  method: 'get',
+  path: '/users',
+  serverUrl: 'https://dev.accelbyte.io'  // User-specified
+});
+```
+
+**After:**
+```bash
+# Set via environment variable
+AB_BASE_URL=https://dev.accelbyte.io
+```
+```typescript
+await tools.runApi({
+  spec: 'iam',
+  method: 'get',
+  path: '/users'
+  // serverUrl parameter removed — uses AB_BASE_URL
+});
+```
+
+#### 2. JWT verification
+
+Ensure your client sends valid AGS-issued Bearer tokens. Tokens must:
+- Be signed with RS256
+- Have a valid `iss` claim matching your `AB_BASE_URL` environment
+- Not be expired (30s clock tolerance is allowed)
+
+#### 3. Testing the migration
+
+1. Set `AB_BASE_URL` in your environment
+2. Remove all `serverUrl` parameters from API calls
+3. Verify API calls succeed with a valid Bearer token
+4. Confirm `401 Unauthorized` is returned for invalid/missing tokens
 
 See [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) for configuration details.
