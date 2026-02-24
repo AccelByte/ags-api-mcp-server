@@ -1457,16 +1457,32 @@ export class OpenApiTools {
   private assertNotPrivateUrl(url: URL): void {
     const hostname = url.hostname;
 
-    // Match IPv4 private/internal ranges
     const privatePatterns = [
-      /^127\./, // loopback
+      // IPv4 private/reserved ranges
+      /^127\./, // loopback (127.0.0.0/8)
       /^10\./, // RFC 1918 Class A
       /^172\.(1[6-9]|2\d|3[01])\./, // RFC 1918 Class B
       /^192\.168\./, // RFC 1918 Class C
-      /^169\.254\./, // link-local (AWS metadata, ECS)
+      /^169\.254\./, // link-local (AWS/Azure metadata, ECS)
+      /^100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])\./, // CGNAT (100.64.0.0/10)
+      /^198\.1[8-9]\./, // benchmarking (198.18.0.0/15)
       /^0\.0\.0\.0$/, // unspecified
-      /^localhost$/i, // localhost hostname
+      /^255\.255\.255\.255$/, // broadcast
+
+      // IPv6 private/reserved ranges
       /^\[::1\]$/, // IPv6 loopback
+      /^\[::ffff:127\./, // IPv4-mapped loopback
+      /^\[::ffff:10\./, // IPv4-mapped RFC 1918 Class A
+      /^\[::ffff:192\.168\./, // IPv4-mapped RFC 1918 Class C
+      /^\[::ffff:172\.(1[6-9]|2\d|3[01])\./, // IPv4-mapped RFC 1918 Class B
+      /^\[fe[89ab][0-9a-f]:/i, // IPv6 link-local (fe80::/10)
+      /^\[fc[0-9a-f]{2}:/i, // IPv6 unique local (fc00::/7)
+      /^\[fd[0-9a-f]{2}:/i, // IPv6 unique local (fd00::/8)
+
+      // Hostnames
+      /^localhost$/i, // localhost
+      /^.*\.localhost$/i, // *.localhost subdomains
+      /^metadata\.google\.internal$/i, // GCP metadata service
     ];
 
     for (const pattern of privatePatterns) {
