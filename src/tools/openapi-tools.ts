@@ -1617,14 +1617,27 @@ export class OpenApiTools {
    * IPv6 address.
    */
   private extractIPv4FromMappedIPv6(hostname: string): string | null {
-    // Match hex-form: [::ffff:HHHH:HHHH]
-    const match = hostname.match(
+    // Match hex-form: [::ffff:HHHH:HHHH]  (Node.js URL normalised form)
+    const hexMatch = hostname.match(
       /^\[::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})\]$/i,
     );
-    if (!match) return null;
-    const hi = parseInt(match[1], 16);
-    const lo = parseInt(match[2], 16);
-    return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+    if (hexMatch) {
+      const hi = parseInt(hexMatch[1], 16);
+      const lo = parseInt(hexMatch[2], 16);
+      return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+    }
+
+    // Defensive: match dotted-decimal form [::ffff:A.B.C.D] in case the URL
+    // parser does not normalise to hex (not expected in Node.js, but provides
+    // defense-in-depth against runtime/parser changes).
+    const dotMatch = hostname.match(
+      /^\[::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\]$/i,
+    );
+    if (dotMatch) {
+      return dotMatch[1];
+    }
+
+    return null;
   }
 
   private normalizeServerUrl(url: string): string {
