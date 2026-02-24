@@ -11,6 +11,7 @@ declare module "jwks-client" {
       kid: string,
       callback: (err: Error | null, key?: SigningKey) => void,
     ): void;
+    getSigningKeys(): Promise<SigningKey[]>;
   }
 
   interface JwksClientOptions {
@@ -19,6 +20,9 @@ declare module "jwks-client" {
     cacheMaxAge?: string | number;
     rateLimit?: boolean;
     jwksRequestsPerMinute?: number;
+    timeout?: number;
+    strictSsl?: boolean;
+    requestHeaders?: Record<string, string>;
   }
 
   function jwksClient(options: JwksClientOptions): JwksClient;
