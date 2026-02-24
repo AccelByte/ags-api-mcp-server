@@ -104,11 +104,17 @@ async function discoverJwksUri(agsBaseUrl: string): Promise<string> {
   }
 }
 
+interface VerifyTokenOptions {
+  jwksUri: string;
+  /** If set, the token `aud` claim must contain this value. */
+  audience?: string;
+}
+
 function verifyToken(
   token: string,
-  jwksUri: string,
+  options: VerifyTokenOptions,
 ): Promise<TokenPayload> {
-  const client = getOrCreateJwksClient(jwksUri);
+  const client = getOrCreateJwksClient(options.jwksUri);
 
   return new Promise((resolve, reject) => {
     jwt.verify(
@@ -132,7 +138,10 @@ function verifyToken(
           callback(null, signingKey);
         });
       },
-      { algorithms: ["RS256"] },
+      {
+        algorithms: ["RS256"],
+        ...(options.audience ? { audience: options.audience } : {}),
+      },
       (err, decoded) => {
         if (err) return reject(err);
         resolve(decoded as TokenPayload);
@@ -144,6 +153,8 @@ function verifyToken(
 interface SetAuthFromTokenOptions {
   /** Default AGS base URL used to discover JWKS URI in standalone mode */
   defaultAgsBaseUrl: string;
+  /** Expected audience claim. If set, tokens without a matching `aud` are rejected. */
+  audience?: string;
 }
 
 function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
@@ -163,7 +174,10 @@ function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
 
       try {
         const jwksUri = await discoverJwksUri(agsBaseUrl);
-        const decoded = await verifyToken(token, jwksUri);
+        const decoded = await verifyToken(token, {
+          jwksUri,
+          audience: options.audience,
+        });
 
         // Validate issuer claim matches the expected AGS environment
         if (decoded.iss && !validateUrlMatchesIssuer(agsBaseUrl, decoded.iss)) {
