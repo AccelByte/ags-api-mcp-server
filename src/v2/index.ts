@@ -75,9 +75,10 @@ app.get("/health", (_, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-startExpress(app, config.mcp.port);
-
-// Pre-warm JWKS discovery cache to avoid cold-start latency
+// Pre-warm JWKS discovery cache before accepting requests to avoid
+// cold-start latency and duplicate concurrent fetches on early requests.
 if (config.mcp.enableAuth) {
-  prewarmJwksCache(config.openapi.serverUrl);
+  await prewarmJwksCache(config.openapi.serverUrl);
 }
+
+startExpress(app, config.mcp.port);
