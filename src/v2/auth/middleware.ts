@@ -70,17 +70,57 @@ function getOrCreateJwksClient(jwksUri: string): ReturnType<typeof jwksClient> {
 }
 
 /**
+ * Per-URL rate limiter for JWKS discovery requests.
+ * Prevents abuse in multi-tenant environments where many distinct base URLs
+ * could trigger excessive outbound discovery fetches.
+ */
+interface DiscoveryRateEntry {
+  requests: number;
+  windowStart: number;
+}
+const discoveryRateLimit = new Map<string, DiscoveryRateEntry>();
+const DISCOVERY_RATE_WINDOW_MS = 60_000; // 1-minute sliding window
+const DISCOVERY_MAX_REQUESTS_PER_WINDOW = 5;
+
+function checkDiscoveryRateLimit(agsBaseUrl: string): void {
+  const now = Date.now();
+  const entry = discoveryRateLimit.get(agsBaseUrl);
+
+  if (!entry || now - entry.windowStart >= DISCOVERY_RATE_WINDOW_MS) {
+    // Window expired or first request — start fresh
+    discoveryRateLimit.set(agsBaseUrl, { requests: 1, windowStart: now });
+    evictOldest(discoveryRateLimit, MAX_CACHE_ENTRIES);
+    return;
+  }
+
+  if (entry.requests >= DISCOVERY_MAX_REQUESTS_PER_WINDOW) {
+    log.warn(
+      { agsBaseUrl, requests: entry.requests },
+      "JWKS discovery rate limit exceeded",
+    );
+    throw new Error(
+      `JWKS discovery rate limit exceeded for ${agsBaseUrl} (max ${DISCOVERY_MAX_REQUESTS_PER_WINDOW} per minute)`,
+    );
+  }
+
+  entry.requests++;
+}
+
+/**
  * Discovers the JWKS URI for a given AGS base URL by fetching the
  * OAuth authorization server metadata from
  * `{agsBaseUrl}/.well-known/oauth-authorization-server`.
  *
  * Results are cached to avoid repeated discovery fetches.
+ * Discovery requests are rate-limited per base URL to prevent abuse.
  */
 async function discoverJwksUri(agsBaseUrl: string): Promise<string> {
   const cached = jwksUriCache.get(agsBaseUrl);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.jwksUri;
   }
+
+  checkDiscoveryRateLimit(agsBaseUrl);
 
   const metadataUrl = `${agsBaseUrl}/.well-known/oauth-authorization-server`;
 
