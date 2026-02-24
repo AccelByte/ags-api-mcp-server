@@ -1552,7 +1552,8 @@ export class OpenApiTools {
     // resolved addresses are public.  This prevents an attacker from
     // returning a public IP during hostname validation and a private IP
     // during the actual HTTP request.
-    const isIP = /^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname.startsWith("[");
+    const isIP =
+      /^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname.startsWith("[");
     if (!isIP) {
       try {
         const [v4Addrs, v6Addrs] = await Promise.all([
@@ -1563,12 +1564,17 @@ export class OpenApiTools {
         for (const addr of v4Addrs) {
           if (this.isPrivateIPv4(addr)) {
             logger.warn(
-              { event: "ssrf_blocked", url: url.toString(), hostname, resolvedIp: addr },
+              {
+                event: "ssrf_blocked",
+                url: url.toString(),
+                hostname,
+                resolvedIp: addr,
+              },
               "DNS resolves to private IP address",
             );
             throw new Error(
               `Request blocked by SSRF protection: '${hostname}' resolves to private address ${addr}. ` +
-              `Public internet-accessible URLs are required. Verify your AB_BASE_URL and OpenAPI server definitions.`,
+                `Public internet-accessible URLs are required. Verify your AB_BASE_URL and OpenAPI server definitions.`,
             );
           }
         }
@@ -1579,30 +1585,43 @@ export class OpenApiTools {
           const mapped = this.extractIPv4FromMappedIPv6(bracketed);
           if (mapped && this.isPrivateIPv4(mapped)) {
             logger.warn(
-              { event: "ssrf_blocked", url: url.toString(), hostname, resolvedIp: addr },
+              {
+                event: "ssrf_blocked",
+                url: url.toString(),
+                hostname,
+                resolvedIp: addr,
+              },
               "DNS resolves to private IPv4-mapped IPv6 address",
             );
             throw new Error(
               `Request blocked by SSRF protection: '${hostname}' resolves to private address ${addr}. ` +
-              `Public internet-accessible URLs are required. Verify your AB_BASE_URL and OpenAPI server definitions.`,
+                `Public internet-accessible URLs are required. Verify your AB_BASE_URL and OpenAPI server definitions.`,
             );
           }
           for (const pattern of OpenApiTools.otherPatterns) {
             if (pattern.test(bracketed)) {
               logger.warn(
-                { event: "ssrf_blocked", url: url.toString(), hostname, resolvedIp: addr },
+                {
+                  event: "ssrf_blocked",
+                  url: url.toString(),
+                  hostname,
+                  resolvedIp: addr,
+                },
                 "DNS resolves to private IPv6 address",
               );
               throw new Error(
                 `Request blocked by SSRF protection: '${hostname}' resolves to private address ${addr}. ` +
-              `Public internet-accessible URLs are required. Verify your AB_BASE_URL and OpenAPI server definitions.`,
+                  `Public internet-accessible URLs are required. Verify your AB_BASE_URL and OpenAPI server definitions.`,
               );
             }
           }
         }
       } catch (err) {
         // Re-throw our own SSRF errors
-        if (err instanceof Error && err.message.includes("private/internal address")) {
+        if (
+          err instanceof Error &&
+          err.message.includes("private/internal address")
+        ) {
           throw err;
         }
         // DNS resolution failure — log but allow (the HTTP request will fail naturally)

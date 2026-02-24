@@ -36,7 +36,7 @@ function parseEnvInt(
   const raw = process.env[key];
   if (!raw) return defaultValue;
   const parsed = parseInt(raw, 10);
-  if (isNaN(parsed) || parsed < min || parsed > max) {
+  if (Number.isNaN(parsed) || parsed < min || parsed > max) {
     log.warn(
       { key, raw, defaultValue, min, max },
       "Invalid env var value, using default",
@@ -60,12 +60,7 @@ const DISCOVERY_FETCH_TIMEOUT_MS = parseEnvInt(
   30_000,
 ); // default 10s, range 3s – 30s
 const JWKS_CACHE_MAX_AGE = process.env.JWKS_CACHE_MAX_AGE || "10m";
-const JWKS_REQUESTS_PER_MINUTE = parseEnvInt(
-  "JWKS_RATE_LIMIT",
-  10,
-  1,
-  100,
-);
+const JWKS_REQUESTS_PER_MINUTE = parseEnvInt("JWKS_RATE_LIMIT", 10, 1, 100);
 
 // Maximum number of distinct AGS base URLs / JWKS URIs to cache.
 // Prevents unbounded memory growth if many different URLs are encountered.
@@ -150,7 +145,7 @@ function checkDiscoveryRateLimit(agsBaseUrl: string): void {
     );
   }
 
-  entry.requests++;
+  entry.requests += 1;
 }
 
 /**
