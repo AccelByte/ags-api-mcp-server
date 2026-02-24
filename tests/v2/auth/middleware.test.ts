@@ -168,10 +168,11 @@ describe("setAuthFromToken middleware", () => {
 
   test("rejects an expired JWT (401)", async () => {
     const middleware = setAuthFromToken({ defaultAgsBaseUrl: agsBaseUrl });
+    // Expire well beyond the 30s clock tolerance
     const token = jwt.sign(
-      { client_id: "c", scope: "read", iss: agsBaseUrl },
+      { client_id: "c", scope: "read", iss: agsBaseUrl, exp: Math.floor(Date.now() / 1000) - 120 },
       privateKey,
-      { algorithm: "RS256", keyid: KID, expiresIn: "-1s" },
+      { algorithm: "RS256", keyid: KID },
     );
 
     const req = createReq(`Bearer ${token}`);

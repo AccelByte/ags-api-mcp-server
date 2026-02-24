@@ -146,7 +146,7 @@ function verifyToken(
           callback(new Error("Token header missing 'kid' claim"));
           return;
         }
-        client.getSigningKey(header.kid, (err: Error | null, key: any) => {
+        client.getSigningKey(header.kid, (err, key) => {
           if (err) {
             callback(err);
             return;

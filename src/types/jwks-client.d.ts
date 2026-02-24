@@ -1,6 +1,16 @@
 declare module "jwks-client" {
+  interface SigningKey {
+    kid: string;
+    getPublicKey(): string;
+    publicKey?: string;
+    rsaPublicKey?: string;
+  }
+
   interface JwksClient {
-    getSigningKey(kid: string, callback: (err: any, key: any) => void): void;
+    getSigningKey(
+      kid: string,
+      callback: (err: Error | null, key?: SigningKey) => void,
+    ): void;
   }
 
   interface JwksClientOptions {
