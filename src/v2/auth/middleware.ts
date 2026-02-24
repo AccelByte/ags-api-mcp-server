@@ -27,8 +27,16 @@ interface JwksUriCacheEntry {
 }
 
 const jwksUriCache = new Map<string, JwksUriCacheEntry>();
-const JWKS_URI_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const JWKS_URI_CACHE_TTL_MS = parseInt(
+  process.env.JWKS_CACHE_TTL_MS || String(10 * 60 * 1000),
+  10,
+); // default 10 minutes
 const DISCOVERY_FETCH_TIMEOUT_MS = 10_000; // 10 seconds
+const JWKS_CACHE_MAX_AGE = process.env.JWKS_CACHE_MAX_AGE || "10m";
+const JWKS_REQUESTS_PER_MINUTE = parseInt(
+  process.env.JWKS_RATE_LIMIT || "10",
+  10,
+);
 
 // Cache JWKS clients by URI to avoid creating new clients per request
 const jwksClients = new Map<string, ReturnType<typeof jwksClient>>();
@@ -41,9 +49,9 @@ function getOrCreateJwksClient(
     client = jwksClient({
       jwksUri,
       cache: true,
-      cacheMaxAge: "10m",
+      cacheMaxAge: JWKS_CACHE_MAX_AGE,
       rateLimit: true,
-      jwksRequestsPerMinute: 10,
+      jwksRequestsPerMinute: JWKS_REQUESTS_PER_MINUTE,
     });
     jwksClients.set(jwksUri, client);
   }
