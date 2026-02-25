@@ -323,8 +323,16 @@ function registerOAuthRoutes(
           // SSRF guard: prevent registration proxy fetches to private/internal addresses
           await assertNotPrivateUrl(new URL(metadataUrl));
 
+          const metaController = new AbortController();
+          const metaTimeoutId = setTimeout(
+            () => metaController.abort(),
+            METADATA_FETCH_TIMEOUT_MS,
+          );
           try {
-            const metadataResponse = await fetch(metadataUrl);
+            const metadataResponse = await fetch(metadataUrl, {
+              signal: metaController.signal,
+            });
+            clearTimeout(metaTimeoutId);
             if (metadataResponse.ok) {
               const metadata = await metadataResponse.json();
               if (metadata.registration_endpoint) {
@@ -332,6 +340,7 @@ function registerOAuthRoutes(
               }
             }
           } catch (metadataError) {
+            clearTimeout(metaTimeoutId);
             log.warn(
               { error: metadataError },
               "Failed to fetch metadata for registration endpoint, using default",
