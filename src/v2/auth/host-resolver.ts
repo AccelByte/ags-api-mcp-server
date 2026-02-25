@@ -44,10 +44,16 @@ export function validateUrlMatchesIssuer(
     .replace(/\/$/, "")
     .toLowerCase();
 
+  // Match when:
+  // 1. Exact host match (e.g. derived="example.com", issuer="example.com")
+  // 2. Issuer has a sub-path under derived host (e.g. issuer="example.com/iam")
+  //
+  // Subdomain matching (derived is subdomain of issuer) is intentionally NOT
+  // supported: a token issued for "accelbyte.io" must not be accepted at
+  // "evil.accelbyte.io". Issuers should use path-based differentiation instead.
   return (
     normalizedIssuer === normalizedDerived ||
-    normalizedIssuer.startsWith(`${normalizedDerived}/`) ||
-    normalizedDerived.endsWith(`.${normalizedIssuer}`)
+    normalizedIssuer.startsWith(`${normalizedDerived}/`)
   );
 }
 

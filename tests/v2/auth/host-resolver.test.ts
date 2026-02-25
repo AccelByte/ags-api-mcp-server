@@ -23,33 +23,43 @@ test("validateUrlMatchesIssuer - issuer is sub-path of derived URL (namespace su
   );
 });
 
-test("validateUrlMatchesIssuer - shared cloud: derived host is subdomain of issuer", () => {
-  // Real-world case: issuer = root IAM domain, deployment host = subdomain
-  // e.g. token iss = "https://internal.gamingservices.accelbyte.io"
-  //      Host header derived URL = "https://foo-bar.internal.gamingservices.accelbyte.io"
+test("validateUrlMatchesIssuer - rejects derived host that is subdomain of issuer", () => {
+  // A token issued for "internal.gamingservices.accelbyte.io" must NOT be
+  // accepted at "foo-bar.internal.gamingservices.accelbyte.io" — subdomain
+  // matching is intentionally disabled to prevent token reuse across tenants.
   assert.equal(
     validateUrlMatchesIssuer(
       "https://foo-bar.internal.gamingservices.accelbyte.io",
       "https://internal.gamingservices.accelbyte.io",
     ),
-    true,
+    false,
   );
 });
 
-test("validateUrlMatchesIssuer - scheme-insensitive comparison", () => {
+test("validateUrlMatchesIssuer - scheme-insensitive comparison (same host)", () => {
   assert.equal(
     validateUrlMatchesIssuer(
-      "https://sub.example.com",
+      "https://example.com",
       "http://example.com",
     ),
     true,
   );
 });
 
-test("validateUrlMatchesIssuer - trailing slash ignored", () => {
+test("validateUrlMatchesIssuer - rejects subdomain even with different scheme", () => {
   assert.equal(
     validateUrlMatchesIssuer(
-      "https://sub.example.com/",
+      "https://sub.example.com",
+      "http://example.com",
+    ),
+    false,
+  );
+});
+
+test("validateUrlMatchesIssuer - trailing slash ignored (same host)", () => {
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://example.com/",
       "https://example.com/",
     ),
     true,
@@ -77,10 +87,10 @@ test("validateUrlMatchesIssuer - does not allow partial domain suffix match", ()
   );
 });
 
-test("validateUrlMatchesIssuer - case insensitive", () => {
+test("validateUrlMatchesIssuer - case insensitive (same host)", () => {
   assert.equal(
     validateUrlMatchesIssuer(
-      "https://Sub.Example.COM",
+      "https://Example.COM",
       "https://example.com",
     ),
     true,
@@ -158,5 +168,31 @@ test("validateUrlMatchesIssuer - protocol mismatch still matches (http vs https)
       "https://dev.accelbyte.io",
     ),
     true,
+  );
+});
+
+// --- Attack scenarios from VAPT round 3 ---
+
+test("validateUrlMatchesIssuer - rejects parent-domain issuer token at subdomain (token reuse attack)", () => {
+  // An attacker controlling evil.accelbyte.io must NOT be able to reuse
+  // a token issued for the parent domain accelbyte.io.
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://evil.accelbyte.io",
+      "https://accelbyte.io",
+    ),
+    false,
+  );
+});
+
+test("validateUrlMatchesIssuer - rejects cross-tenant subdomain token reuse", () => {
+  // Tokens for tenant-a must not be accepted at tenant-b, even if they
+  // share the same parent domain.
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://tenant-b.gamingservices.accelbyte.io",
+      "https://tenant-a.gamingservices.accelbyte.io",
+    ),
+    false,
   );
 });
