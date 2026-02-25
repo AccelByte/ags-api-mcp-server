@@ -5,6 +5,11 @@ import axios, { AxiosError, AxiosRequestConfig, Method } from "axios";
 import { parse as parseYaml } from "yaml";
 import { UserContext } from "../mcp-server.js";
 import { logger } from "../logger.js";
+import {
+  PRIVATE_IPV4_PATTERNS,
+  PRIVATE_OTHER_PATTERNS,
+  isPrivateIPv4,
+} from "../v2/ssrf-guard.js";
 
 type HttpMethod =
   | "GET"
@@ -750,8 +755,8 @@ export class OpenApiTools {
         const effectiveHostname =
           this.extractIPv4FromMappedIPv6(parsed.hostname) ?? parsed.hostname;
         const isPrivate =
-          OpenApiTools.ipv4Patterns.some((p) => p.test(effectiveHostname)) ||
-          OpenApiTools.otherPatterns.some((p) => p.test(parsed.hostname));
+          PRIVATE_IPV4_PATTERNS.some((p) => p.test(effectiveHostname)) ||
+          PRIVATE_OTHER_PATTERNS.some((p) => p.test(parsed.hostname));
         if (isPrivate) {
           logger.warn(
             { specName, filePath, serverUrl },
@@ -1475,46 +1480,16 @@ export class OpenApiTools {
    * Defense-in-depth: block requests targeting private/internal IP ranges.
    * Prevents SSRF even if OpenAPI specs or config contain internal addresses.
    *
-   * Limitation: This checks the hostname/IP at URL-construction time. A DNS
-   * rebinding attack could return a public IP for initial resolution and a
-   * private IP for the actual request. For full protection, resolved IPs
-   * should also be validated (requires async dns.resolve + IP check).
+   * SSRF patterns are defined in src/v2/ssrf-guard.ts (single source of truth)
+   * and shared with JWKS discovery in middleware.ts.
+   *
+   * This method also performs DNS resolution to mitigate DNS rebinding
+   * attacks. On resolution failure, requests are blocked (fail-closed).
    *
    * Note: The URL constructor normalises IPv4-mapped IPv6 addresses
    * (e.g. `::ffff:127.0.0.1`) into hex form (`::ffff:7f00:1`).
    * We extract the embedded IPv4 address so the IPv4 patterns still match.
    */
-  private static readonly ipv4Patterns = [
-    /^127\./, // loopback (127.0.0.0/8)
-    /^10\./, // RFC 1918 Class A
-    /^172\.(1[6-9]|2\d|3[01])\./, // RFC 1918 Class B
-    /^192\.168\./, // RFC 1918 Class C
-    /^169\.254\./, // link-local (AWS/Azure metadata, ECS)
-    /^100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])\./, // CGNAT (100.64.0.0/10)
-    /^198\.1[8-9]\./, // benchmarking (198.18.0.0/15)
-    /^0\.0\.0\.0$/, // unspecified
-    /^255\.255\.255\.255$/, // broadcast
-  ];
-
-  private static readonly otherPatterns = [
-    // IPv6 private/reserved ranges
-    /^\[::1\]$/, // IPv6 loopback
-    /^\[fe[89ab][0-9a-f]:/i, // IPv6 link-local (fe80::/10)
-    /^\[fc[0-9a-f]{2}:/i, // IPv6 unique local (fc00::/7)
-    /^\[fd[0-9a-f]{2}:/i, // IPv6 unique local (fd00::/8) — covers AWS EC2 metadata IPv6 [fd00:ec2::254]
-
-    // Hostnames
-    /^localhost$/i, // localhost
-    /^.*\.localhost$/i, // *.localhost subdomains
-    /^metadata\.google\.internal$/i, // GCP metadata service
-    /^metadata\.azure\.com$/i, // Azure metadata service
-  ];
-
-  /** Check whether a bare IPv4 string matches any private range. */
-  private isPrivateIPv4(ip: string): boolean {
-    return OpenApiTools.ipv4Patterns.some((p) => p.test(ip));
-  }
-
   private async assertNotPrivateUrl(url: URL): Promise<void> {
     const hostname = url.hostname;
 
@@ -1523,7 +1498,7 @@ export class OpenApiTools {
     const effectiveHostname =
       this.extractIPv4FromMappedIPv6(hostname) ?? hostname;
 
-    for (const pattern of OpenApiTools.ipv4Patterns) {
+    for (const pattern of PRIVATE_IPV4_PATTERNS) {
       if (pattern.test(effectiveHostname)) {
         logger.warn(
           { event: "ssrf_blocked", url: url.toString(), hostname },
@@ -1536,7 +1511,7 @@ export class OpenApiTools {
       }
     }
 
-    for (const pattern of OpenApiTools.otherPatterns) {
+    for (const pattern of PRIVATE_OTHER_PATTERNS) {
       if (pattern.test(hostname)) {
         logger.warn(
           { event: "ssrf_blocked", url: url.toString(), hostname },
@@ -1577,7 +1552,7 @@ export class OpenApiTools {
         ]);
 
         for (const addr of v4Addrs) {
-          if (this.isPrivateIPv4(addr)) {
+          if (isPrivateIPv4(addr)) {
             logger.warn(
               {
                 event: "ssrf_blocked",
@@ -1598,7 +1573,7 @@ export class OpenApiTools {
           // Wrap in brackets for pattern matching (URL-style)
           const bracketed = `[${addr}]`;
           const mapped = this.extractIPv4FromMappedIPv6(bracketed);
-          if (mapped && this.isPrivateIPv4(mapped)) {
+          if (mapped && isPrivateIPv4(mapped)) {
             logger.warn(
               {
                 event: "ssrf_blocked",
@@ -1613,7 +1588,7 @@ export class OpenApiTools {
                 `Public internet-accessible URLs are required. Verify your AB_BASE_URL and OpenAPI server definitions.`,
             );
           }
-          for (const pattern of OpenApiTools.otherPatterns) {
+          for (const pattern of PRIVATE_OTHER_PATTERNS) {
             if (pattern.test(bracketed)) {
               logger.warn(
                 {

@@ -9,6 +9,7 @@ import { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 
 import log from "../logger.js";
 import securityLog from "../security-logger.js";
+import { assertNotPrivateHostname } from "../ssrf-guard.js";
 import { validateUrlMatchesIssuer } from "./host-resolver.js";
 
 interface TokenPayload extends JwtPayload {
@@ -154,28 +155,6 @@ function checkDiscoveryRateLimit(agsBaseUrl: string): void {
   }
 
   entry.requests += 1;
-}
-
-/** Quick check that a URL hostname is not a private/internal address. */
-function assertNotPrivateHostname(url: URL): void {
-  const h = url.hostname;
-  if (
-    /^127\./.test(h) ||
-    /^10\./.test(h) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
-    /^192\.168\./.test(h) ||
-    /^169\.254\./.test(h) ||
-    /^0\.0\.0\.0$/.test(h) ||
-    /^localhost$/i.test(h) ||
-    /\.localhost$/i.test(h) ||
-    /^\[::1\]$/.test(h) ||
-    /^\[fe[89ab]/i.test(h) ||
-    /^\[fc/i.test(h) ||
-    /^\[fd/i.test(h) ||
-    /^metadata\.azure\.com$/i.test(h)
-  ) {
-    throw new Error(`Refusing to fetch from private/internal address: ${h}`);
-  }
 }
 
 /**
