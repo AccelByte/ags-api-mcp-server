@@ -7,6 +7,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { OAuthProtectedResourceMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
 
 import log from "../logger.js";
+import { assertNotPrivateUrl } from "../ssrf-guard.js";
 import { deriveBaseUrl } from "../utils.js";
 
 /**
@@ -173,6 +174,9 @@ function registerOAuthRoutes(
             return;
           }
 
+          // SSRF guard: prevent proxy fetches to private/internal addresses
+          await assertNotPrivateUrl(new URL(metadataUrl));
+
           // Fetch with timeout
           const controller = new AbortController();
           const timeoutId = setTimeout(
@@ -316,6 +320,9 @@ function registerOAuthRoutes(
             ? `${baseUrl}/iam/v3/namespace/${namespace}/oauth/register`
             : `${baseUrl}/iam/v3/oauth/register`; // fallback
 
+          // SSRF guard: prevent registration proxy fetches to private/internal addresses
+          await assertNotPrivateUrl(new URL(metadataUrl));
+
           try {
             const metadataResponse = await fetch(metadataUrl);
             if (metadataResponse.ok) {
@@ -330,6 +337,9 @@ function registerOAuthRoutes(
               "Failed to fetch metadata for registration endpoint, using default",
             );
           }
+
+          // SSRF guard: validate the registration endpoint (may come from upstream metadata)
+          await assertNotPrivateUrl(new URL(registrationEndpoint));
 
           log.debug(
             { registrationEndpoint, namespace },

@@ -1531,25 +1531,27 @@ export class OpenApiTools {
     const isIP =
       /^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname.startsWith("[");
     if (!isIP) {
+      let dnsTimeoutId: ReturnType<typeof setTimeout> | undefined;
       try {
         const DNS_TIMEOUT_MS = 5_000;
         const dnsPromise = Promise.all([
           resolve4(hostname).catch(() => [] as string[]),
           resolve6(hostname).catch(() => [] as string[]),
         ]);
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          dnsTimeoutId = setTimeout(
             () =>
               reject(
                 new Error(`DNS resolution timeout after ${DNS_TIMEOUT_MS}ms`),
               ),
             DNS_TIMEOUT_MS,
-          ),
-        );
+          );
+        });
         const [v4Addrs, v6Addrs] = await Promise.race([
           dnsPromise,
           timeoutPromise,
         ]);
+        clearTimeout(dnsTimeoutId);
 
         for (const addr of v4Addrs) {
           if (isPrivateIPv4(addr)) {
@@ -1607,6 +1609,7 @@ export class OpenApiTools {
           }
         }
       } catch (err) {
+        clearTimeout(dnsTimeoutId);
         // Re-throw SSRF errors (DNS resolving to private addresses)
         if (err instanceof Error && err.message.includes("SSRF protection")) {
           throw err;

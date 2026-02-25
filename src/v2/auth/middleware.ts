@@ -9,7 +9,7 @@ import { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 
 import log from "../logger.js";
 import securityLog from "../security-logger.js";
-import { assertNotPrivateHostname } from "../ssrf-guard.js";
+import { assertNotPrivateUrl } from "../ssrf-guard.js";
 import { validateUrlMatchesIssuer } from "./host-resolver.js";
 
 interface TokenPayload extends JwtPayload {
@@ -179,7 +179,8 @@ async function discoverJwksUri(agsBaseUrl: string): Promise<string> {
   // SSRF guard: prevent discovery fetches to private/internal addresses.
   // In hosted mode agsBaseUrl is derived from the Host header, so an attacker
   // could attempt to reach internal services.
-  assertNotPrivateHostname(new URL(metadataUrl));
+  // Uses async DNS resolution to mitigate DNS rebinding attacks.
+  await assertNotPrivateUrl(new URL(metadataUrl));
 
   const controller = new AbortController();
   const timeoutId = setTimeout(
@@ -339,7 +340,12 @@ function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
         });
 
         // Validate issuer claim matches the expected AGS environment
-        if (decoded.iss && !validateUrlMatchesIssuer(agsBaseUrl, decoded.iss)) {
+        if (!decoded.iss) {
+          throw new Error(
+            "Token is missing required 'iss' (issuer) claim",
+          );
+        }
+        if (!validateUrlMatchesIssuer(agsBaseUrl, decoded.iss)) {
           throw new Error(
             `Token issuer '${decoded.iss}' does not match expected AGS environment '${agsBaseUrl}'`,
           );
