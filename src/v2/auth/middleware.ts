@@ -156,14 +156,6 @@ function checkDiscoveryRateLimit(agsBaseUrl: string): void {
   entry.requests += 1;
 }
 
-/**
- * Discovers the JWKS URI for a given AGS base URL by fetching the
- * OAuth authorization server metadata from
- * `{agsBaseUrl}/.well-known/oauth-authorization-server`.
- *
- * Results are cached to avoid repeated discovery fetches.
- * Discovery requests are rate-limited per base URL to prevent abuse.
- */
 /** Quick check that a URL hostname is not a private/internal address. */
 function assertNotPrivateHostname(url: URL): void {
   const h = url.hostname;
@@ -186,6 +178,14 @@ function assertNotPrivateHostname(url: URL): void {
   }
 }
 
+/**
+ * Discovers the JWKS URI for a given AGS base URL by fetching the
+ * OAuth authorization server metadata from
+ * `{agsBaseUrl}/.well-known/oauth-authorization-server`.
+ *
+ * Results are cached to avoid repeated discovery fetches.
+ * Discovery requests are rate-limited per base URL to prevent abuse.
+ */
 async function discoverJwksUri(agsBaseUrl: string): Promise<string> {
   const cached = jwksUriCache.get(agsBaseUrl);
   if (cached && cached.expiresAt > Date.now()) {

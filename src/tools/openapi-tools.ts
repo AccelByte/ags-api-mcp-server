@@ -1564,7 +1564,10 @@ export class OpenApiTools {
         ]);
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(
-            () => reject(new Error(`DNS resolution timeout after ${DNS_TIMEOUT_MS}ms`)),
+            () =>
+              reject(
+                new Error(`DNS resolution timeout after ${DNS_TIMEOUT_MS}ms`),
+              ),
             DNS_TIMEOUT_MS,
           ),
         );
@@ -1629,17 +1632,24 @@ export class OpenApiTools {
           }
         }
       } catch (err) {
-        // Re-throw our own SSRF errors
-        if (
-          err instanceof Error &&
-          err.message.includes("private/internal address")
-        ) {
+        // Re-throw SSRF errors (DNS resolving to private addresses)
+        if (err instanceof Error && err.message.includes("SSRF protection")) {
           throw err;
         }
-        // DNS resolution failure — log but allow (the HTTP request will fail naturally)
-        logger.debug(
-          { hostname, error: err instanceof Error ? err.message : err },
-          "DNS resolution failed during SSRF check (request may still succeed via system resolver)",
+        // DNS timeout or resolution failure — fail closed to prevent bypass.
+        // An attacker who can influence resolver latency could exploit a
+        // fail-open path to reach internal addresses via DNS rebinding.
+        logger.warn(
+          {
+            event: "ssrf_blocked",
+            hostname,
+            error: err instanceof Error ? err.message : err,
+          },
+          "DNS resolution failed during SSRF check — blocking request (fail-closed)",
+        );
+        throw new Error(
+          `Request blocked by SSRF protection: DNS resolution failed for '${hostname}'. ` +
+            `Unable to verify the target is not a private/internal address.`,
         );
       }
     }
