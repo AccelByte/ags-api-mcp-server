@@ -75,11 +75,17 @@ function create(): Express {
   app.use((req, res, next) => {
     const startTime = Date.now();
 
+    const forwardedHost = req.get("X-Forwarded-Host");
+    const host = forwardedHost || req.get("Host");
+    const hostSource = forwardedHost ? "x-forwarded-host" : "host";
+
     // Log request
     log.debug(
       {
         method: req.method,
         url: req.url,
+        host,
+        hostSource,
         headers: {
           "user-agent": req.get("User-Agent"),
           "content-type": req.get("Content-Type"),
@@ -99,6 +105,8 @@ function create(): Express {
         {
           method: req.method,
           url: req.url,
+          host,
+          hostSource,
           statusCode: res.statusCode,
           duration,
           ip: req.ip,
