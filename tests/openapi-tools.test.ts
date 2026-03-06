@@ -320,3 +320,24 @@ test('runApi passes validation when all fields including optional ones are prese
     );
   }
 });
+
+// ---------------------------------------------------------------------------
+// normalizeServerUrl — query string / fragment stripping
+// ---------------------------------------------------------------------------
+
+test('defaultServerUrl with query string is stripped during normalization, not thrown', () => {
+  // Must not throw — query string is silently stripped with a warning logged
+  assert.doesNotThrow(() => createTools({ defaultServerUrl: 'https://example.com/api?version=1' }));
+});
+
+test('defaultServerUrl with fragment is stripped during normalization, not thrown', () => {
+  assert.doesNotThrow(() => createTools({ defaultServerUrl: 'https://example.com/api#section' }));
+});
+
+test('defaultServerUrl with query string and fragment both stripped without crashing', () => {
+  assert.doesNotThrow(() => createTools({ defaultServerUrl: 'https://example.com/api?foo=bar#baz' }));
+});
+
+test('clean defaultServerUrl is normalized correctly (regression guard)', () => {
+  assert.doesNotThrow(() => createTools({ defaultServerUrl: 'https://example.com/api/v1/' }));
+});

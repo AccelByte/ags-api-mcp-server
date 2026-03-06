@@ -1675,7 +1675,10 @@ export class OpenApiTools {
       return url.replace(/\/+$/, "");
     }
     if (parsed.search || parsed.hash) {
-      throw new Error("Server URL must not contain a query string or fragment");
+      logger.warn(
+        { url },
+        "Server URL contains a query string or fragment which will be stripped during normalization",
+      );
     }
     const pathname =
       parsed.pathname && parsed.pathname !== "/"

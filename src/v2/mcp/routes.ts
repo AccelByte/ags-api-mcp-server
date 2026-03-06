@@ -71,11 +71,16 @@ function registerMcpRoutes(
     }
 
     if (enableAuth && !(req as Request & { auth?: AuthInfo }).auth) {
+      const authHeader = req.headers.authorization;
+      const scheme = typeof authHeader === "string" ? authHeader.split(" ")[0]?.toLowerCase() : undefined;
+      const reason = !authHeader
+        ? "missing_authorization_header"
+        : scheme !== "bearer"
+          ? "unsupported_auth_scheme"
+          : "auth_verification_failed";
       securityLog.authFailure({
         ip: req.ip,
-        reason: req.headers.authorization
-          ? "auth_verification_failed"
-          : "missing_authorization_header",
+        reason,
         path: req.path,
       });
       // Construct resource_metadata URL for WWW-Authenticate header

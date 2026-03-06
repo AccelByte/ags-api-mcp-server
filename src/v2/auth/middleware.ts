@@ -320,14 +320,23 @@ interface SetAuthFromTokenOptions {
 function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
   return async (req, res, next) => {
     const authHeader = (req as Request).headers?.authorization;
-    const [scheme, token] =
-      typeof authHeader === "string" ? authHeader.split(" ") : [];
+    // Extract scheme and token; reject headers with extra whitespace-separated parts
+    const match =
+      typeof authHeader === "string"
+        ? authHeader.match(/^(\S+)\s+(\S+)$/)
+        : null;
+    const scheme = match?.[1];
+    const token = match?.[2];
 
     // Only proceed if Authorization header is in the form "Bearer <JWT>"
     const isBearer =
       typeof scheme === "string" && scheme.toLowerCase() === "bearer";
+    const segments = typeof token === "string" ? token.split(".") : [];
     const looksLikeJwt =
-      typeof token === "string" && token.split(".").length === 3;
+      segments.length === 3 &&
+      segments[0].length > 0 &&
+      segments[1].length > 0 &&
+      segments[2].length > 0;
 
     if (isBearer && !looksLikeJwt) {
       securityLog.authFailure({
@@ -344,7 +353,7 @@ function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
 
       try {
         const jwksUri = await discoverJwksUri(agsBaseUrl);
-        const decoded = await verifyToken(token, {
+        const decoded = await verifyToken(token!, {
           jwksUri,
           audience: options.audience,
         });
@@ -375,7 +384,7 @@ function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
         }
 
         (req as Request & { auth?: AuthInfo }).auth = {
-          token,
+          token: token!, // non-null: looksLikeJwt guarantees token is a non-empty string
           clientId,
           scopes,
           expiresAt,
