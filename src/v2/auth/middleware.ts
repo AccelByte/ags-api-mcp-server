@@ -317,20 +317,38 @@ interface SetAuthFromTokenOptions {
   audience?: string;
 }
 
+/**
+ * Parse an Authorization header value into its scheme and token components.
+ * Rejects headers that contain extra whitespace-separated parts.
+ * Returns null if the header is absent or malformed.
+ */
+export function parseAuthorizationHeader(
+  header: string | undefined,
+): { scheme: string; token: string } | null {
+  if (typeof header !== "string") return null;
+  const match = header.match(/^(\S+)\s+(\S+)$/);
+  if (!match) return null;
+  return { scheme: match[1].toLowerCase(), token: match[2] };
+}
+
 function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
   return async (req, res, next) => {
     const authHeader = (req as Request).headers?.authorization;
-    // Extract scheme and token; reject headers with extra whitespace-separated parts
-    const match =
-      typeof authHeader === "string"
-        ? authHeader.match(/^(\S+)\s+(\S+)$/)
-        : null;
-    const scheme = match?.[1];
-    const token = match?.[2];
+    const parsed = parseAuthorizationHeader(authHeader);
+    const isBearer = parsed?.scheme === "bearer";
+    const token = parsed?.token;
 
-    // Only proceed if Authorization header is in the form "Bearer <JWT>"
-    const isBearer =
-      typeof scheme === "string" && scheme.toLowerCase() === "bearer";
+    // Reject non-Bearer schemes with a logged auth failure
+    if (authHeader && !isBearer) {
+      securityLog.authFailure({
+        ip: req.ip,
+        reason: "unsupported_auth_scheme",
+        path: req.path,
+      });
+      res.status(401).json({ error: "Unauthorized", message: "Invalid or expired token" });
+      return;
+    }
+
     const segments = typeof token === "string" ? token.split(".") : [];
     const looksLikeJwt =
       segments.length === 3 &&

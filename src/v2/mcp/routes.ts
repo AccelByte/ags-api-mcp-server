@@ -8,7 +8,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 
-import setAuthFromToken from "../auth/middleware.js";
+import setAuthFromToken, { parseAuthorizationHeader } from "../auth/middleware.js";
 import log from "../logger.js";
 import securityLog from "../security-logger.js";
 import { jsonRPCError, logError, deriveBaseUrl } from "../utils.js";
@@ -72,10 +72,10 @@ function registerMcpRoutes(
 
     if (enableAuth && !(req as Request & { auth?: AuthInfo }).auth) {
       const authHeader = req.headers.authorization;
-      const scheme = typeof authHeader === "string" ? authHeader.split(" ")[0]?.toLowerCase() : undefined;
+      const parsed = parseAuthorizationHeader(authHeader);
       const reason = !authHeader
         ? "missing_authorization_header"
-        : scheme !== "bearer"
+        : parsed?.scheme !== "bearer"
           ? "unsupported_auth_scheme"
           : "auth_verification_failed";
       securityLog.authFailure({

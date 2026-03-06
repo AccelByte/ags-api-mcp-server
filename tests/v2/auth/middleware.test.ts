@@ -27,7 +27,7 @@ function pemToJwk(pem: string, kid: string) {
 
 function signToken(
   payload: Record<string, unknown>,
-  options: { kid?: string; algorithm?: jwt.Algorithm; expiresIn?: string } = {},
+  options: { kid?: string; algorithm?: jwt.Algorithm; expiresIn?: jwt.SignOptions["expiresIn"] } = {},
 ) {
   const kid = options.kid ?? KID;
   const algorithm = options.algorithm ?? "RS256";
@@ -301,7 +301,7 @@ describe("setAuthFromToken middleware", () => {
     assert.equal(req.auth, undefined);
   });
 
-  test("calls next() without auth for non-Bearer schemes", async () => {
+  test("rejects non-Bearer schemes (Basic, Digest, etc.) with 401", async () => {
     const middleware = setAuthFromToken({ defaultAgsBaseUrl: agsBaseUrl });
     const req = createReq("Basic abc123");
     const res = createRes();
@@ -311,8 +311,9 @@ describe("setAuthFromToken middleware", () => {
       nextCalled = true;
     });
 
-    assert.ok(nextCalled, "next() should be called");
-    assert.equal(req.auth, undefined);
+    assert.equal(nextCalled, false, "next() must NOT be called for unsupported scheme");
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.body?.error, "Unauthorized");
   });
 });
 
