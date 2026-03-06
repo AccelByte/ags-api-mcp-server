@@ -246,6 +246,47 @@ describe("setAuthFromToken middleware", () => {
     assert.equal(res.statusCode, 401);
   });
 
+  test("rejects malformed Bearer token that is not a JWT (401)", async () => {
+    const middleware = setAuthFromToken({ defaultAgsBaseUrl: agsBaseUrl });
+    const req = createReq("Bearer notajwt");
+    const res = createRes();
+    let nextCalled = false;
+
+    await middleware(req, res, () => {
+      nextCalled = true;
+    });
+
+    assert.equal(nextCalled, false, "next() must NOT be called for malformed bearer");
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.body?.error, "Unauthorized");
+  });
+
+  test("rejects HS256 forged JWT (attacker-controlled HMAC secret) (401)", async () => {
+    const middleware = setAuthFromToken({ defaultAgsBaseUrl: agsBaseUrl });
+
+    const forgedToken = jwt.sign(
+      {
+        iss: agsBaseUrl,
+        sub: "admin@development.accelbyte.io",
+        client_id: "forged-client",
+        scope: "admin mcp:write mcp:read",
+      },
+      "completely-random-secret",
+      { algorithm: "HS256", keyid: "forged-key-id", expiresIn: "1h" },
+    );
+
+    const req = createReq(`Bearer ${forgedToken}`);
+    const res = createRes();
+    let nextCalled = false;
+
+    await middleware(req, res, () => {
+      nextCalled = true;
+    });
+
+    assert.equal(nextCalled, false, "next() must NOT be called for forged HS256 token");
+    assert.equal(res.statusCode, 401);
+  });
+
   test("calls next() without auth when no Authorization header present", async () => {
     const middleware = setAuthFromToken({ defaultAgsBaseUrl: agsBaseUrl });
     const req = createReq(undefined);

@@ -3,6 +3,7 @@
 // and restrictions contact your company contract manager.
 
 import type { Express, Request, Response } from "express";
+import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ErrorCode } from "@modelcontextprotocol/sdk/types.js";
@@ -69,10 +70,12 @@ function registerMcpRoutes(
       return;
     }
 
-    if (enableAuth && !req.headers.authorization) {
+    if (enableAuth && !(req as Request & { auth?: AuthInfo }).auth) {
       securityLog.authFailure({
         ip: req.ip,
-        reason: "missing_authorization_header",
+        reason: req.headers.authorization
+          ? "auth_verification_failed"
+          : "missing_authorization_header",
         path: req.path,
       });
       // Construct resource_metadata URL for WWW-Authenticate header

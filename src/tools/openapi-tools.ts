@@ -1668,16 +1668,20 @@ export class OpenApiTools {
     if (!url) {
       return url;
     }
+    let parsed: URL;
     try {
-      const parsed = new URL(url);
-      const pathname =
-        parsed.pathname && parsed.pathname !== "/"
-          ? parsed.pathname.replace(/\/+$/, "")
-          : "";
-      const normalized = `${parsed.protocol}//${parsed.host}${pathname}`;
-      return normalized.replace(/\/+$/, "");
+      parsed = new URL(url);
     } catch {
       return url.replace(/\/+$/, "");
     }
+    if (parsed.search || parsed.hash) {
+      throw new Error("Server URL must not contain a query string or fragment");
+    }
+    const pathname =
+      parsed.pathname && parsed.pathname !== "/"
+        ? parsed.pathname.replace(/\/+$/, "")
+        : "";
+    const normalized = `${parsed.protocol}//${parsed.host}${pathname}`;
+    return normalized.replace(/\/+$/, "");
   }
 }

@@ -329,6 +329,16 @@ function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
     const looksLikeJwt =
       typeof token === "string" && token.split(".").length === 3;
 
+    if (isBearer && !looksLikeJwt) {
+      securityLog.authFailure({
+        ip: req.ip,
+        reason: "malformed_bearer_token",
+        path: req.path,
+      });
+      res.status(401).json({ error: "Unauthorized", message: "Invalid or expired token" });
+      return;
+    }
+
     if (isBearer && looksLikeJwt) {
       const agsBaseUrl = req.ags?.baseUrl || options.defaultAgsBaseUrl;
 
