@@ -21,7 +21,7 @@ if (config.hosted.enabled) {
 }
 
 const mcpServerFactory: McpServerFactory = async (context) =>
-  createServer("ags-api-mcp-server", "2026.1.0", config, context);
+  createServer("ags-api-mcp-server", "2026.2.0", config, context);
 
 if (config.mcp.enableAuth) {
   registerOAuthRoutes(app, config.mcp.serverUrl, config.openapi.serverUrl, {
@@ -44,7 +44,7 @@ app.get("/", (req, res) => {
 
   res.json({
     name: "ags-api-mcp-server",
-    version: "2026.1.0",
+    version: "2026.2.0",
     description: "AccelByte Gaming Services API MCP Server",
     mode: config.hosted.enabled ? "hosted" : "standalone",
     endpoints: {

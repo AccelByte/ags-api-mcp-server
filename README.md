@@ -41,7 +41,7 @@ docker run -d \
   --name ags-api-mcp-server \
   -e AB_BASE_URL=https://yourgame.accelbyte.io \
   -p 3000:3000 \
-  ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0
+  ghcr.io/accelbyte/ags-api-mcp-server:2026.2.0
 ```
 
 **Note**: Replace `https://yourgame.accelbyte.io` with your actual AccelByte environment URL.
@@ -361,7 +361,7 @@ docker run -d \
   --name ags-api-mcp-server \
   -e AB_BASE_URL=https://yourgame.accelbyte.io \
   -p 8080:3000 \
-  ghcr.io/accelbyte/ags-api-mcp-server:2026.1.0
+  ghcr.io/accelbyte/ags-api-mcp-server:2026.2.0
 ```
 
 Then update your MCP client configuration to use the new port (e.g., `http://localhost:8080/mcp`).

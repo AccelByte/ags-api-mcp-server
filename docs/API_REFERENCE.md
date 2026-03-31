@@ -105,7 +105,7 @@ Server information and available endpoints.
 ```json
 {
   "name": "ags-api-mcp-server",
-  "version": "2026.1.0",
+  "version": "2026.2.0",
   "description": "AccelByte Gaming Services API MCP Server",
   "endpoints": {
     "mcp": "http://localhost:3000/mcp",
