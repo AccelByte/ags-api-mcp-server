@@ -6067,6 +6067,17 @@
         "data"
       ]
     },
+    "models.CycleInfo": {
+      "properties": {
+        "version": {
+          "format": "int32",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version"
+      ]
+    },
     "models.DailyConfig": {
       "properties": {
         "resetTime": {
@@ -6287,6 +6298,12 @@
           },
           "type": "array"
         },
+        "cycleMetadata": {
+          "additionalProperties": {
+            "$ref": "#/definitions/models.CycleInfo"
+          },
+          "type": "object"
+        },
         "iconURL": {
           "type": "string"
         },
@@ -6388,6 +6405,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "cycleMetadata": {
+          "additionalProperties": {
+            "$ref": "#/definitions/models.CycleInfo"
+          },
+          "type": "object"
         },
         "deletedAt": {
           "format": "date-time",
@@ -7077,8 +7100,8 @@
     }
   },
   "x-version": {
-    "buildDate": "2026-01-08T09:25:37+00:00",
-    "gitHash": "02a53925292794904421ce8b4a36d9163bcb84eb",
+    "buildDate": "2026-02-16T03:07:52+00:00",
+    "gitHash": "77a24452237226f2b296c043eb4852c2fd63801d",
     "name": "justice-leaderboard-service",
     "version": "2.34.1",
     "version-roles-seeding": "1.2.32"

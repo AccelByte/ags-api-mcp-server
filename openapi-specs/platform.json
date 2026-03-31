@@ -5067,7 +5067,7 @@
             "authorization": []
           }
         ],
-        "summary": "Delete a AGS Meta Quest(Oculus) subscriptions group",
+        "summary": "Delete an AGS Meta Quest(Oculus) subscriptions group",
         "tags": [
           "IAP(Subscription)"
         ],
@@ -5227,7 +5227,7 @@
             "authorization": []
           }
         ],
-        "summary": "Delete a AGS Meta Quest(Oculus) subscriptions tier",
+        "summary": "Delete an AGS Meta Quest(Oculus) subscriptions tier",
         "tags": [
           "IAP(Subscription)"
         ],
@@ -11562,13 +11562,13 @@
         }
       }
     },
-    "/platform/admin/namespaces/{namespace}/revocation/plugins/revocation/revocation/customConfig/cert": {
+    "/platform/admin/namespaces/{namespace}/revocation/plugins/revocation/customConfig/cert": {
       "put": {
         "consumes": [
           "multipart/form-data"
         ],
         "description": "Upload revocation plugin custom config tls cert.Other detail info: &lt;ul&gt;&lt;li&gt;&lt;i&gt;Returns&lt;/i&gt;: updated service plugin config&lt;/li&gt;&lt;/ul&gt;",
-        "operationId": "uploadRevocationPluginConfigCert",
+        "operationId": "uploadRevocationPluginConfigCertV2",
         "parameters": [
           {
             "in": "path",
@@ -12564,7 +12564,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "This API is used to update s section.&lt;p&gt;Other detail info: &lt;ul&gt;&lt;li&gt;&lt;i&gt;Returns&lt;/i&gt;: updated section data&lt;/li&gt;&lt;/ul&gt;&lt;h2&gt;Restrictions for section extension and localization extension&lt;/h2&gt;\n1. Cannot use &lt;b&gt;&#34;.&#34;&lt;/b&gt; as the key name\n-\t&lt;pre&gt;{ &#34;data.2&#34;: &#34;value&#34; }&lt;/pre&gt;\n2. Cannot use &lt;b&gt;&#34;$&#34;&lt;/b&gt; as the prefix in key names\n-\t&lt;pre&gt;{ &#34;$data&#34;: &#34;value&#34; }&lt;/pre&gt;",
+        "description": "This API is used to update a section.&lt;p&gt;Other detail info: &lt;ul&gt;&lt;li&gt;&lt;i&gt;Returns&lt;/i&gt;: updated section data&lt;/li&gt;&lt;/ul&gt;&lt;h2&gt;Restrictions for section extension and localization extension&lt;/h2&gt;\n1. Cannot use &lt;b&gt;&#34;.&#34;&lt;/b&gt; as the key name\n-\t&lt;pre&gt;{ &#34;data.2&#34;: &#34;value&#34; }&lt;/pre&gt;\n2. Cannot use &lt;b&gt;&#34;$&#34;&lt;/b&gt; as the prefix in key names\n-\t&lt;pre&gt;{ &#34;$data&#34;: &#34;value&#34; }&lt;/pre&gt;",
         "operationId": "updateSection",
         "parameters": [
           {
@@ -12634,7 +12634,7 @@
             "authorization": []
           }
         ],
-        "summary": "Update s section",
+        "summary": "Update a section",
         "tags": [
           "Section"
         ],
@@ -31677,6 +31677,67 @@
         }
       }
     },
+    "/platform/v3/admin/namespaces/{namespace}/users/{userId}/fulfillments/bulk": {
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "&lt;b&gt;[Not supported yet in AGS Shared Cloud]&lt;/b&gt; Fulfill multiple transactions.&lt;br&gt;Other detail info: &lt;ul&gt;&lt;li&gt;&lt;i&gt;Request body&lt;/i&gt;: list of fulfillment v3 requests. storeId, region, language, and entitlementCollectionId can be ignored.&lt;/li&gt;&lt;li&gt;&lt;i&gt;Returns&lt;/i&gt;: list of fulfillment v2 result&lt;/li&gt;&lt;/ul&gt;",
+        "operationId": "bulkFulfillItemsV3",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/FulfillmentV3Request"
+              },
+              "type": "array"
+            }
+          },
+          {
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "items": {
+                "$ref": "#/definitions/FulfillmentV2Result"
+              },
+              "type": "array"
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "Fulfill multiple transactions",
+        "tags": [
+          "Fulfillment"
+        ],
+        "x-errorCodes": {},
+        "x-security": {
+          "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:FULFILLMENT [UPDATE]"
+        }
+      }
+    },
     "/platform/v3/admin/namespaces/{namespace}/users/{userId}/fulfillments/{transactionId}": {
       "put": {
         "consumes": [
@@ -38667,6 +38728,10 @@
           "$ref": "#/definitions/FulfillmentStateInfo",
           "description": "stateInfo"
         },
+        "stateReason": {
+          "description": "reason",
+          "type": "string"
+        },
         "subscriptionSummaries": {
           "description": "affected subscriptions",
           "items": {
@@ -38691,6 +38756,23 @@
         "transactionId",
         "userId"
       ],
+      "type": "object"
+    },
+    "FulfillmentV3Request": {
+      "description": "A DTO object for fulfillment v3 request API call.",
+      "properties": {
+        "items": {
+          "description": "items",
+          "items": {
+            "$ref": "#/definitions/FulfillmentV2RequestItem"
+          },
+          "type": "array"
+        },
+        "transactionId": {
+          "description": "transactionId",
+          "type": "string"
+        }
+      },
       "type": "object"
     },
     "FullAppInfo": {
@@ -51879,13 +51961,13 @@
   },
   "x-version": {
     "buildBy": "Gradle 8.5",
-    "buildDate": "2026-01-08T09:26:59+00:00",
+    "buildDate": "2026-02-16T03:11:03+00:00",
     "buildID": "6.11.0",
     "buildJDK": "21.0.6 (Amazon.com Inc. 21.0.6+7-LTS)",
     "buildOS": "Linux amd64 6.1.144-170.251.amzn2023.x86_64",
     "gitBranchName": "release-candidate",
-    "gitHash": "d43f63f653",
-    "gitTag": "6.11.0",
+    "gitHash": "f602488eb0",
+    "gitTag": "6.10.0",
     "name": "justice-platform-service",
     "version": "6.11.0",
     "version-roles-seeding": "1.2.118"

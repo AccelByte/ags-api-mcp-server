@@ -299,7 +299,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "Required permission : &lt;code&gt;ADMIN:NAMESPACE:{namespace}:EXTEND:APP [READ]&lt;/code&gt;\n\t\nGet extend app by name\n\nAvailable scenario:\n- scenario 1: &lt;code&gt;function-override&lt;/code&gt;\n- scenario 2: &lt;code&gt;service-extension&lt;/code&gt;\n- scenario 3: &lt;code&gt;event-handler&lt;/code&gt;\n\n\nAvailable app status:\n- &lt;code&gt;app-creating&lt;/code&gt;\n- &lt;code&gt;app-creation-failed&lt;/code&gt;\n- &lt;code&gt;app-creation-timeout&lt;/code&gt;\n- &lt;code&gt;app-undeployed&lt;/code&gt;\n- &lt;code&gt;deployment-in-progress&lt;/code&gt;\n- &lt;code&gt;deployment-failed&lt;/code&gt;\n- &lt;code&gt;deployment-timeout&lt;/code&gt;\n- &lt;code&gt;deployment-running&lt;/code&gt;\n- &lt;code&gt;deployment-down&lt;/code&gt;\n- &lt;code&gt;app-stopping&lt;/code&gt;\n- &lt;code&gt;app-stop-failed&lt;/code&gt;\n- &lt;code&gt;app-stop-timeout&lt;/code&gt;\n- &lt;code&gt;app-stopped&lt;/code&gt;\n- &lt;code&gt;app-removing&lt;/code&gt;\n- &lt;code&gt;app-removed&lt;/code&gt;\n- &lt;code&gt;app-remove-timeout&lt;/code&gt;\n\n\t",
+        "description": "Required permission : &lt;code&gt;ADMIN:NAMESPACE:{namespace}:EXTEND:APP [READ]&lt;/code&gt;\n\t\nGet extend app by name\n\nAvailable scenario:\n- scenario 3: &lt;code&gt;event-handler&lt;/code&gt;\n- scenario 1: &lt;code&gt;function-override&lt;/code&gt;\n- scenario 2: &lt;code&gt;service-extension&lt;/code&gt;\n\n\nAvailable app status:\n- &lt;code&gt;app-creating&lt;/code&gt;\n- &lt;code&gt;app-creation-failed&lt;/code&gt;\n- &lt;code&gt;app-creation-timeout&lt;/code&gt;\n- &lt;code&gt;app-undeployed&lt;/code&gt;\n- &lt;code&gt;deployment-in-progress&lt;/code&gt;\n- &lt;code&gt;deployment-failed&lt;/code&gt;\n- &lt;code&gt;deployment-timeout&lt;/code&gt;\n- &lt;code&gt;deployment-running&lt;/code&gt;\n- &lt;code&gt;deployment-down&lt;/code&gt;\n- &lt;code&gt;app-stopping&lt;/code&gt;\n- &lt;code&gt;app-stop-failed&lt;/code&gt;\n- &lt;code&gt;app-stop-timeout&lt;/code&gt;\n- &lt;code&gt;app-stopped&lt;/code&gt;\n- &lt;code&gt;app-removing&lt;/code&gt;\n- &lt;code&gt;app-removed&lt;/code&gt;\n- &lt;code&gt;app-remove-timeout&lt;/code&gt;\n\n\t",
         "operationId": "GetAppV2",
         "parameters": [
           {
@@ -1110,7 +1110,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "Required permission : &lt;code&gt;ADMIN:NAMESPACE:{namespace}:EXTEND:NOSQL:DATABASES [READ]&lt;/code&gt;\n\nGet a NoSQL database information returns the NoSQL database related information by given game namespace\nand app name.\n\n&lt;code&gt;resourceStatus&lt;/code&gt; field - indicates the NoSQL cluster status:\n- &lt;code&gt;deleting&lt;/code&gt; : The cluster is in the process of being deleted and is not accessible. \n- &lt;code&gt;stopped&lt;/code&gt; : The cluster is stopped and not accessible. \n- &lt;code&gt;updating&lt;/code&gt; : The cluster is being modified and is not yet accessible (e.g., updating min/max DCU). \n- &lt;code&gt;failed&lt;/code&gt; : The cluster failed to provision or is in an error state and not accessible. \n- &lt;code&gt;stopping&lt;/code&gt; : The cluster is in the process of stopping and will soon become inaccessible. \n- &lt;code&gt;starting&lt;/code&gt; : The cluster is transitioning from stopped to running, or is rebooting. \n- &lt;code&gt;maintenance&lt;/code&gt; : The cluster is undergoing maintenance operations and is not accessible. \n- &lt;code&gt;unknown&lt;/code&gt; : The cluster status is not recognized \n- &lt;code&gt;available&lt;/code&gt; : The cluster is accessible. \n- &lt;code&gt;creating&lt;/code&gt; : The cluster or instance is being created and is not yet accessible. \n\n\n",
+        "description": "Required permission : &lt;code&gt;ADMIN:NAMESPACE:{namespace}:EXTEND:NOSQL:DATABASES [READ]&lt;/code&gt;\n\nGet a NoSQL database information returns the NoSQL database related information by given game namespace\nand app name.\n\n&lt;code&gt;resourceStatus&lt;/code&gt; field - indicates the NoSQL cluster status:\n- &lt;code&gt;available&lt;/code&gt; : The cluster is accessible. \n- &lt;code&gt;updating&lt;/code&gt; : The cluster is being modified and is not yet accessible (e.g., updating min/max DCU). \n- &lt;code&gt;creating&lt;/code&gt; : The cluster or instance is being created and is not yet accessible. \n- &lt;code&gt;deleting&lt;/code&gt; : The cluster is in the process of being deleted and is not accessible. \n- &lt;code&gt;stopped&lt;/code&gt; : The cluster is stopped and not accessible. \n- &lt;code&gt;starting&lt;/code&gt; : The cluster is transitioning from stopped to running, or is rebooting. \n- &lt;code&gt;unknown&lt;/code&gt; : The cluster status is not recognized \n- &lt;code&gt;failed&lt;/code&gt; : The cluster failed to provision or is in an error state and not accessible. \n- &lt;code&gt;stopping&lt;/code&gt; : The cluster is in the process of stopping and will soon become inaccessible. \n- &lt;code&gt;maintenance&lt;/code&gt; : The cluster is undergoing maintenance operations and is not accessible. \n\n\n",
         "operationId": "GetNoSQLDatabaseV2",
         "parameters": [
           {
@@ -3261,7 +3261,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "Required permission : &lt;code&gt;ADMIN:NAMESPACE:{namespace}:EXTEND:NOSQL:CLUSTERS [READ]&lt;/code&gt;\n\nGet NoSQL cluster information returns the NoSQL cluster related information by given studio/publisher namespace.\n\n&lt;code&gt;status&lt;/code&gt; field - indicates the NoSQL cluster status:\n- &lt;code&gt;stopping&lt;/code&gt; : The cluster is in the process of stopping and will soon become inaccessible. \n- &lt;code&gt;starting&lt;/code&gt; : The cluster is transitioning from stopped to running, or is rebooting. \n- &lt;code&gt;maintenance&lt;/code&gt; : The cluster is undergoing maintenance operations and is not accessible. \n- &lt;code&gt;unknown&lt;/code&gt; : The cluster status is not recognized \n- &lt;code&gt;available&lt;/code&gt; : The cluster is accessible. \n- &lt;code&gt;creating&lt;/code&gt; : The cluster or instance is being created and is not yet accessible. \n- &lt;code&gt;deleting&lt;/code&gt; : The cluster is in the process of being deleted and is not accessible. \n- &lt;code&gt;stopped&lt;/code&gt; : The cluster is stopped and not accessible. \n- &lt;code&gt;updating&lt;/code&gt; : The cluster is being modified and is not yet accessible (e.g., updating min/max DCU). \n- &lt;code&gt;failed&lt;/code&gt; : The cluster failed to provision or is in an error state and not accessible. \n\n",
+        "description": "Required permission : &lt;code&gt;ADMIN:NAMESPACE:{namespace}:EXTEND:NOSQL:CLUSTERS [READ]&lt;/code&gt;\n\nGet NoSQL cluster information returns the NoSQL cluster related information by given studio/publisher namespace.\n\n&lt;code&gt;status&lt;/code&gt; field - indicates the NoSQL cluster status:\n- &lt;code&gt;unknown&lt;/code&gt; : The cluster status is not recognized \n- &lt;code&gt;failed&lt;/code&gt; : The cluster failed to provision or is in an error state and not accessible. \n- &lt;code&gt;stopping&lt;/code&gt; : The cluster is in the process of stopping and will soon become inaccessible. \n- &lt;code&gt;maintenance&lt;/code&gt; : The cluster is undergoing maintenance operations and is not accessible. \n- &lt;code&gt;available&lt;/code&gt; : The cluster is accessible. \n- &lt;code&gt;updating&lt;/code&gt; : The cluster is being modified and is not yet accessible (e.g., updating min/max DCU). \n- &lt;code&gt;creating&lt;/code&gt; : The cluster or instance is being created and is not yet accessible. \n- &lt;code&gt;deleting&lt;/code&gt; : The cluster is in the process of being deleted and is not accessible. \n- &lt;code&gt;stopped&lt;/code&gt; : The cluster is stopped and not accessible. \n- &lt;code&gt;starting&lt;/code&gt; : The cluster is transitioning from stopped to running, or is rebooting. \n\n",
         "operationId": "GetNoSQLClusterV2",
         "parameters": [
           {
@@ -3756,7 +3756,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "Required permission : &lt;code&gt;ADMIN:NAMESPACE:{namespace}:EXTEND:NOSQL:CLUSTERS [READ]&lt;/code&gt;\n\nGet List of Extend App using NoSQL database by given studio/publisher namespace and the NoSQL cluster resourceId.\n- &lt;code&gt;available&lt;/code&gt; : The cluster is accessible. \n- &lt;code&gt;creating&lt;/code&gt; : The cluster or instance is being created and is not yet accessible. \n- &lt;code&gt;deleting&lt;/code&gt; : The cluster is in the process of being deleted and is not accessible. \n- &lt;code&gt;stopped&lt;/code&gt; : The cluster is stopped and not accessible. \n- &lt;code&gt;updating&lt;/code&gt; : The cluster is being modified and is not yet accessible (e.g., updating min/max DCU). \n- &lt;code&gt;failed&lt;/code&gt; : The cluster failed to provision or is in an error state and not accessible. \n- &lt;code&gt;stopping&lt;/code&gt; : The cluster is in the process of stopping and will soon become inaccessible. \n- &lt;code&gt;starting&lt;/code&gt; : The cluster is transitioning from stopped to running, or is rebooting. \n- &lt;code&gt;maintenance&lt;/code&gt; : The cluster is undergoing maintenance operations and is not accessible. \n- &lt;code&gt;unknown&lt;/code&gt; : The cluster status is not recognized \n\n",
+        "description": "Required permission : &lt;code&gt;ADMIN:NAMESPACE:{namespace}:EXTEND:NOSQL:CLUSTERS [READ]&lt;/code&gt;\n\nGet List of Extend App using NoSQL database by given studio/publisher namespace and the NoSQL cluster resourceId.\n- &lt;code&gt;stopping&lt;/code&gt; : The cluster is in the process of stopping and will soon become inaccessible. \n- &lt;code&gt;maintenance&lt;/code&gt; : The cluster is undergoing maintenance operations and is not accessible. \n- &lt;code&gt;available&lt;/code&gt; : The cluster is accessible. \n- &lt;code&gt;updating&lt;/code&gt; : The cluster is being modified and is not yet accessible (e.g., updating min/max DCU). \n- &lt;code&gt;creating&lt;/code&gt; : The cluster or instance is being created and is not yet accessible. \n- &lt;code&gt;deleting&lt;/code&gt; : The cluster is in the process of being deleted and is not accessible. \n- &lt;code&gt;stopped&lt;/code&gt; : The cluster is stopped and not accessible. \n- &lt;code&gt;starting&lt;/code&gt; : The cluster is transitioning from stopped to running, or is rebooting. \n- &lt;code&gt;unknown&lt;/code&gt; : The cluster status is not recognized \n- &lt;code&gt;failed&lt;/code&gt; : The cluster failed to provision or is in an error state and not accessible. \n\n",
         "operationId": "GetNoSQLAppListV2",
         "parameters": [
           {
@@ -4938,6 +4938,10 @@
         },
         "studioName": {
           "type": "string"
+        },
+        "tlsEnabled": {
+          "type": "boolean",
+          "x-omitempty": false
         }
       },
       "required": [
@@ -6438,8 +6442,8 @@
     }
   ],
   "x-version": {
-    "buildDate": "Thu Jan  8 07:46:26 UTC 2026",
-    "gitHash": "4195a640",
+    "buildDate": "Mon Feb 16 03:56:14 UTC 2026",
+    "gitHash": "86352585",
     "name": "custom-service-manager",
     "version": "1.31.0",
     "version-justice": "3.39.0",
