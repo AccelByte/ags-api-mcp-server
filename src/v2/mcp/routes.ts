@@ -8,7 +8,9 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 
-import setAuthFromToken, { parseAuthorizationHeader } from "../auth/middleware.js";
+import setAuthFromToken, {
+  parseAuthorizationHeader,
+} from "../auth/middleware.js";
 import log from "../logger.js";
 import securityLog from "../security-logger.js";
 import { jsonRPCError, logError, deriveBaseUrl } from "../utils.js";
@@ -39,6 +41,25 @@ interface RegisterMcpRoutesOptions {
    * The default AGS base URL to use if not provided in the request context.
    */
   defaultAgsBaseUrl?: string;
+
+  /**
+   * Public URL at which this MCP server is reachable by clients. Used to
+   * construct the `resource_metadata` URL in the `WWW-Authenticate` header so
+   * that clients fetch `/.well-known/oauth-protected-resource` from THIS
+   * server (the resource server), not from the upstream AGS authorization
+   * server. Required because in hosted mode the X-Forwarded-Host header is
+   * overloaded to select the AGS environment, so request-derived URLs cannot
+   * be trusted to identify the MCP server's public location.
+   */
+  mcpServerUrl?: string;
+
+  /**
+   * Whether hosted mode is enabled. In hosted mode, X-Forwarded-Host carries
+   * the AGS environment hostname (see auth/host-resolver.ts) — not the MCP
+   * server's public hostname — so the WWW-Authenticate URL must come from
+   * `mcpServerUrl` directly rather than from request-derived headers.
+   */
+  hostedMode?: boolean;
 }
 
 /**
@@ -57,7 +78,13 @@ function registerMcpRoutes(
   factory: McpServerFactory,
   options: RegisterMcpRoutesOptions = {},
 ): void {
-  const { path = "/mcp", enableAuth = false, defaultAgsBaseUrl } = options;
+  const {
+    path = "/mcp",
+    enableAuth = false,
+    defaultAgsBaseUrl,
+    mcpServerUrl,
+    hostedMode = false,
+  } = options;
 
   const postHandler = async (req: Request, res: Response) => {
     const { namespace }: { namespace?: string } = req.params;
@@ -83,8 +110,13 @@ function registerMcpRoutes(
         reason,
         path: req.path,
       });
-      // Construct resource_metadata URL for WWW-Authenticate header
-      const baseUrl = deriveBaseUrl(req, defaultAgsBaseUrl);
+      // Construct resource_metadata URL for WWW-Authenticate header.
+      // In hosted mode X-Forwarded-Host is overloaded to select the AGS env,
+      // so deriveBaseUrl would return the AGS URL (where this metadata
+      // document does not exist). Use the configured MCP server URL instead.
+      const baseUrl = hostedMode
+        ? mcpServerUrl || deriveBaseUrl(req, defaultAgsBaseUrl)
+        : deriveBaseUrl(req, mcpServerUrl || defaultAgsBaseUrl);
       const resourceMetadataPath = namespace
         ? `/.well-known/oauth-protected-resource/${namespace}`
         : `/.well-known/oauth-protected-resource`;

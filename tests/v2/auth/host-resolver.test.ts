@@ -196,3 +196,98 @@ test("validateUrlMatchesIssuer - rejects cross-tenant subdomain token reuse", ()
     false,
   );
 });
+
+// --- ALLOW_PARENT_DOMAIN_ISSUER opt-in (AGS shared-auth-server topology) ---
+
+function withParentDomainIssuer<T>(value: string | undefined, fn: () => T): T {
+  const prev = process.env.ALLOW_PARENT_DOMAIN_ISSUER;
+  if (value === undefined) {
+    delete process.env.ALLOW_PARENT_DOMAIN_ISSUER;
+  } else {
+    process.env.ALLOW_PARENT_DOMAIN_ISSUER = value;
+  }
+  try {
+    return fn();
+  } finally {
+    if (prev === undefined) {
+      delete process.env.ALLOW_PARENT_DOMAIN_ISSUER;
+    } else {
+      process.env.ALLOW_PARENT_DOMAIN_ISSUER = prev;
+    }
+  }
+}
+
+test("validateUrlMatchesIssuer - parent-domain issuer accepted when ALLOW_PARENT_DOMAIN_ISSUER=true", () => {
+  withParentDomainIssuer("true", () => {
+    assert.equal(
+      validateUrlMatchesIssuer(
+        "https://abtestdewa-pong.internal.gamingservices.accelbyte.io",
+        "https://internal.gamingservices.accelbyte.io",
+      ),
+      true,
+    );
+  });
+});
+
+test("validateUrlMatchesIssuer - parent-domain issuer still rejected when flag unset", () => {
+  withParentDomainIssuer(undefined, () => {
+    assert.equal(
+      validateUrlMatchesIssuer(
+        "https://abtestdewa-pong.internal.gamingservices.accelbyte.io",
+        "https://internal.gamingservices.accelbyte.io",
+      ),
+      false,
+    );
+  });
+});
+
+test("validateUrlMatchesIssuer - bare suffix (not subdomain) still rejected even with flag on", () => {
+  withParentDomainIssuer("true", () => {
+    // "evil-internal..." merely shares a suffix with "internal..." — must
+    // not be treated as a subdomain.
+    assert.equal(
+      validateUrlMatchesIssuer(
+        "https://evil-internal.gamingservices.accelbyte.io",
+        "https://internal.gamingservices.accelbyte.io",
+      ),
+      false,
+    );
+  });
+});
+
+test("validateUrlMatchesIssuer - issuer with path component blocks parent-domain match", () => {
+  withParentDomainIssuer("true", () => {
+    // When issuer carries a path, parent-domain semantics don't apply.
+    assert.equal(
+      validateUrlMatchesIssuer(
+        "https://env.internal.gamingservices.accelbyte.io",
+        "https://internal.gamingservices.accelbyte.io/iam",
+      ),
+      false,
+    );
+  });
+});
+
+test("validateUrlMatchesIssuer - flag value 'false' does not enable parent-domain match", () => {
+  withParentDomainIssuer("false", () => {
+    assert.equal(
+      validateUrlMatchesIssuer(
+        "https://env.internal.gamingservices.accelbyte.io",
+        "https://internal.gamingservices.accelbyte.io",
+      ),
+      false,
+    );
+  });
+});
+
+test("validateUrlMatchesIssuer - flag honors deep subdomain (multiple labels)", () => {
+  withParentDomainIssuer("true", () => {
+    assert.equal(
+      validateUrlMatchesIssuer(
+        "https://a.b.c.example.com",
+        "https://example.com",
+      ),
+      true,
+    );
+  });
+});

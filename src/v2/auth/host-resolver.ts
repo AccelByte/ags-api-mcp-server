@@ -49,12 +49,38 @@ export function validateUrlMatchesIssuer(
   // 2. Issuer has a sub-path under derived host (e.g. issuer="example.com/iam")
   //
   // Subdomain matching (derived is subdomain of issuer) is intentionally NOT
-  // supported: a token issued for "accelbyte.io" must not be accepted at
-  // "evil.accelbyte.io". Issuers should use path-based differentiation instead.
-  return (
+  // supported by default: a token issued for "accelbyte.io" must not be
+  // accepted at "evil.accelbyte.io". Issuers should use path-based
+  // differentiation instead.
+  if (
     normalizedIssuer === normalizedDerived ||
     normalizedIssuer.startsWith(`${normalizedDerived}/`)
-  );
+  ) {
+    return true;
+  }
+
+  // Opt-in: parent-domain issuer match.
+  //
+  // Some AGS deployments share a single OAuth authorization server across
+  // subdomain environments — e.g. issuer "internal.gamingservices.accelbyte.io"
+  // signs JWTs for "<env>.internal.gamingservices.accelbyte.io". The signature
+  // check still verifies against the issuer's JWKS; this only loosens the
+  // host-equality check so the derived host can be a strict subdomain of the
+  // issuer host. Off by default. Enable with ALLOW_PARENT_DOMAIN_ISSUER=true.
+  //
+  // Required guards (all enforced below):
+  //  - Issuer must be host-only (no path), otherwise path-vs-subdomain
+  //    semantics conflict.
+  //  - Derived host must be a *strict* subdomain — endsWith(`.${issuerHost}`),
+  //    not bare suffix — preventing "evil-internal.foo" matching "internal.foo".
+  if (process.env.ALLOW_PARENT_DOMAIN_ISSUER === "true") {
+    const issuerHasPath = normalizedIssuer.includes("/");
+    if (!issuerHasPath && normalizedDerived.endsWith(`.${normalizedIssuer}`)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /** Validate that a hostname contains only legal characters (RFC 952 / 1123). */

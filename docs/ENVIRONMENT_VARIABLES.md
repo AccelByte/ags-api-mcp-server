@@ -240,12 +240,26 @@ Hosted mode enables multi-tenant deployment where the AGS base URL is derived fr
 - **Options**: `true`, `false`
 - **Note**: Only applicable when `MCP_HOSTED=true`. Provides additional security by ensuring tokens were issued for the correct environment.
 
+### `ALLOW_PARENT_DOMAIN_ISSUER`
+- **Description**: Allow the JWT `iss` claim to be a parent domain of the request's derived host
+- **Default**: `false`
+- **Required**: No
+- **Options**: `true`, `false`
+- **Note**: Some AGS deployments share a single OAuth authorization server across subdomain environments — for example, issuer `internal.gamingservices.accelbyte.io` signs tokens for `<env>.internal.gamingservices.accelbyte.io`. Without this flag the issuer check rejects such tokens. Enabling the flag accepts a token only when the derived host is a *strict* subdomain of the issuer host (`endsWith(".${issuerHost}")`); bare suffix matches like `evil-internal.foo` versus `internal.foo` are still rejected, and an issuer that includes a path component is never matched against a parent-domain rule. The JWT signature itself is still verified against the issuer's JWKS.
+
 **Example**:
 ```bash
 # Enable hosted mode with issuer validation
 export MCP_HOSTED=true
 export MCP_VALIDATE_TOKEN_ISSUER=true
+
+# Hosted mode against an AGS environment whose tokens use a parent-domain issuer
+export MCP_HOSTED=true
+export MCP_VALIDATE_TOKEN_ISSUER=true
+export ALLOW_PARENT_DOMAIN_ISSUER=true
 ```
+
+> **Hosted mode and `MCP_SERVER_URL`:** When `MCP_HOSTED=true` you should set `MCP_SERVER_URL` to the public URL at which clients reach the MCP server (e.g. `http://localhost:3030` for a local Docker container, or `https://mcp.example.com` behind a public reverse proxy). It is used to construct the `resource_metadata` URL in the `WWW-Authenticate` header so that OAuth-discovering clients fetch `/.well-known/oauth-protected-resource` from this server, not from the AGS host carried in `X-Forwarded-Host`.
 
 ---
 
