@@ -34,6 +34,7 @@ export function extractTokenIssuer(token: string): string | undefined {
 export function validateUrlMatchesIssuer(
   derivedUrl: string,
   issuer: string,
+  allowParentDomainIssuer: boolean = false,
 ): boolean {
   const normalizedDerived = derivedUrl
     .replace(/^https?:\/\//, "")
@@ -66,14 +67,15 @@ export function validateUrlMatchesIssuer(
   // signs JWTs for "<env>.internal.gamingservices.accelbyte.io". The signature
   // check still verifies against the issuer's JWKS; this only loosens the
   // host-equality check so the derived host can be a strict subdomain of the
-  // issuer host. Off by default. Enable with ALLOW_PARENT_DOMAIN_ISSUER=true.
+  // issuer host. Off by default. Enable via the typed config flag
+  // (config.hosted.allowParentDomainIssuer, set with ALLOW_PARENT_DOMAIN_ISSUER=true).
   //
   // Required guards (all enforced below):
   //  - Issuer must be host-only (no path), otherwise path-vs-subdomain
   //    semantics conflict.
   //  - Derived host must be a *strict* subdomain — endsWith(`.${issuerHost}`),
   //    not bare suffix — preventing "evil-internal.foo" matching "internal.foo".
-  if (process.env.ALLOW_PARENT_DOMAIN_ISSUER === "true") {
+  if (allowParentDomainIssuer) {
     const issuerHasPath = normalizedIssuer.includes("/");
     if (!issuerHasPath && normalizedDerived.endsWith(`.${normalizedIssuer}`)) {
       return true;
@@ -149,7 +151,13 @@ export function resolveAgsHost(config: HostedConfig): RequestHandler {
           });
         }
 
-        if (!validateUrlMatchesIssuer(baseUrl, issuer)) {
+        if (
+          !validateUrlMatchesIssuer(
+            baseUrl,
+            issuer,
+            config.allowParentDomainIssuer,
+          )
+        ) {
           securityLog.suspiciousRequest({
             ip: req.ip,
             reason: "issuer_host_mismatch",

@@ -345,7 +345,9 @@ function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
         reason: "unsupported_auth_scheme",
         path: req.path,
       });
-      res.status(401).json({ error: "Unauthorized", message: "Invalid or expired token" });
+      res
+        .status(401)
+        .json({ error: "Unauthorized", message: "Invalid or expired token" });
       return;
     }
 
@@ -362,7 +364,9 @@ function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
         reason: "malformed_bearer_token",
         path: req.path,
       });
-      res.status(401).json({ error: "Unauthorized", message: "Invalid or expired token" });
+      res
+        .status(401)
+        .json({ error: "Unauthorized", message: "Invalid or expired token" });
       return;
     }
 
@@ -378,9 +382,7 @@ function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
 
         // Validate issuer claim matches the expected AGS environment
         if (!decoded.iss) {
-          throw new Error(
-            "Token is missing required 'iss' (issuer) claim",
-          );
+          throw new Error("Token is missing required 'iss' (issuer) claim");
         }
         if (!validateUrlMatchesIssuer(agsBaseUrl, decoded.iss)) {
           throw new Error(

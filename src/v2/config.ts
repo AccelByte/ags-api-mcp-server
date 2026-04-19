@@ -83,6 +83,7 @@ const OpenApiConfigSchema = z.object({
 const HostedConfigSchema = z.object({
   enabled: EnvBooleanSchema.default(false),
   validateTokenIssuer: EnvBooleanSchema.default(true),
+  allowParentDomainIssuer: EnvBooleanSchema.default(false),
 });
 
 type HostedConfig = z.infer<typeof HostedConfigSchema>;
@@ -145,6 +146,7 @@ function loadConfig(): Config {
       hosted: {
         enabled: process.env.MCP_HOSTED,
         validateTokenIssuer: process.env.MCP_VALIDATE_TOKEN_ISSUER,
+        allowParentDomainIssuer: process.env.ALLOW_PARENT_DOMAIN_ISSUER,
       },
     };
 
@@ -185,6 +187,7 @@ function loadConfig(): Config {
         // Hosted Configuration
         hostedEnabled: config.hosted.enabled,
         hostedValidateTokenIssuer: config.hosted.validateTokenIssuer,
+        hostedAllowParentDomainIssuer: config.hosted.allowParentDomainIssuer,
       },
       "Configuration loaded",
     );

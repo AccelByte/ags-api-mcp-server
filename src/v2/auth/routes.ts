@@ -76,7 +76,6 @@ function registerOAuthRoutes(
 ): void {
   const {
     authorizationServerDiscoveryMode = AuthorizationServerDiscoveryMode.None,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     hostedMode = false,
     mcpPath = "/mcp",
   } = options;
@@ -84,11 +83,20 @@ function registerOAuthRoutes(
   const isDiscoveryWorkaroundEnabled =
     authorizationServerDiscoveryMode !== AuthorizationServerDiscoveryMode.None;
 
+  // In hosted mode the MCP server's public URL must come from the configured
+  // resourceServerUrl, not from request-derived headers: X-Forwarded-Host is
+  // overloaded to select the upstream AGS environment, so deriveBaseUrl would
+  // return the AGS host (where this metadata document does not exist). The
+  // authorization server URL still derives from the forwarded host because
+  // each AGS env hosts its own authorization server.
+  const resolveResourceBaseUrl = (req: Request): string =>
+    hostedMode ? resourceServerUrl : deriveBaseUrl(req, resourceServerUrl);
+
   app.get(
     "/.well-known/oauth-protected-resource",
     (req: Request, res: Response) => {
       const effectiveAuthServer = deriveBaseUrl(req, authorizationServerUrl);
-      const protectedResourceUrl = `${deriveBaseUrl(req, resourceServerUrl)}${mcpPath}`;
+      const protectedResourceUrl = `${resolveResourceBaseUrl(req)}${mcpPath}`;
 
       const metadata: OAuthProtectedResourceMetadata = {
         resource: protectedResourceUrl,
@@ -119,7 +127,7 @@ function registerOAuthRoutes(
       }
 
       const effectiveAuthServer = deriveBaseUrl(req, authorizationServerUrl);
-      const protectedResourceUrl = `${deriveBaseUrl(req, resourceServerUrl)}${mcpPath}/${namespace}`;
+      const protectedResourceUrl = `${resolveResourceBaseUrl(req)}${mcpPath}/${namespace}`;
 
       const metadata: OAuthProtectedResourceMetadata = {
         resource: protectedResourceUrl,

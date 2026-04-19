@@ -127,7 +127,8 @@ export async function assertNotPrivateUrl(url: URL): Promise<void> {
     ]);
     const timeoutPromise = new Promise<never>((_, reject) => {
       dnsTimeoutId = setTimeout(
-        () => reject(new Error(`DNS resolution timeout after ${DNS_TIMEOUT_MS}ms`)),
+        () =>
+          reject(new Error(`DNS resolution timeout after ${DNS_TIMEOUT_MS}ms`)),
         DNS_TIMEOUT_MS,
       );
     });

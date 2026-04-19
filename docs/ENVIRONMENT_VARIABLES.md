@@ -245,7 +245,7 @@ Hosted mode enables multi-tenant deployment where the AGS base URL is derived fr
 - **Default**: `false`
 - **Required**: No
 - **Options**: `true`, `false`
-- **Note**: Some AGS deployments share a single OAuth authorization server across subdomain environments — for example, issuer `internal.gamingservices.accelbyte.io` signs tokens for `<env>.internal.gamingservices.accelbyte.io`. Without this flag the issuer check rejects such tokens. Enabling the flag accepts a token only when the derived host is a *strict* subdomain of the issuer host (`endsWith(".${issuerHost}")`); bare suffix matches like `evil-internal.foo` versus `internal.foo` are still rejected, and an issuer that includes a path component is never matched against a parent-domain rule. The JWT signature itself is still verified against the issuer's JWKS.
+- **Note**: Some AGS deployments share a single OAuth authorization server across subdomain environments — for example, issuer `internal.gamingservices.accelbyte.io` signs tokens for `<env>.internal.gamingservices.accelbyte.io`. Without this flag the issuer check rejects such tokens. Enabling the flag accepts a token only when the derived host is a *strict* subdomain of the issuer host (`endsWith(".${issuerHost}")`); bare suffix matches like `evil-internal.foo` versus `internal.foo` are still rejected, and an issuer that includes a path component is never matched against a parent-domain rule. The JWT signature itself is still verified against the issuer's JWKS. Has no effect when `MCP_VALIDATE_TOKEN_ISSUER=false`, since the issuer check is then skipped entirely.
 
 **Example**:
 ```bash

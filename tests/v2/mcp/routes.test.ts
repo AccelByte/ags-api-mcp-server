@@ -143,12 +143,12 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
   test("advertised URL actually resolves on this server (no 404)", async () => {
     // The whole point of fixing the bug: the URL must be fetchable.
     // Translate the configured MCP_SERVER_URL to the test server's port.
+    const agsHost = "abtestdewa-pong.internal.gamingservices.accelbyte.io";
     const protectedResourceUrl = `${baseUrl}/.well-known/oauth-protected-resource`;
 
     const res = await fetch(protectedResourceUrl, {
       headers: {
-        "X-Forwarded-Host":
-          "abtestdewa-pong.internal.gamingservices.accelbyte.io",
+        "X-Forwarded-Host": agsHost,
         "X-Forwarded-Proto": "https",
       },
     });
@@ -161,12 +161,38 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
     assert.ok(body.resource);
     assert.ok(Array.isArray(body.authorization_servers));
     assert.equal(body.authorization_servers.length, 1);
-    // authorization_servers should still derive from forwarded host (AGS env)
+    // resource must point at the MCP server (RFC 9728 §3): clients validate
+    // it against the URL they originally requested. In hosted mode the AGS
+    // host carried in X-Forwarded-Host is *not* the MCP server's location.
+    assert.equal(body.resource, `${MCP_SERVER_URL}/mcp`);
     assert.ok(
-      body.authorization_servers[0].includes(
-        "abtestdewa-pong.internal.gamingservices.accelbyte.io",
-      ),
+      !body.resource.includes(agsHost),
+      `resource must NOT contain AGS host (${agsHost}), got: ${body.resource}`,
     );
+    // authorization_servers should still derive from forwarded host (AGS env)
+    assert.ok(body.authorization_servers[0].includes(agsHost));
+  });
+
+  test("namespace-aware protected resource doc pins resource to MCP server", async () => {
+    const agsHost = "abtestdewa-pong.internal.gamingservices.accelbyte.io";
+    const res = await fetch(
+      `${baseUrl}/.well-known/oauth-protected-resource/myns`,
+      {
+        headers: {
+          "X-Forwarded-Host": agsHost,
+          "X-Forwarded-Proto": "https",
+        },
+      },
+    );
+
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as {
+      resource: string;
+      authorization_servers: string[];
+    };
+    assert.equal(body.resource, `${MCP_SERVER_URL}/mcp/myns`);
+    assert.ok(body.authorization_servers[0].includes(agsHost));
+    assert.ok(body.authorization_servers[0].endsWith("/myns"));
   });
 });
 
@@ -247,7 +273,11 @@ describe("WWW-Authenticate header in standalone (non-hosted) mode", () => {
         jsonrpc: "2.0",
         id: 1,
         method: "initialize",
-        params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "0" } },
+        params: {
+          protocolVersion: "2025-03-26",
+          capabilities: {},
+          clientInfo: { name: "t", version: "0" },
+        },
       }),
     });
 
@@ -257,6 +287,71 @@ describe("WWW-Authenticate header in standalone (non-hosted) mode", () => {
     assert.equal(
       match![1],
       `${MCP_SERVER_URL}/.well-known/oauth-protected-resource`,
+    );
+  });
+});
+
+describe("WWW-Authenticate header in standalone mode without mcpServerUrl", () => {
+  // Guards the deriveBaseUrl(req, mcpServerUrl || defaultAgsBaseUrl) fallback
+  // chain: when mcpServerUrl is undefined and the request has no proxy
+  // headers, the URL must come from defaultAgsBaseUrl rather than the
+  // hardcoded fallback inside deriveBaseUrl.
+  let s: http.Server;
+  let url: string;
+
+  before(async () => {
+    const app = express();
+    app.use(express.json());
+    registerMcpRoutes(
+      app,
+      async () => {
+        throw new Error("factory should not be called for unauthenticated 401");
+      },
+      {
+        path: "/mcp",
+        enableAuth: true,
+        defaultAgsBaseUrl: AGS_BASE_URL,
+        // mcpServerUrl deliberately omitted
+        hostedMode: false,
+      },
+    );
+
+    return new Promise<void>((resolve) => {
+      s = app.listen(0, "127.0.0.1", () => {
+        const addr = s.address() as { port: number };
+        url = `http://127.0.0.1:${addr.port}`;
+        resolve();
+      });
+    });
+  });
+
+  after(async () => new Promise<void>((resolve) => s.close(() => resolve())));
+
+  test("uses defaultAgsBaseUrl when mcpServerUrl is undefined and no proxy headers", async () => {
+    const res = await fetch(`${url}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-03-26",
+          capabilities: {},
+          clientInfo: { name: "t", version: "0" },
+        },
+      }),
+    });
+
+    assert.equal(res.status, 401);
+    const wwwAuth = res.headers.get("www-authenticate");
+    const match = wwwAuth!.match(/resource_metadata="([^"]+)"/);
+    assert.equal(
+      match![1],
+      `${AGS_BASE_URL}/.well-known/oauth-protected-resource`,
     );
   });
 });

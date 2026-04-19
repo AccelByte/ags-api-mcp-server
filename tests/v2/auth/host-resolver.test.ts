@@ -1,7 +1,13 @@
-import { test } from "node:test";
+import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import express from "express";
+import http from "node:http";
+import jwt from "jsonwebtoken";
 
-import { validateUrlMatchesIssuer } from "../../../src/v2/auth/host-resolver.js";
+import {
+  validateUrlMatchesIssuer,
+  resolveAgsHost,
+} from "../../../src/v2/auth/host-resolver.js";
 
 test("validateUrlMatchesIssuer - exact match", () => {
   assert.equal(
@@ -197,97 +203,180 @@ test("validateUrlMatchesIssuer - rejects cross-tenant subdomain token reuse", ()
   );
 });
 
-// --- ALLOW_PARENT_DOMAIN_ISSUER opt-in (AGS shared-auth-server topology) ---
+// --- allowParentDomainIssuer opt-in (AGS shared-auth-server topology) ---
 
-function withParentDomainIssuer<T>(value: string | undefined, fn: () => T): T {
-  const prev = process.env.ALLOW_PARENT_DOMAIN_ISSUER;
-  if (value === undefined) {
-    delete process.env.ALLOW_PARENT_DOMAIN_ISSUER;
-  } else {
-    process.env.ALLOW_PARENT_DOMAIN_ISSUER = value;
-  }
-  try {
-    return fn();
-  } finally {
-    if (prev === undefined) {
-      delete process.env.ALLOW_PARENT_DOMAIN_ISSUER;
-    } else {
-      process.env.ALLOW_PARENT_DOMAIN_ISSUER = prev;
-    }
-  }
-}
-
-test("validateUrlMatchesIssuer - parent-domain issuer accepted when ALLOW_PARENT_DOMAIN_ISSUER=true", () => {
-  withParentDomainIssuer("true", () => {
-    assert.equal(
-      validateUrlMatchesIssuer(
-        "https://abtestdewa-pong.internal.gamingservices.accelbyte.io",
-        "https://internal.gamingservices.accelbyte.io",
-      ),
+test("validateUrlMatchesIssuer - parent-domain issuer accepted when allowParentDomainIssuer=true", () => {
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://abtestdewa-pong.internal.gamingservices.accelbyte.io",
+      "https://internal.gamingservices.accelbyte.io",
       true,
-    );
-  });
+    ),
+    true,
+  );
 });
 
-test("validateUrlMatchesIssuer - parent-domain issuer still rejected when flag unset", () => {
-  withParentDomainIssuer(undefined, () => {
-    assert.equal(
-      validateUrlMatchesIssuer(
-        "https://abtestdewa-pong.internal.gamingservices.accelbyte.io",
-        "https://internal.gamingservices.accelbyte.io",
-      ),
-      false,
-    );
-  });
+test("validateUrlMatchesIssuer - parent-domain issuer still rejected when flag defaults to false", () => {
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://abtestdewa-pong.internal.gamingservices.accelbyte.io",
+      "https://internal.gamingservices.accelbyte.io",
+    ),
+    false,
+  );
 });
 
 test("validateUrlMatchesIssuer - bare suffix (not subdomain) still rejected even with flag on", () => {
-  withParentDomainIssuer("true", () => {
-    // "evil-internal..." merely shares a suffix with "internal..." — must
-    // not be treated as a subdomain.
-    assert.equal(
-      validateUrlMatchesIssuer(
-        "https://evil-internal.gamingservices.accelbyte.io",
-        "https://internal.gamingservices.accelbyte.io",
-      ),
-      false,
-    );
-  });
+  // "evil-internal..." merely shares a suffix with "internal..." — must
+  // not be treated as a subdomain.
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://evil-internal.gamingservices.accelbyte.io",
+      "https://internal.gamingservices.accelbyte.io",
+      true,
+    ),
+    false,
+  );
 });
 
 test("validateUrlMatchesIssuer - issuer with path component blocks parent-domain match", () => {
-  withParentDomainIssuer("true", () => {
-    // When issuer carries a path, parent-domain semantics don't apply.
-    assert.equal(
-      validateUrlMatchesIssuer(
-        "https://env.internal.gamingservices.accelbyte.io",
-        "https://internal.gamingservices.accelbyte.io/iam",
-      ),
-      false,
-    );
-  });
+  // When issuer carries a path, parent-domain semantics don't apply.
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://env.internal.gamingservices.accelbyte.io",
+      "https://internal.gamingservices.accelbyte.io/iam",
+      true,
+    ),
+    false,
+  );
 });
 
-test("validateUrlMatchesIssuer - flag value 'false' does not enable parent-domain match", () => {
-  withParentDomainIssuer("false", () => {
-    assert.equal(
-      validateUrlMatchesIssuer(
-        "https://env.internal.gamingservices.accelbyte.io",
-        "https://internal.gamingservices.accelbyte.io",
-      ),
+test("validateUrlMatchesIssuer - flag explicitly false does not enable parent-domain match", () => {
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://env.internal.gamingservices.accelbyte.io",
+      "https://internal.gamingservices.accelbyte.io",
       false,
-    );
-  });
+    ),
+    false,
+  );
 });
 
 test("validateUrlMatchesIssuer - flag honors deep subdomain (multiple labels)", () => {
-  withParentDomainIssuer("true", () => {
-    assert.equal(
-      validateUrlMatchesIssuer(
-        "https://a.b.c.example.com",
-        "https://example.com",
-      ),
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://a.b.c.example.com",
+      "https://example.com",
       true,
-    );
+    ),
+    true,
+  );
+});
+
+// --- resolveAgsHost: interaction between validateTokenIssuer and
+//     allowParentDomainIssuer (issue surfaced by code review on PR #48) ---
+
+describe("resolveAgsHost - allowParentDomainIssuer × validateTokenIssuer", () => {
+  function makeBearer(claims: Record<string, unknown>): string {
+    // Unsigned token is fine here — resolveAgsHost only decodes (does not
+    // verify) to extract the iss claim. JWKS verification happens elsewhere.
+    return jwt.sign(claims, "test-secret");
+  }
+
+  async function startApp(
+    config: {
+      enabled: boolean;
+      validateTokenIssuer: boolean;
+      allowParentDomainIssuer: boolean;
+    },
+  ): Promise<{ url: string; close: () => Promise<void> }> {
+    const app = express();
+    app.use(resolveAgsHost(config));
+    app.get("/probe", (req, res) => {
+      res.json({ baseUrl: req.ags?.baseUrl });
+    });
+
+    return new Promise((resolve) => {
+      const server = http.createServer(app).listen(0, "127.0.0.1", () => {
+        const addr = server.address() as { port: number };
+        resolve({
+          url: `http://127.0.0.1:${addr.port}`,
+          close: () =>
+            new Promise<void>((done) => server.close(() => done())),
+        });
+      });
+    });
+  }
+
+  test("validateTokenIssuer=false: parent-domain issuer flag is a no-op (issuer check skipped entirely)", async () => {
+    // Documents (and locks in) the fact that allowParentDomainIssuer has no
+    // observable effect when validateTokenIssuer is off — a request that
+    // would be rejected with the issuer check on still succeeds here.
+    const { url, close } = await startApp({
+      enabled: true,
+      validateTokenIssuer: false,
+      allowParentDomainIssuer: false,
+    });
+    try {
+      const token = makeBearer({
+        iss: "https://internal.gamingservices.accelbyte.io",
+      });
+      const res = await fetch(`${url}/probe`, {
+        headers: {
+          "X-Forwarded-Host":
+            "abtestdewa-pong.internal.gamingservices.accelbyte.io",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      assert.equal(res.status, 200);
+    } finally {
+      await close();
+    }
+  });
+
+  test("validateTokenIssuer=true + allowParentDomainIssuer=false: parent-domain issuer is rejected", async () => {
+    const { url, close } = await startApp({
+      enabled: true,
+      validateTokenIssuer: true,
+      allowParentDomainIssuer: false,
+    });
+    try {
+      const token = makeBearer({
+        iss: "https://internal.gamingservices.accelbyte.io",
+      });
+      const res = await fetch(`${url}/probe`, {
+        headers: {
+          "X-Forwarded-Host":
+            "abtestdewa-pong.internal.gamingservices.accelbyte.io",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      assert.equal(res.status, 403);
+    } finally {
+      await close();
+    }
+  });
+
+  test("validateTokenIssuer=true + allowParentDomainIssuer=true: parent-domain issuer is accepted", async () => {
+    const { url, close } = await startApp({
+      enabled: true,
+      validateTokenIssuer: true,
+      allowParentDomainIssuer: true,
+    });
+    try {
+      const token = makeBearer({
+        iss: "https://internal.gamingservices.accelbyte.io",
+      });
+      const res = await fetch(`${url}/probe`, {
+        headers: {
+          "X-Forwarded-Host":
+            "abtestdewa-pong.internal.gamingservices.accelbyte.io",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      assert.equal(res.status, 200);
+    } finally {
+      await close();
+    }
   });
 });
