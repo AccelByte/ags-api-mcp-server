@@ -106,22 +106,26 @@ function logError(
  * headers, hosted-mode `req.ags.baseUrl`, and a static fallback.
  *
  * Priority:
- *  1. Reverse-proxy headers (`x-forwarded-host` + optional port/proto)
+ *  1. Reverse-proxy headers (`x-forwarded-host` + optional port/proto) —
+ *     **only honored when Express `trust proxy` is configured**, so an
+ *     untrusted client cannot spoof them.
  *  2. Plain `host` header **only** when accompanied by `x-forwarded-port`
- *     (indicates the request came through a proxy that set the port)
+ *     and `trust proxy` is set (indicates a known reverse proxy in front).
  *  3. `req.ags.baseUrl` (hosted mode)
  *  4. `fallbackUrl`
  *
- * TODO: In production, the Host / X-Forwarded-* headers should be validated
- * against an allowlist of trusted proxies to prevent host-header injection.
- * Without that, an attacker can control the returned URL by sending a
- * crafted Host header. See OWASP "Host Header Injection".
+ * Without this guard, any client could send a crafted `X-Forwarded-Host`
+ * header and steer URLs that this server publishes (e.g. the
+ * `WWW-Authenticate: Bearer resource_metadata=...` URL OAuth-discovering
+ * clients fetch). See OWASP "Host Header Injection". Operators opt in to
+ * forwarded-header trust by setting `TRUST_PROXY` (wired in `express.ts`).
  */
 function deriveBaseUrl(
   req: {
     get: (name: string) => string | undefined;
     protocol: string;
     ags?: { baseUrl: string };
+    app?: { get: (setting: string) => unknown };
   },
   fallbackUrl?: string,
 ): string {
@@ -130,9 +134,13 @@ function deriveBaseUrl(
   const host = req.get("host");
   const forwardedProto = req.get("x-forwarded-proto");
 
-  // Only trust the plain Host header when a forwarded-port header is also
-  // present, which signals the request came through a known reverse proxy.
-  if (forwardedHost || (host && forwardedPort)) {
+  // Express stores the configured `trust proxy` setting. Falsy (false / 0 /
+  // undefined) means no proxy is trusted — in that case ignore forwarded
+  // headers entirely so a malicious client can't drive URL construction.
+  const trustProxy = req.app?.get?.("trust proxy");
+  const proxyTrusted = !!trustProxy;
+
+  if (proxyTrusted && (forwardedHost || (host && forwardedPort))) {
     const protocol = forwardedProto || req.protocol || "http";
     let requestHost = forwardedHost || host || "";
 

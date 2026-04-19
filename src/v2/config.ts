@@ -104,8 +104,13 @@ function loadConfig(): Config {
       process.env.MCP_PORT || process.env.PORT || "3000",
       10,
     );
+    // Track whether the URL was provided explicitly (vs auto-derived from
+    // MCP_PROTOCOL/MCP_HOSTNAME/MCP_PORT). The hosted-mode startup guard
+    // below requires an explicit value because the auto-derived
+    // http://localhost:<port> form must never end up in the WWW-Authenticate
+    // resource_metadata URL that public clients fetch.
+    const mcpServerUrlAutoDerived = !process.env.MCP_SERVER_URL;
     let mcpServerUrl: string;
-    const mcpServerUrlExplicit = !!process.env.MCP_SERVER_URL;
 
     if (process.env.MCP_SERVER_URL) {
       mcpServerUrl = process.env.MCP_SERVER_URL;
@@ -171,7 +176,7 @@ function loadConfig(): Config {
     // WWW-Authenticate header that OAuth-discovering clients fetch, undoing
     // the very fix that introduced this code path. Fail loud at startup
     // rather than emit a wrong URL on every 401.
-    if (config.hosted.enabled && !mcpServerUrlExplicit) {
+    if (config.hosted.enabled && mcpServerUrlAutoDerived) {
       throw new Error(
         "MCP_HOSTED=true requires MCP_SERVER_URL to be set explicitly to the " +
           "public URL clients use to reach this MCP server (e.g. " +

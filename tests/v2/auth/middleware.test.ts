@@ -4,7 +4,10 @@ import crypto from "node:crypto";
 import http from "node:http";
 import jwt from "jsonwebtoken";
 
-import setAuthFromToken from "../../../src/v2/auth/middleware.js";
+import setAuthFromToken, {
+  setJwksUriCacheForTests,
+  clearJwksUriCacheForTests,
+} from "../../../src/v2/auth/middleware.js";
 
 // ---------------------------------------------------------------------------
 // Helpers: generate an RSA key pair and build a minimal JWKS endpoint
@@ -403,6 +406,90 @@ describe("algorithm confusion attack prevention", () => {
     });
 
     assert.equal(nextCalled, false, "Should reject HS256 tokens");
+    assert.equal(res.statusCode, 401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// allowParentDomainIssuer wired through full JWKS-verified pipeline
+//
+// Covers the [HIGH] gap surfaced by code review on PR #48: the
+// `host-resolver.test.ts` "resolveAgsHost - allowParentDomainIssuer ×
+// validateTokenIssuer" suite only exercises the early host pre-check, which
+// strips the signature. A request that passes there can still be rejected
+// inside `setAuthFromToken` if the option is not also wired into the
+// JWKS-verified issuer comparison. These tests close that loop by signing a
+// real RS256 token, having `setAuthFromToken` discover the mock JWKS, and
+// asserting the request is accepted (or rejected) based on the option.
+//
+// To use synthetic hostnames (so the parent-domain comparison has something
+// to chew on — IPs have no parent), we pre-populate the JWKS-URI cache via a
+// test-only seam. That short-circuits the discovery fetch and SSRF guard for
+// the synthetic hostname while the actual JWKS still lives on the real
+// 127.0.0.1 mock.
+// ---------------------------------------------------------------------------
+
+describe("setAuthFromToken - allowParentDomainIssuer end-to-end (JWKS-verified)", () => {
+  // Strict subdomain of the issuer host below (validateUrlMatchesIssuer
+  // requires endsWith(`.${issuerHost}`), not bare suffix).
+  const SYNTH_DERIVED_BASE = "https://env.parent.example.test";
+  const SYNTH_PARENT_ISSUER = "https://parent.example.test";
+
+  before(async () => {
+    if (!server?.listening) {
+      await startMockServer();
+    }
+    // Point the synthetic derived URL at the real local JWKS server. The
+    // issuer-comparison path doesn't fetch anything against this URL — it
+    // just compares hostnames — so a 127.0.0.1 JWKS endpoint is sufficient.
+    setJwksUriCacheForTests(SYNTH_DERIVED_BASE, `${agsBaseUrl}/jwks`);
+  });
+  after(async () => {
+    clearJwksUriCacheForTests();
+    await stopMockServer();
+  });
+
+  test("accepts parent-domain issuer when allowParentDomainIssuer=true", async () => {
+    const middleware = setAuthFromToken({
+      defaultAgsBaseUrl: SYNTH_DERIVED_BASE,
+      allowParentDomainIssuer: true,
+    });
+    const token = signToken({
+      client_id: "shared-auth-client",
+      scope: "read",
+      iss: SYNTH_PARENT_ISSUER,
+    });
+
+    const req = createReq(`Bearer ${token}`);
+    const res = createRes();
+    let nextCalled = false;
+    await middleware(req, res, () => {
+      nextCalled = true;
+    });
+
+    assert.ok(nextCalled, "next() must be called for parent-domain issuer with flag on");
+    assert.equal(req.auth?.clientId, "shared-auth-client");
+  });
+
+  test("rejects parent-domain issuer when allowParentDomainIssuer is unset (default false)", async () => {
+    const middleware = setAuthFromToken({
+      defaultAgsBaseUrl: SYNTH_DERIVED_BASE,
+      // allowParentDomainIssuer omitted → defaults to off
+    });
+    const token = signToken({
+      client_id: "should-be-rejected",
+      scope: "read",
+      iss: SYNTH_PARENT_ISSUER,
+    });
+
+    const req = createReq(`Bearer ${token}`);
+    const res = createRes();
+    let nextCalled = false;
+    await middleware(req, res, () => {
+      nextCalled = true;
+    });
+
+    assert.equal(nextCalled, false, "next() must NOT be called when flag is off");
     assert.equal(res.statusCode, 401);
   });
 });

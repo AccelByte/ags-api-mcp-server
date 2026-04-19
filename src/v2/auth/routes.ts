@@ -66,6 +66,17 @@ interface RegisterOAuthRoutesOptions {
    * Used to construct the protected resource URL.
    */
   mcpPath?: string;
+
+  /**
+   * Mirror of `HostedConfig.allowParentDomainIssuer`. The OAuth metadata
+   * routes themselves do not validate JWTs, so this flag is currently unused
+   * here — the issuer-mismatch check that honors it lives in the MCP routes /
+   * `setAuthFromToken` middleware. Accepted on this interface for symmetry
+   * with `registerMcpRoutes` and so that future OAuth-layer JWT validation
+   * (e.g. on the proxied registration endpoint) can opt into the same
+   * relaxed-issuer policy without reshaping the config plumbing.
+   */
+  allowParentDomainIssuer?: boolean;
 }
 
 function registerOAuthRoutes(
@@ -89,14 +100,15 @@ function registerOAuthRoutes(
   // return the AGS host (where this metadata document does not exist). The
   // authorization server URL still derives from the forwarded host because
   // each AGS env hosts its own authorization server.
-  const resolveResourceBaseUrl = (req: Request): string =>
-    hostedMode ? resourceServerUrl : deriveBaseUrl(req, resourceServerUrl);
 
   app.get(
     "/.well-known/oauth-protected-resource",
     (req: Request, res: Response) => {
       const effectiveAuthServer = deriveBaseUrl(req, authorizationServerUrl);
-      const protectedResourceUrl = `${resolveResourceBaseUrl(req)}${mcpPath}`;
+      const resourceBaseUrl = hostedMode
+        ? resourceServerUrl
+        : deriveBaseUrl(req, resourceServerUrl);
+      const protectedResourceUrl = `${resourceBaseUrl}${mcpPath}`;
 
       const metadata: OAuthProtectedResourceMetadata = {
         resource: protectedResourceUrl,
@@ -127,7 +139,10 @@ function registerOAuthRoutes(
       }
 
       const effectiveAuthServer = deriveBaseUrl(req, authorizationServerUrl);
-      const protectedResourceUrl = `${resolveResourceBaseUrl(req)}${mcpPath}/${namespace}`;
+      const resourceBaseUrl = hostedMode
+        ? resourceServerUrl
+        : deriveBaseUrl(req, resourceServerUrl);
+      const protectedResourceUrl = `${resourceBaseUrl}${mcpPath}/${namespace}`;
 
       const metadata: OAuthProtectedResourceMetadata = {
         resource: protectedResourceUrl,

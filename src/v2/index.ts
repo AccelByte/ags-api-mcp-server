@@ -29,6 +29,10 @@ if (config.mcp.enableAuth) {
       .authServerDiscoveryMode as AuthorizationServerDiscoveryMode,
     hostedMode: config.hosted.enabled,
     mcpPath: config.mcp.path,
+    // Same hosted-mode gate as below: the flag only takes effect in hosted
+    // (multi-tenant) deployments where it was designed to live.
+    allowParentDomainIssuer:
+      config.hosted.enabled && config.hosted.allowParentDomainIssuer,
   });
 }
 
@@ -38,7 +42,12 @@ registerMcpRoutes(app, mcpServerFactory, {
   defaultAgsBaseUrl: config.openapi.serverUrl,
   mcpServerUrl: config.mcp.serverUrl,
   hostedMode: config.hosted.enabled,
-  allowParentDomainIssuer: config.hosted.allowParentDomainIssuer,
+  // Gate the flag on hosted mode so an operator who flips MCP_HOSTED=false
+  // (e.g. moving a deployment from multi-tenant to standalone) does not
+  // silently keep a loosened issuer check that only made sense for the
+  // shared-auth-server topology in the first place.
+  allowParentDomainIssuer:
+    config.hosted.enabled && config.hosted.allowParentDomainIssuer,
 });
 
 // Root informational endpoint

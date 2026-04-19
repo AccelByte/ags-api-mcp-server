@@ -286,11 +286,17 @@ test("validateUrlMatchesIssuer - flag honors deep subdomain (multiple labels)", 
 
 describe("resolveAgsHost - allowParentDomainIssuer × validateTokenIssuer", () => {
   function makeBearer(claims: Record<string, unknown>): string {
-    // Resolves to a JWS-shaped token whose signature this test cannot verify
-    // (no JWKS, arbitrary HMAC secret). resolveAgsHost only base64-decodes
-    // the payload to read `iss`, so the signature is irrelevant here. The
-    // separate, JWKS-verified issuer check lives in setAuthFromToken and is
-    // exercised by the routes-level tests.
+    // SECURITY: this helper produces a JWS-shaped token whose signature is
+    // INTENTIONALLY unverifiable here (HS256 with an arbitrary secret, no
+    // JWKS). It is safe ONLY because `resolveAgsHost` is a pre-check that
+    // *only* base64-decodes the payload to read `iss` — it never verifies
+    // the signature. Anything that arrives here would still be re-validated
+    // (signature + issuer) downstream by `setAuthFromToken` against the
+    // real JWKS. Do NOT reuse this helper to test middleware that performs
+    // signature verification: such a token would always be rejected (which
+    // is correct), masking what you actually intended to test. The
+    // signature-verifying counterpart lives in middleware.test.ts and uses
+    // the real RSA keypair plus the mock JWKS endpoint there.
     return jwt.sign(claims, "test-secret");
   }
 

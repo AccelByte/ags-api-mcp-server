@@ -472,5 +472,28 @@ async function prewarmJwksCache(agsBaseUrl: string): Promise<void> {
   }
 }
 
+/**
+ * Test-only seam: pre-populate the JWKS-URI discovery cache so a request
+ * pipeline can run end-to-end without an outbound discovery fetch (and
+ * without tripping the SSRF guard on synthetic hostnames). Not part of the
+ * runtime API — the `ForTests` suffix flags it for review; gate any
+ * production caller out at code-review time. Exists so tests can exercise
+ * issuer-matching variants (e.g. `allowParentDomainIssuer`) against
+ * arbitrary hostnames while the actual JWKS endpoint stays on a real
+ * `127.0.0.1:<port>` mock server.
+ */
+function setJwksUriCacheForTests(agsBaseUrl: string, jwksUri: string): void {
+  jwksUriCache.set(agsBaseUrl, {
+    jwksUri,
+    expiresAt: Date.now() + JWKS_URI_CACHE_TTL_MS,
+  });
+}
+
+/** Test-only seam: clear the JWKS-URI cache between cases. */
+function clearJwksUriCacheForTests(): void {
+  jwksUriCache.clear();
+  jwksClients.clear();
+}
+
 export default setAuthFromToken;
-export { prewarmJwksCache };
+export { prewarmJwksCache, setJwksUriCacheForTests, clearJwksUriCacheForTests };

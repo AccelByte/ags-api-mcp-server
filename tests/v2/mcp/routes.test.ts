@@ -207,12 +207,16 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
   });
 });
 
-describe("WWW-Authenticate header in standalone (non-hosted) mode", () => {
+describe("WWW-Authenticate header in standalone (non-hosted) mode with trusted proxy", () => {
   let standaloneServer: http.Server;
   let standaloneBaseUrl: string;
 
   before(async () => {
     const app = express();
+    // Operator-supplied trust proxy setting models a real reverse-proxy
+    // deployment. Without it, deriveBaseUrl ignores forwarded headers as a
+    // host-injection guard.
+    app.set("trust proxy", 1);
     app.use(express.json());
 
     registerMcpRoutes(
@@ -245,7 +249,7 @@ describe("WWW-Authenticate header in standalone (non-hosted) mode", () => {
       ),
   );
 
-  test("uses request-derived URL when X-Forwarded-Host present (proxy case)", async () => {
+  test("uses request-derived URL when X-Forwarded-Host present and proxy trusted", async () => {
     const proxyHost = "api.example.com";
 
     const res = await fetch(`${standaloneBaseUrl}/mcp`, {
@@ -295,6 +299,75 @@ describe("WWW-Authenticate header in standalone (non-hosted) mode", () => {
     assert.equal(res.status, 401);
     const wwwAuth = res.headers.get("www-authenticate");
     const match = wwwAuth!.match(/resource_metadata="([^"]+)"/);
+    assert.equal(
+      match![1],
+      `${MCP_SERVER_URL}/.well-known/oauth-protected-resource`,
+    );
+  });
+});
+
+describe("WWW-Authenticate header in standalone mode WITHOUT trusted proxy (host-injection guard)", () => {
+  // Guards the [HIGH] finding: when no proxy is trusted, deriveBaseUrl must
+  // ignore X-Forwarded-Host so an untrusted client cannot drive the
+  // resource_metadata URL that OAuth-discovering clients fetch.
+  let s: http.Server;
+  let url: string;
+
+  before(async () => {
+    const app = express();
+    // Deliberately do NOT call app.set("trust proxy", ...) — Express defaults
+    // to false, which is the secure default we want to verify.
+    app.use(express.json());
+    registerMcpRoutes(
+      app,
+      async () => {
+        throw new Error("factory should not be called for unauthenticated 401");
+      },
+      {
+        path: "/mcp",
+        enableAuth: true,
+        defaultAgsBaseUrl: AGS_BASE_URL,
+        mcpServerUrl: MCP_SERVER_URL,
+        hostedMode: false,
+      },
+    );
+    return new Promise<void>((resolve) => {
+      s = app.listen(0, "127.0.0.1", () => {
+        const addr = s.address() as { port: number };
+        url = `http://127.0.0.1:${addr.port}`;
+        resolve();
+      });
+    });
+  });
+
+  after(async () => new Promise<void>((resolve) => s.close(() => resolve())));
+
+  test("ignores X-Forwarded-Host from untrusted client and uses configured mcpServerUrl", async () => {
+    const attackerHost = "attacker.example.com";
+
+    const res = await fetch(`${url}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        "X-Forwarded-Host": attackerHost,
+        "X-Forwarded-Proto": "https",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "0" } },
+      }),
+    });
+
+    assert.equal(res.status, 401);
+    const wwwAuth = res.headers.get("www-authenticate");
+    const match = wwwAuth!.match(/resource_metadata="([^"]+)"/);
+    assert.ok(
+      !match![1].includes(attackerHost),
+      `URL must NOT contain attacker-supplied host (${attackerHost}), got: ${match![1]}`,
+    );
     assert.equal(
       match![1],
       `${MCP_SERVER_URL}/.well-known/oauth-protected-resource`,

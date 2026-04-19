@@ -96,6 +96,18 @@ function registerMcpRoutes(
     allowParentDomainIssuer = false,
   } = options;
 
+  // Co-located guard: hosted mode requires mcpServerUrl. Without this, the
+  // WWW-Authenticate header below would point at the X-Forwarded-Host (i.e.
+  // the upstream AGS host) where /.well-known/oauth-protected-resource does
+  // not exist. Fail at registration time rather than relying solely on the
+  // far-away config.ts startup check, so test/library callers also see it.
+  if (hostedMode && !mcpServerUrl) {
+    throw new Error(
+      "registerMcpRoutes: hostedMode=true requires mcpServerUrl to be set " +
+        "to the public URL clients use to reach this MCP server.",
+    );
+  }
+
   const postHandler = async (req: Request, res: Response) => {
     const { namespace }: { namespace?: string } = req.params;
 
@@ -126,7 +138,7 @@ function registerMcpRoutes(
       // document does not exist). Use the configured MCP server URL instead;
       // its presence in hosted mode is enforced by config.ts startup checks.
       const baseUrl = hostedMode
-        ? mcpServerUrl!
+        ? (mcpServerUrl as string)
         : deriveBaseUrl(req, mcpServerUrl || defaultAgsBaseUrl);
       const resourceMetadataPath = namespace
         ? `/.well-known/oauth-protected-resource/${namespace}`
