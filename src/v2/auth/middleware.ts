@@ -315,6 +315,13 @@ interface SetAuthFromTokenOptions {
   defaultAgsBaseUrl: string;
   /** Expected audience claim. If set, tokens without a matching `aud` are rejected. */
   audience?: string;
+  /**
+   * Allow the JWT `iss` claim to be a parent domain of the AGS base URL. Mirrors
+   * the same option in `resolveAgsHost` so the JWKS-verified issuer check here
+   * stays consistent with the host-resolver pre-check; otherwise enabling
+   * the flag in hosted mode passes the pre-check but still 401s here.
+   */
+  allowParentDomainIssuer?: boolean;
 }
 
 /**
@@ -384,7 +391,13 @@ function setAuthFromToken(options: SetAuthFromTokenOptions): RequestHandler {
         if (!decoded.iss) {
           throw new Error("Token is missing required 'iss' (issuer) claim");
         }
-        if (!validateUrlMatchesIssuer(agsBaseUrl, decoded.iss)) {
+        if (
+          !validateUrlMatchesIssuer(
+            agsBaseUrl,
+            decoded.iss,
+            options.allowParentDomainIssuer,
+          )
+        ) {
           throw new Error(
             `Token issuer '${decoded.iss}' does not match expected AGS environment '${agsBaseUrl}'`,
           );

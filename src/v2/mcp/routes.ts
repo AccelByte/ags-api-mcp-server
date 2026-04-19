@@ -60,6 +60,15 @@ interface RegisterMcpRoutesOptions {
    * `mcpServerUrl` directly rather than from request-derived headers.
    */
   hostedMode?: boolean;
+
+  /**
+   * Allow the JWT `iss` claim to be a parent domain of the derived AGS base
+   * URL. Threaded into the JWKS-verified issuer check in `setAuthFromToken`
+   * so the full authentication pipeline honors the same flag as the
+   * `resolveAgsHost` pre-check. Without this, enabling the flag in hosted
+   * mode passes the pre-check but still 401s in the middleware.
+   */
+  allowParentDomainIssuer?: boolean;
 }
 
 /**
@@ -84,6 +93,7 @@ function registerMcpRoutes(
     defaultAgsBaseUrl,
     mcpServerUrl,
     hostedMode = false,
+    allowParentDomainIssuer = false,
   } = options;
 
   const postHandler = async (req: Request, res: Response) => {
@@ -113,9 +123,10 @@ function registerMcpRoutes(
       // Construct resource_metadata URL for WWW-Authenticate header.
       // In hosted mode X-Forwarded-Host is overloaded to select the AGS env,
       // so deriveBaseUrl would return the AGS URL (where this metadata
-      // document does not exist). Use the configured MCP server URL instead.
+      // document does not exist). Use the configured MCP server URL instead;
+      // its presence in hosted mode is enforced by config.ts startup checks.
       const baseUrl = hostedMode
-        ? mcpServerUrl || deriveBaseUrl(req, defaultAgsBaseUrl)
+        ? mcpServerUrl!
         : deriveBaseUrl(req, mcpServerUrl || defaultAgsBaseUrl);
       const resourceMetadataPath = namespace
         ? `/.well-known/oauth-protected-resource/${namespace}`
@@ -169,6 +180,7 @@ function registerMcpRoutes(
         setAuthFromToken({
           defaultAgsBaseUrl:
             defaultAgsBaseUrl || "https://development.accelbyte.io",
+          allowParentDomainIssuer,
         }),
         postHandler,
       );

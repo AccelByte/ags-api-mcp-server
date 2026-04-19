@@ -25,7 +25,18 @@ let baseUrl: string;
 async function startServer(): Promise<void> {
   const app = express();
   app.use(express.json());
-  app.use(resolveAgsHost({ enabled: true, validateTokenIssuer: false }));
+  // validateTokenIssuer:false intentionally — these tests exercise URL
+  // construction in the WWW-Authenticate / oauth-protected-resource paths,
+  // which trigger before any token-issuer comparison and don't need a
+  // signed JWT. allowParentDomainIssuer defaults to false here for the
+  // same reason. End-to-end issuer checks live in host-resolver.test.ts.
+  app.use(
+    resolveAgsHost({
+      enabled: true,
+      validateTokenIssuer: false,
+      allowParentDomainIssuer: false,
+    }),
+  );
 
   registerOAuthRoutes(app, MCP_SERVER_URL, AGS_BASE_URL, {
     hostedMode: true,

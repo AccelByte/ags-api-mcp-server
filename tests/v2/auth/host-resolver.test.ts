@@ -274,12 +274,23 @@ test("validateUrlMatchesIssuer - flag honors deep subdomain (multiple labels)", 
 });
 
 // --- resolveAgsHost: interaction between validateTokenIssuer and
-//     allowParentDomainIssuer (issue surfaced by code review on PR #48) ---
+//     allowParentDomainIssuer (issue surfaced by code review on PR #48).
+//
+// IMPORTANT: these tests cover only the resolveAgsHost middleware stage
+// (the early host-vs-issuer pre-check). Full pipeline acceptance also
+// requires the JWKS-verified issuer check in setAuthFromToken to honor the
+// same flag — see SetAuthFromTokenOptions.allowParentDomainIssuer wired
+// from src/v2/index.ts via registerMcpRoutes. A 200 here does not by
+// itself prove that a real (signed, JWKS-verifiable) token would be
+// accepted end to end. ---
 
 describe("resolveAgsHost - allowParentDomainIssuer × validateTokenIssuer", () => {
   function makeBearer(claims: Record<string, unknown>): string {
-    // Unsigned token is fine here — resolveAgsHost only decodes (does not
-    // verify) to extract the iss claim. JWKS verification happens elsewhere.
+    // Resolves to a JWS-shaped token whose signature this test cannot verify
+    // (no JWKS, arbitrary HMAC secret). resolveAgsHost only base64-decodes
+    // the payload to read `iss`, so the signature is irrelevant here. The
+    // separate, JWKS-verified issuer check lives in setAuthFromToken and is
+    // exercised by the routes-level tests.
     return jwt.sign(claims, "test-secret");
   }
 

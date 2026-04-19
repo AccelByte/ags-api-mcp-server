@@ -105,6 +105,7 @@ function loadConfig(): Config {
       10,
     );
     let mcpServerUrl: string;
+    const mcpServerUrlExplicit = !!process.env.MCP_SERVER_URL;
 
     if (process.env.MCP_SERVER_URL) {
       mcpServerUrl = process.env.MCP_SERVER_URL;
@@ -162,6 +163,22 @@ function loadConfig(): Config {
       throw new Error(
         "MCP_AUTH_SERVER_DISCOVERY_MODE cannot be used with MCP_HOSTED=true. " +
           "The auth server discovery workaround is intended for local use only.",
+      );
+    }
+
+    // In hosted mode the MCP server URL must be set explicitly. The auto-derived
+    // value (http://localhost:<port>) would silently end up in the
+    // WWW-Authenticate header that OAuth-discovering clients fetch, undoing
+    // the very fix that introduced this code path. Fail loud at startup
+    // rather than emit a wrong URL on every 401.
+    if (config.hosted.enabled && !mcpServerUrlExplicit) {
+      throw new Error(
+        "MCP_HOSTED=true requires MCP_SERVER_URL to be set explicitly to the " +
+          "public URL clients use to reach this MCP server (e.g. " +
+          "http://localhost:3030 for a local Docker container, or " +
+          "https://mcp.example.com behind a public reverse proxy). Without " +
+          "it the WWW-Authenticate resource_metadata URL would point at the " +
+          "auto-derived hostname instead of the MCP server's real public URL.",
       );
     }
 

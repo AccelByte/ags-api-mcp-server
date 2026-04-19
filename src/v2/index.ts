@@ -38,6 +38,7 @@ registerMcpRoutes(app, mcpServerFactory, {
   defaultAgsBaseUrl: config.openapi.serverUrl,
   mcpServerUrl: config.mcp.serverUrl,
   hostedMode: config.hosted.enabled,
+  allowParentDomainIssuer: config.hosted.allowParentDomainIssuer,
 });
 
 // Root informational endpoint
