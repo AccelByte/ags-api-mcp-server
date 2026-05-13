@@ -152,6 +152,53 @@ describe("MCP server smoke tests", () => {
     }
   });
 
+  it("search-apis exposes the four afs operations", async () => {
+    await mcpRequest("initialize", {
+      protocolVersion: "2025-03-26",
+      capabilities: {},
+      clientInfo: { name: "smoke-test", version: "1.0.0" },
+    });
+
+    const res = await mcpRequest(
+      "tools/call",
+      {
+        name: "search-apis",
+        arguments: {
+          spec: "afs",
+          limit: 10,
+        },
+      },
+      21,
+    );
+
+    assert.ok(res.result, `Expected result, got: ${JSON.stringify(res)}`);
+
+    const result = res.result.structuredContent as {
+      matched: number;
+      results: Array<{ method: string; path: string }>;
+    };
+
+    assert.ok(result.matched >= 4, `Expected at least 4 matches, got ${result.matched}`);
+
+    const operations = new Set(
+      result.results.map((entry) => `${entry.method} ${entry.path}`),
+    );
+
+    const expectedOperations = [
+      "POST /afs/v1/admin/namespaces/{namespace}/queries",
+      "GET /afs/v1/admin/namespaces/{namespace}/queries/{id}",
+      "GET /afs/v1/admin/namespaces/{namespace}/tables",
+      "GET /afs/v1/admin/namespaces/{namespace}/tables/{database}/{table}",
+    ];
+
+    for (const operation of expectedOperations) {
+      assert.ok(
+        operations.has(operation),
+        `Missing afs operation: ${operation}. Got: ${Array.from(operations).join(", ")}`,
+      );
+    }
+  });
+
   it("resources/list returns expected resources", async () => {
     await mcpRequest("initialize", {
       protocolVersion: "2025-03-26",

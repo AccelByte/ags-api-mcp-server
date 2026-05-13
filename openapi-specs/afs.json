@@ -1,0 +1,745 @@
+{
+  "host": "demo.accelbyte.io",
+  "info": {
+    "description": "Proof-of-concept facade with an asynchronous, polled query lifecycle.\nRoutes follow the AGS admin-endpoint convention: {SERVER_BASE_PATH}/v1/admin/namespaces/{namespace}/...\nThe MCP server is the only intended client and is responsible for the poll loop.",
+    "title": "Athena Facade POC",
+    "version": "0.4.0"
+  },
+  "schemes": [
+    "https"
+  ],
+  "externalDocs": {
+    "description": "",
+    "url": ""
+  },
+  "securityDefinitions": {
+    "bearerAuth": {
+      "description": "AccelByte IAM JWT (RS256) validated against AB IAM's JWKS via the IAM Go SDK.",
+      "in": "header",
+      "name": "Authorization",
+      "type": "apiKey"
+    }
+  },
+  "swagger": "2.0",
+  "paths": {
+    "/afs/v1/admin/namespaces/{namespace}/context": {
+      "get": {
+        "description": "Returns Markdown by default; pass format=json for a JSON-wrapped response.",
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Set to json to get a JSON-wrapped response.",
+            "enum": [
+              "json"
+            ],
+            "in": "query",
+            "name": "format",
+            "type": "string"
+          },
+          {
+            "description": "ETag from a previous response; returns 304 if unchanged.",
+            "in": "header",
+            "name": "If-None-Match",
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "text/markdown"
+        ],
+        "responses": {
+          "200": {
+            "description": "Context document (Content-Type: text/markdown or application/json).",
+            "schema": {
+              "type": "object"
+            }
+          },
+          "304": {
+            "description": "Not Modified."
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Return the AGS API Events context document",
+        "tags": [
+          "context"
+        ],
+        "x-errorCodes": {}
+      }
+    },
+    "/afs/v1/admin/namespaces/{namespace}/queries": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "Returns 202 with query_id, or 200 with rows inline if the query terminates within the fast-path window.",
+        "parameters": [
+          {
+            "description": "Target namespace. Caller must have ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY permission.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Optional client-supplied idempotency key used as Athena ClientRequestToken.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "type": "string"
+          },
+          {
+            "description": "Query request",
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/handler.submitRequest"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Fast-path success: query reached a terminal state within wait_ms.",
+            "schema": {
+              "$ref": "#/definitions/handler.fetchResponse"
+            }
+          },
+          "202": {
+            "description": "Query submitted; poll GET .../queries/{id} for status.",
+            "schema": {
+              "$ref": "#/definitions/handler.submitAccepted"
+            }
+          },
+          "400": {
+            "description": "Bad request (invalid SQL, unknown database, malformed body).",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "413": {
+            "description": "SQL body exceeds the configured MAX_SQL_BYTES limit.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "500": {
+            "description": "Unexpected error.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Submit an Athena SQL query (async)",
+        "tags": [
+          "queries"
+        ],
+        "x-errorCodes": {}
+      }
+    },
+    "/afs/v1/admin/namespaces/{namespace}/queries/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "The query_id to cancel.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "204": {
+            "description": "Cancellation issued, or query already terminal."
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks permission, or caller is not the submitting tenant.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "404": {
+            "description": "Unknown query_id.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Cancel an in-flight query (idempotent)",
+        "tags": [
+          "queries"
+        ],
+        "x-errorCodes": {}
+      },
+      "get": {
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "The query_id returned by POST .../queries.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Max rows to return (1–10000, default 1000).",
+            "in": "query",
+            "name": "max_rows",
+            "type": "integer"
+          },
+          {
+            "description": "Opaque continuation token from a previous response's next_page_token.",
+            "in": "query",
+            "name": "page_token",
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Current state of the query. May still be RUNNING.",
+            "schema": {
+              "$ref": "#/definitions/handler.fetchResponse"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks permission, or caller is not the submitting tenant.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "404": {
+            "description": "Unknown or aged-out query_id.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Fetch query status and (if terminal) result rows",
+        "tags": [
+          "queries"
+        ],
+        "x-errorCodes": {}
+      }
+    },
+    "/afs/v1/admin/namespaces/{namespace}/tables": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Allowed database name.",
+            "in": "query",
+            "name": "database",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Case-insensitive substring filter on table name.",
+            "in": "query",
+            "name": "query",
+            "type": "string"
+          },
+          {
+            "description": "Pagination offset (default 0).",
+            "in": "query",
+            "name": "offset",
+            "type": "integer"
+          },
+          {
+            "description": "Page size (1–100, default 20).",
+            "in": "query",
+            "name": "limit",
+            "type": "integer"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of table summaries.",
+            "schema": {
+              "type": "object"
+            }
+          },
+          "400": {
+            "description": "Bad request (missing database, invalid pagination, disallowed database).",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "500": {
+            "description": "Unexpected error.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List or search tables in a database",
+        "tags": [
+          "tables"
+        ],
+        "x-errorCodes": {}
+      }
+    },
+    "/afs/v1/admin/namespaces/{namespace}/tables/{database}/{table}": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Allowed database name.",
+            "in": "path",
+            "name": "database",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Table name.",
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Full table metadata.",
+            "schema": {
+              "$ref": "#/definitions/glue.TableSummary"
+            }
+          },
+          "400": {
+            "description": "Database not in allowed list.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "404": {
+            "description": "Table not found.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "500": {
+            "description": "Unexpected error.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Describe a single table",
+        "tags": [
+          "tables"
+        ],
+        "x-errorCodes": {}
+      }
+    }
+  },
+  "definitions": {
+    "athena.Column": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "athena.Stats": {
+      "properties": {
+        "data_scanned_bytes": {
+          "type": "integer"
+        },
+        "engine_execution_time_ms": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "glue.Column": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "glue.ColumnHint": {
+      "properties": {
+        "aggregatable": {
+          "type": "boolean",
+          "x-omitempty": false
+        },
+        "known_values": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": false
+        },
+        "note": {
+          "type": "string"
+        },
+        "nullable": {
+          "type": "boolean",
+          "x-omitempty": false
+        },
+        "semantic_type": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "glue.FilterHint": {
+      "properties": {
+        "note": {
+          "type": "string"
+        },
+        "ops": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": false
+        },
+        "suggested_values": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": false
+        }
+      },
+      "type": "object"
+    },
+    "glue.Insights": {
+      "description": "Insights is the structured profiling block written by the profiling\nscript and stored in the table's Glue parameter \"ab_ai_table_profile\".\nPopulated only by DescribeTable; SearchTables omits it to keep list\nresponses small. See insights.go for the schema.",
+      "properties": {
+        "column_hints": {
+          "additionalProperties": {
+            "$ref": "#/definitions/glue.ColumnHint"
+          },
+          "type": "object"
+        },
+        "filters": {
+          "additionalProperties": {
+            "$ref": "#/definitions/glue.FilterHint"
+          },
+          "type": "object"
+        },
+        "joins": {
+          "items": {
+            "$ref": "#/definitions/glue.Join"
+          },
+          "type": "array",
+          "uniqueItems": false
+        },
+        "profiled_at": {
+          "type": "string"
+        },
+        "query_patterns": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": false
+        }
+      },
+      "type": "object"
+    },
+    "glue.Join": {
+      "properties": {
+        "on": {
+          "type": "string"
+        },
+        "table": {
+          "type": "string"
+        },
+        "useful_columns": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": false
+        }
+      },
+      "type": "object"
+    },
+    "glue.TableSummary": {
+      "properties": {
+        "columns": {
+          "items": {
+            "$ref": "#/definitions/glue.Column"
+          },
+          "type": "array",
+          "uniqueItems": false
+        },
+        "database": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "insights": {
+          "$ref": "#/definitions/glue.Insights"
+        },
+        "last_updated": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "number_of_rows": {
+          "type": "integer"
+        },
+        "partition_keys": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": false
+        },
+        "total_bytes": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "handler.errorBody": {
+      "properties": {
+        "error": {
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "trace_id": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "handler.fetchResponse": {
+      "properties": {
+        "columns": {
+          "items": {
+            "$ref": "#/definitions/athena.Column"
+          },
+          "type": "array",
+          "uniqueItems": false
+        },
+        "error": {
+          "$ref": "#/definitions/handler.queryErrorBody"
+        },
+        "finished_at": {
+          "type": "string"
+        },
+        "next_page_token": {
+          "type": "string"
+        },
+        "query_id": {
+          "type": "string"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "array",
+          "uniqueItems": false
+        },
+        "sql": {
+          "type": "string"
+        },
+        "stats": {
+          "$ref": "#/definitions/athena.Stats"
+        },
+        "status": {
+          "type": "string"
+        },
+        "submitted_at": {
+          "type": "string"
+        },
+        "truncated": {
+          "type": "boolean",
+          "x-omitempty": false
+        }
+      },
+      "type": "object"
+    },
+    "handler.queryErrorBody": {
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "handler.submitAccepted": {
+      "properties": {
+        "query_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "handler.submitRequest": {
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "max_rows": {
+          "type": "integer"
+        },
+        "sql": {
+          "type": "string"
+        },
+        "wait_ms": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "x-docs": {
+    "alias": "afs",
+    "host": "https://development.accelbyte.io",
+    "path": "/afs/openapi.json"
+  },
+  "x-version": {
+    "buildDate": "2026-05-12T08:40:05Z",
+    "gitHash": "6ede6b3",
+    "name": "athena-facade-api",
+    "version": "0.4.0",
+    "version-roles-seeding": "1.2.130"
+  }
+}
