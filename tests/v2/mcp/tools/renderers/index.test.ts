@@ -1,0 +1,104 @@
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
+import type {
+  RegisteredTool,
+  ToolCallback,
+} from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod/v3";
+
+import type { Config } from "../../../../../src/v2/config.js";
+import { setupRenderTools } from "../../../../../src/v2/mcp/tools/renderers/index.js";
+
+interface CapturedTool {
+  name: string;
+  config: Record<string, unknown>;
+  callback: ToolCallback<Record<string, z.ZodTypeAny>>;
+}
+
+function createCapturingServer(capturedTools: CapturedTool[]) {
+  return {
+    registerTool(
+      name: string,
+      config: Record<string, unknown>,
+      callback: ToolCallback<Record<string, z.ZodTypeAny>>,
+    ): RegisteredTool {
+      capturedTools.push({ name, config, callback });
+      return {} as RegisteredTool;
+    },
+  };
+}
+
+function createConfig(serverUrl: string): Config {
+  return {
+    mcp: {
+      port: 3000,
+      path: "/mcp",
+      serverUrl: "http://localhost:3000",
+      enableAuth: false,
+      authServerDiscoveryMode: "none",
+    },
+    openapi: {
+      specsDir: "/tmp/openapi-specs",
+      searchLimit: 10,
+      maxSearchLimit: 50,
+      runTimeoutMs: 15000,
+      maxRunTimeoutMs: 60000,
+      serverUrl,
+      includeWriteRequests: true,
+    },
+    runtime: {
+      nodeEnv: "development",
+      logLevel: "warn",
+    },
+    hosted: {
+      enabled: false,
+      validateTokenIssuer: true,
+      allowParentDomainIssuer: false,
+    },
+  } as Config;
+}
+
+describe("setupRenderTools", () => {
+  test("registers exactly 15 tools on each server instance without shared provider state", () => {
+    const firstServerTools: CapturedTool[] = [];
+    const secondServerTools: CapturedTool[] = [];
+
+    setupRenderTools(
+      createCapturingServer(firstServerTools) as never,
+      createConfig("https://first.example.com"),
+    );
+    setupRenderTools(
+      createCapturingServer(secondServerTools) as never,
+      createConfig("https://second.example.com"),
+    );
+
+    const expectedToolNames = [
+      "render_bar_chart",
+      "render_line_chart",
+      "render_area_chart",
+      "render_scatter_chart",
+      "render_histogram_chart",
+      "render_box_chart",
+      "render_heatmap_chart",
+      "render_pie_chart",
+      "render_donut_chart",
+      "render_waterfall_chart",
+      "render_funnel_chart",
+      "render_gauge_chart",
+      "render_state_timeline_chart",
+      "render_table",
+      "render_metric",
+    ];
+
+    assert.equal(firstServerTools.length, 15);
+    assert.equal(secondServerTools.length, 15);
+    assert.deepEqual(
+      firstServerTools.map((tool) => tool.name),
+      expectedToolNames,
+    );
+    assert.deepEqual(
+      secondServerTools.map((tool) => tool.name),
+      expectedToolNames,
+    );
+  });
+});

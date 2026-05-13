@@ -1,0 +1,57 @@
+// Copyright (c) 2025 AccelByte Inc. All Rights Reserved.
+// This is licensed software from AccelByte Inc, for limitations
+// and restrictions contact your company contract manager.
+
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+
+import type { Config } from "../../../config.js";
+import { createDirectProvider } from "../providers/direct.js";
+import { createFacadeProvider } from "../providers/facade.js";
+import { createProviderRegistry } from "../providers/registry.js";
+import { setupRenderAreaChart } from "./area.js";
+import { setupRenderBarChart } from "./bar.js";
+import { setupRenderBoxChart } from "./box.js";
+import { setupRenderDonutChart } from "./donut.js";
+import { setupRenderFunnelChart } from "./funnel.js";
+import { setupRenderGaugeChart } from "./gauge.js";
+import { setupRenderHeatmapChart } from "./heatmap.js";
+import { setupRenderHistogramChart } from "./histogram.js";
+import { setupRenderLineChart } from "./line.js";
+import { setupRenderMetric } from "./metric.js";
+import { setupRenderPieChart } from "./pie.js";
+import { setupRenderScatterChart } from "./scatter.js";
+import { setupRenderStateTimelineChart } from "./state-timeline.js";
+import { setupRenderTable } from "./table.js";
+import { setupRenderWaterfallChart } from "./waterfall.js";
+
+/**
+ * Single composition function. Every entry point gets the same 15 tools.
+ * No entry-point-specific registration.
+ */
+export function setupRenderTools(
+  server: McpServer,
+  effectiveConfig: Config,
+): void {
+  const registry = createProviderRegistry([
+    createFacadeProvider(effectiveConfig),
+    createDirectProvider(),
+  ]);
+
+  setupRenderBarChart(server, registry);
+  setupRenderLineChart(server, registry);
+  setupRenderAreaChart(server, registry);
+  setupRenderScatterChart(server, registry);
+  setupRenderHistogramChart(server, registry);
+  setupRenderBoxChart(server, registry);
+  setupRenderHeatmapChart(server, registry);
+  setupRenderPieChart(server, registry);
+  setupRenderDonutChart(server, registry);
+  setupRenderWaterfallChart(server, registry);
+  setupRenderFunnelChart(server, registry);
+  setupRenderGaugeChart(server, registry);
+  setupRenderStateTimelineChart(server, registry);
+  setupRenderTable(server, registry);
+  setupRenderMetric(server, registry);
+}
+
+export default setupRenderTools;

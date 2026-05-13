@@ -1,0 +1,40 @@
+// Copyright (c) 2025 AccelByte Inc. All Rights Reserved.
+// This is licensed software from AccelByte Inc, for limitations
+// and restrictions contact your company contract manager.
+
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod/v3";
+
+import { TableOutputSchema } from "../../../shared/render-schemas.js";
+import type { ProviderRegistry } from "../providers/registry.js";
+import { defineRenderTool } from "./define.js";
+
+export function setupRenderTable(
+  server: McpServer,
+  registry: ProviderRegistry,
+): void {
+  defineRenderTool({
+    server,
+    registry,
+    name: "render_table",
+    title: "Render Table",
+    description:
+      'Render a query result as a paginated table. Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="direct" only for small inline datasets.',
+    chartType: "table",
+    outputSchema: TableOutputSchema,
+    optionFields: {
+      columns_order: z
+        .array(z.string())
+        .optional()
+        .describe("Optional explicit display order for table columns."),
+      page_size: z.number().int().min(1).max(500).default(50),
+    },
+    mapInputToOptions: (input) => ({
+      columns_order: input.columns_order,
+      page_size: input.page_size,
+    }),
+  });
+}
+
+export default setupRenderTable;
