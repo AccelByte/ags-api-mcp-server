@@ -122,11 +122,12 @@ function registerMcpRoutes(
     if (enableAuth && !(req as Request & { auth?: AuthInfo }).auth) {
       const authHeader = req.headers.authorization;
       const parsed = parseAuthorizationHeader(authHeader);
-      const reason = !authHeader
-        ? "missing_authorization_header"
-        : parsed?.scheme !== "bearer"
-          ? "unsupported_auth_scheme"
-          : "auth_verification_failed";
+      let reason = "auth_verification_failed";
+      if (!authHeader) {
+        reason = "missing_authorization_header";
+      } else if (parsed?.scheme !== "bearer") {
+        reason = "unsupported_auth_scheme";
+      }
       securityLog.authFailure({
         ip: req.ip,
         reason,

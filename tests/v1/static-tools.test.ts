@@ -1,6 +1,6 @@
 import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { StaticTools } from '../src/tools/static-tools';
+import { StaticTools } from '../../src/tools/static-tools';
 
 const tools = new StaticTools();
 
@@ -75,7 +75,7 @@ test('logout clears session tokens successfully', async () => {
   const tools = new StaticTools();
   
   // Import session manager to set up a test session
-  const { sessionManager } = await import('../src/session-manager');
+  const { sessionManager } = await import('../../src/session-manager');
   
   const sessionToken = 'test-logout-token-123';
   sessionManager.createSessionWithToken(sessionToken, 'http://localhost:3000');

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OTPManager } from '../src/otp-manager';
+import { OTPManager } from '../../src/otp-manager';
 
 test('OTPManager - generateOTP creates valid OTP token', () => {
   const manager = new OTPManager();

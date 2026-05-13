@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SessionManager } from '../src/session-manager';
+import { SessionManager } from '../../src/session-manager';
 
 test('SessionManager - createSession generates valid session', () => {
   const manager = new SessionManager();

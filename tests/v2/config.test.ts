@@ -37,6 +37,7 @@ function runConfigImport(envOverrides: Record<string, string | undefined>): RunR
       k.startsWith("AB_") ||
       k.startsWith("ALLOW_") ||
       k === "TRUST_PROXY" ||
+      k === "NODE_ENV" ||
       k === "PORT" ||
       k === "INCLUDE_WRITE_REQUESTS"
     ) {
@@ -44,6 +45,9 @@ function runConfigImport(envOverrides: Record<string, string | undefined>): RunR
     }
     if (v !== undefined) baseEnv[k] = v;
   }
+  baseEnv.NODE_ENV = "production";
+  baseEnv.LOG_LEVEL = "info";
+  baseEnv.MCP_AUTH_SERVER_DISCOVERY_MODE = "none";
   for (const [k, v] of Object.entries(envOverrides)) {
     if (v === undefined) {
       delete baseEnv[k];

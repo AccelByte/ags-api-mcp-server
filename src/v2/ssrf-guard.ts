@@ -60,7 +60,7 @@ export function extractIPv4FromMappedIPv6(hostname: string): string | null {
   if (hexMatch) {
     const hi = parseInt(hexMatch[1], 16);
     const lo = parseInt(hexMatch[2], 16);
-    return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+    return `${Math.floor(hi / 256)}.${hi % 256}.${Math.floor(lo / 256)}.${lo % 256}`;
   }
 
   // Defensive: match dotted-decimal form [::ffff:A.B.C.D] in case the URL
@@ -110,7 +110,7 @@ export async function assertNotPrivateUrl(url: URL): Promise<void> {
   // Fast path: static hostname/IP pattern check
   assertNotPrivateHostname(url);
 
-  const hostname = url.hostname;
+  const { hostname } = url;
   const isIP =
     /^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname.startsWith("[");
 
@@ -135,27 +135,25 @@ export async function assertNotPrivateUrl(url: URL): Promise<void> {
     const [v4Addrs, v6Addrs] = await Promise.race([dnsPromise, timeoutPromise]);
     clearTimeout(dnsTimeoutId);
 
-    for (const addr of v4Addrs) {
-      if (isPrivateIPv4(addr)) {
-        throw new Error(
-          `Refusing to fetch from private/internal address: '${hostname}' resolves to ${addr}`,
-        );
-      }
+    const privateV4Addr = v4Addrs.find((addr) => isPrivateIPv4(addr));
+    if (privateV4Addr) {
+      throw new Error(
+        `Refusing to fetch from private/internal address: '${hostname}' resolves to ${privateV4Addr}`,
+      );
     }
 
-    for (const addr of v6Addrs) {
+    const privateV6Addr = v6Addrs.find((addr) => {
       const bracketed = `[${addr}]`;
       const mapped = extractIPv4FromMappedIPv6(bracketed);
-      if (mapped && isPrivateIPv4(mapped)) {
-        throw new Error(
-          `Refusing to fetch from private/internal address: '${hostname}' resolves to ${addr}`,
-        );
-      }
-      if (PRIVATE_OTHER_PATTERNS.some((p) => p.test(bracketed))) {
-        throw new Error(
-          `Refusing to fetch from private/internal address: '${hostname}' resolves to ${addr}`,
-        );
-      }
+      return (
+        (mapped && isPrivateIPv4(mapped)) ||
+        PRIVATE_OTHER_PATTERNS.some((p) => p.test(bracketed))
+      );
+    });
+    if (privateV6Addr) {
+      throw new Error(
+        `Refusing to fetch from private/internal address: '${hostname}' resolves to ${privateV6Addr}`,
+      );
     }
   } catch (err) {
     clearTimeout(dnsTimeoutId);

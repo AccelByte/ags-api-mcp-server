@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MCPServer } from '../src/mcp-server';
-import { createMockRequest, createMockResponse } from './helpers/mock-express';
+import { MCPServer } from '../../src/mcp-server';
+import { createMockRequest, createMockResponse } from '../helpers/mock-express';
 
 test('handleRequest rejects requests without JSON-RPC 2.0', async () => {
   const server = new MCPServer();
