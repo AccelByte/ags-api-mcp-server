@@ -2,66 +2,82 @@
 // This is licensed software from AccelByte Inc, for limitations
 // and restrictions contact your company contract manager.
 
+import { toRows } from "./coerce.js";
+import { filterRows } from "./filter.js";
+import { mountChart } from "./base.js";
 import type { RenderOutput } from "../../shared/render-schemas.js";
+import { renderArea } from "./charts/area.js";
+import { renderBar } from "./charts/bar.js";
+import { renderBox } from "./charts/box.js";
+import { renderHistogram } from "./charts/histogram.js";
+import { renderLine } from "./charts/line.js";
+import { renderScatter } from "./charts/scatter.js";
 
 type ChartPayload = Exclude<
   RenderOutput,
   { chart_type: "table" } | { chart_type: "metric" }
 >;
 
-function appendHeader(
-  container: HTMLElement,
-  title?: string,
-  description?: string,
+function renderPlaceholder(
+  container: HTMLDivElement,
+  chartType: ChartPayload["chart_type"],
+  columnCount: number,
+  rowCount: number,
 ): void {
-  const header = document.createElement("section");
-  header.className = "renderer-shell";
-
-  const titleElement = document.createElement("div");
-  titleElement.className = "renderer-header";
-
-  const heading = document.createElement("h1");
-  heading.className = "renderer-title";
-  heading.textContent = title ?? "Analytics visualization";
-  titleElement.appendChild(heading);
-
-  if (description) {
-    const body = document.createElement("p");
-    body.className = "renderer-description";
-    body.textContent = description;
-    titleElement.appendChild(body);
-  }
-
-  header.appendChild(titleElement);
-  container.appendChild(header);
-}
-
-export function renderChart(root: HTMLElement, payload: ChartPayload): void {
-  root.replaceChildren();
-  appendHeader(root, payload.title, payload.description);
-
-  const shell = root.querySelector(".renderer-shell");
-  if (!(shell instanceof HTMLElement)) {
-    throw new Error("Renderer shell did not mount.");
-  }
-
   const summary = document.createElement("p");
   summary.className = "renderer-summary";
-  summary.textContent = `${payload.data.columns.length} columns, ${payload.data.rows.length} rows available for ${payload.chart_type.replaceAll("_", " ")} rendering.`;
-  shell.appendChild(summary);
+  summary.textContent = `${columnCount} columns, ${rowCount} rows available for ${chartType.replaceAll("_", " ")} rendering.`;
+  container.appendChild(summary);
 
   const placeholder = document.createElement("section");
   placeholder.className = "renderer-placeholder";
 
   const badge = document.createElement("div");
   badge.className = "renderer-badge";
-  badge.textContent = "Phase 7 shell";
+  badge.textContent = "Phase 9 partial";
   placeholder.appendChild(badge);
 
   const body = document.createElement("p");
   body.textContent =
-    "Interactive chart rendering will land in Phases 8 through 10. This placeholder keeps the renderer shell, host-theme wiring, and bundle pipeline compiling.";
+    "This chart type is scheduled for the next renderer phase. The dataset has been parsed, filtered, and is ready for the specialized view.";
   placeholder.appendChild(body);
 
-  shell.appendChild(placeholder);
+  container.appendChild(placeholder);
+}
+
+export function renderChart(root: HTMLElement, payload: ChartPayload): void {
+  root.replaceChildren();
+
+  const rows = filterRows(
+    toRows(payload.data.columns, payload.data.rows, payload.column_hints ?? {}),
+    payload.filters ?? [],
+  );
+  const container = mountChart(root, payload.title, payload.description);
+
+  const view =
+    payload.chart_type === "bar"
+      ? renderBar(rows, payload.options)
+      : payload.chart_type === "line"
+        ? renderLine(rows, payload.options)
+        : payload.chart_type === "area"
+          ? renderArea(rows, payload.options)
+          : payload.chart_type === "scatter"
+            ? renderScatter(rows, payload.options)
+            : payload.chart_type === "histogram"
+              ? renderHistogram(rows, payload.options)
+              : payload.chart_type === "box"
+                ? renderBox(rows, payload.options)
+                : undefined;
+
+  if (view) {
+    container.appendChild(view);
+    return;
+  }
+
+  renderPlaceholder(
+    container,
+    payload.chart_type,
+    payload.data.columns.length,
+    rows.length,
+  );
 }
