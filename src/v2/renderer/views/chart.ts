@@ -9,40 +9,24 @@ import type { RenderOutput } from "../../shared/render-schemas.js";
 import { renderArea } from "./charts/area.js";
 import { renderBar } from "./charts/bar.js";
 import { renderBox } from "./charts/box.js";
+import { renderDonut } from "./charts/donut.js";
+import { renderFunnel } from "./charts/funnel.js";
+import { renderGauge } from "./charts/gauge.js";
+import { renderHeatmap } from "./charts/heatmap.js";
 import { renderHistogram } from "./charts/histogram.js";
 import { renderLine } from "./charts/line.js";
+import { renderPie } from "./charts/pie.js";
 import { renderScatter } from "./charts/scatter.js";
+import { renderStateTimeline } from "./charts/state-timeline.js";
+import { renderWaterfall } from "./charts/waterfall.js";
 
 type ChartPayload = Exclude<
   RenderOutput,
   { chart_type: "table" } | { chart_type: "metric" }
 >;
 
-function renderPlaceholder(
-  container: HTMLDivElement,
-  chartType: ChartPayload["chart_type"],
-  columnCount: number,
-  rowCount: number,
-): void {
-  const summary = document.createElement("p");
-  summary.className = "renderer-summary";
-  summary.textContent = `${columnCount} columns, ${rowCount} rows available for ${chartType.replaceAll("_", " ")} rendering.`;
-  container.appendChild(summary);
-
-  const placeholder = document.createElement("section");
-  placeholder.className = "renderer-placeholder";
-
-  const badge = document.createElement("div");
-  badge.className = "renderer-badge";
-  badge.textContent = "Phase 9 partial";
-  placeholder.appendChild(badge);
-
-  const body = document.createElement("p");
-  body.textContent =
-    "This chart type is scheduled for the next renderer phase. The dataset has been parsed, filtered, and is ready for the specialized view.";
-  placeholder.appendChild(body);
-
-  container.appendChild(placeholder);
+function assertNever(value: never): never {
+  throw new Error(`Unsupported chart type: ${String(value)}`);
 }
 
 export function renderChart(root: HTMLElement, payload: ChartPayload): void {
@@ -53,31 +37,51 @@ export function renderChart(root: HTMLElement, payload: ChartPayload): void {
     payload.filters ?? [],
   );
   const container = mountChart(root, payload.title, payload.description);
+  let view: SVGElement | HTMLElement;
 
-  const view =
-    payload.chart_type === "bar"
-      ? renderBar(rows, payload.options)
-      : payload.chart_type === "line"
-        ? renderLine(rows, payload.options)
-        : payload.chart_type === "area"
-          ? renderArea(rows, payload.options)
-          : payload.chart_type === "scatter"
-            ? renderScatter(rows, payload.options)
-            : payload.chart_type === "histogram"
-              ? renderHistogram(rows, payload.options)
-              : payload.chart_type === "box"
-                ? renderBox(rows, payload.options)
-                : undefined;
-
-  if (view) {
-    container.appendChild(view);
-    return;
+  switch (payload.chart_type) {
+    case "bar":
+      view = renderBar(rows, payload.options);
+      break;
+    case "line":
+      view = renderLine(rows, payload.options);
+      break;
+    case "area":
+      view = renderArea(rows, payload.options);
+      break;
+    case "scatter":
+      view = renderScatter(rows, payload.options);
+      break;
+    case "histogram":
+      view = renderHistogram(rows, payload.options);
+      break;
+    case "box":
+      view = renderBox(rows, payload.options);
+      break;
+    case "heatmap":
+      view = renderHeatmap(rows, payload.options);
+      break;
+    case "pie":
+      view = renderPie(rows, payload.options);
+      break;
+    case "donut":
+      view = renderDonut(rows, payload.options);
+      break;
+    case "waterfall":
+      view = renderWaterfall(rows, payload.options);
+      break;
+    case "funnel":
+      view = renderFunnel(rows, payload.options);
+      break;
+    case "gauge":
+      view = renderGauge(rows, payload.options);
+      break;
+    case "state_timeline":
+      view = renderStateTimeline(rows, payload.options);
+      break;
+    default:
+      return assertNever(payload);
   }
 
-  renderPlaceholder(
-    container,
-    payload.chart_type,
-    payload.data.columns.length,
-    rows.length,
-  );
+  container.appendChild(view);
 }
