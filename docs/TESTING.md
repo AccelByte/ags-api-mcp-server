@@ -32,6 +32,29 @@ pnpm test -- --watch
 NODE_ENV=test node --import tsx --test tests/config.test.ts
 ```
 
+### Smoke Test
+
+```bash
+pnpm build
+pnpm test:smoke
+```
+
+### Analytics E2E
+
+```bash
+RUN_E2E=1 \
+E2E_BEARER_TOKEN=your_token \
+E2E_NAMESPACE=your_namespace \
+E2E_DATABASE=default \
+pnpm test:analytics-e2e
+```
+
+Notes:
+- `RUN_E2E=1` enables the test; otherwise it skips
+- `E2E_BEARER_TOKEN` and `E2E_NAMESPACE` are required
+- `E2E_DATABASE` defaults to `default`
+- `AB_BASE_URL` should point at the environment that issued the token
+
 ### With Coverage
 
 ```bash
@@ -53,6 +76,11 @@ tests/
 │   └── sample-api.yaml              # Sample OpenAPI spec for tests
 ├── helpers/
 │   └── mock-express.ts              # Express mocking utilities
+├── v2/
+│   ├── smoke.test.ts                # Built-server smoke test
+│   ├── analytics-e2e.test.ts        # Real Athena Facade E2E (gated)
+│   ├── mcp/                         # V2 MCP unit tests
+│   └── renderer/                    # Renderer and view-helper tests
 └── v1/                              # V1-specific tests
     ├── mcp-server.test.ts           # MCP server tests
     ├── http-server-error-handling.test.ts
@@ -62,6 +90,18 @@ tests/
     ├── test-server.js               # V1 test server
     └── test-streamable-http.js      # Streamable HTTP test
 ```
+
+---
+
+## Analytics Test Layers
+
+The analytics work adds three useful layers:
+
+1. Unit tests for providers and render-tool handlers under `tests/v2/mcp/tools/**`
+2. Renderer helper and chart-view tests under `tests/v2/renderer/**`
+3. A built-server smoke test in `tests/v2/smoke.test.ts`, plus an optional real-environment E2E in `tests/v2/analytics-e2e.test.ts`
+
+The smoke test verifies the 15 render tools, the `ui://renderer/index.html` resource, renderer metadata, and one direct-provider render call. The E2E test exercises Athena Facade through `run-apis` and the `facade` render-provider path.
 
 ---
 

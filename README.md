@@ -305,6 +305,23 @@ Execute API requests against AccelByte endpoints. The server handles:
 
 **Example usage**: "Get my user profile" or "List all items in my inventory".
 
+## Analytics & Visualization
+
+V2 also exposes 15 render tools for turning tabular data into charts, tables, and metrics inside MCP hosts that support app resources:
+- `render_bar_chart`, `render_line_chart`, `render_area_chart`, `render_scatter_chart`, `render_histogram_chart`, `render_box_chart`, `render_heatmap_chart`
+- `render_pie_chart`, `render_donut_chart`, `render_waterfall_chart`, `render_funnel_chart`, `render_gauge_chart`, `render_state_timeline_chart`
+- `render_table`, `render_metric`
+
+All render tools require a `provider`:
+- `provider="facade"` reads Athena Facade results by `query_id` + `namespace`, using the same effective base URL as `run-apis`
+- `provider="direct"` renders small inline datasets from `data_columns` + `data_rows`
+
+The Athena Facade APIs are available through the `afs` OpenAPI spec, so the common flow is:
+1. Use `run-apis` to submit or poll a query
+2. Pass the resulting `query_id` to a `render_*` tool with `provider="facade"`
+
+See [docs/API_REFERENCE.md](docs/API_REFERENCE.md) for the render-tool inputs, the `ui://renderer/index.html` resource, and the Athena Facade operation list.
+
 ### Workflow Support
 
 The server also provides workflow resources and prompts for running predefined workflows. Ask your AI assistant about available workflows or use the `run-workflow` prompt.

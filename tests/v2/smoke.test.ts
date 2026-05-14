@@ -4,9 +4,11 @@
  * Starts the V2 server (auth disabled) and verifies:
  *  1. Health endpoint responds
  *  2. MCP initialize handshake succeeds
- *  3. tools/list returns expected tools
+ *  3. tools/list returns expected tools and renderer metadata
  *  4. resources/list returns expected resources
- *  5. prompts/list returns expected prompts
+ *  5. resources/read returns the renderer bundle
+ *  6. prompts/list returns expected prompts
+ *  7. render_bar_chart works end-to-end with provider="direct"
  *
  * Run:  pnpm test:smoke
  */
@@ -15,9 +17,35 @@ import { describe, it, after, before } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 
+import { RENDERER_RESOURCE_URI } from "../../src/v2/mcp/renderer-resource.js";
+import { BUNDLE_VERSION } from "../../src/v2/shared/render-schemas.js";
+
 const PORT = 9876; // Use a non-default port to avoid conflicts
 const BASE = `http://localhost:${PORT}`;
 const MCP_URL = `${BASE}/mcp`;
+const RENDER_TOOL_NAMES = [
+  "render_bar_chart",
+  "render_line_chart",
+  "render_area_chart",
+  "render_scatter_chart",
+  "render_histogram_chart",
+  "render_box_chart",
+  "render_heatmap_chart",
+  "render_pie_chart",
+  "render_donut_chart",
+  "render_waterfall_chart",
+  "render_funnel_chart",
+  "render_gauge_chart",
+  "render_state_timeline_chart",
+  "render_table",
+  "render_metric",
+] as const;
+const CORE_TOOL_NAMES = [
+  "search-apis",
+  "describe-apis",
+  "run-apis",
+  "get_token_info",
+] as const;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -137,19 +165,39 @@ describe("MCP server smoke tests", () => {
     const res = await mcpRequest("tools/list", {}, 2);
     assert.ok(res.result, `Expected result, got: ${JSON.stringify(res)}`);
 
-    const toolNames = res.result.tools.map((t: { name: string }) => t.name);
-    const expectedTools = [
-      "search-apis",
-      "describe-apis",
-      "run-apis",
-      "get_token_info",
-    ];
+    const tools = res.result.tools as Array<{
+      name: string;
+      _meta?: { ui?: { resourceUri?: string } };
+    }>;
+    const toolNames = tools.map((tool) => tool.name);
+    const expectedTools = [...CORE_TOOL_NAMES, ...RENDER_TOOL_NAMES];
     for (const name of expectedTools) {
       assert.ok(
         toolNames.includes(name),
         `Missing tool: ${name}. Got: ${toolNames}`,
       );
     }
+
+    const renderBarTool = tools.find((tool) => tool.name === "render_bar_chart");
+    assert.ok(renderBarTool, "Expected render_bar_chart to be registered.");
+    assert.equal(
+      renderBarTool._meta?.ui?.resourceUri,
+      RENDERER_RESOURCE_URI,
+    );
+
+    const totalPayloadBytes = Buffer.byteLength(JSON.stringify(tools), "utf8");
+    const corePayloadBytes = Buffer.byteLength(
+      JSON.stringify(tools.filter((tool) => !tool.name.startsWith("render_"))),
+      "utf8",
+    );
+    const renderPayloadBytes = Buffer.byteLength(
+      JSON.stringify(tools.filter((tool) => tool.name.startsWith("render_"))),
+      "utf8",
+    );
+
+    console.info(
+      `[smoke] tools/list payload bytes: total=${totalPayloadBytes} core=${corePayloadBytes} render=${renderPayloadBytes}`,
+    );
   });
 
   it("search-apis exposes the four afs operations", async () => {
@@ -216,6 +264,7 @@ describe("MCP server smoke tests", () => {
       "resource://workflows/schema",
       "resource://workflows/technical-specification",
       "resource://workflows",
+      RENDERER_RESOURCE_URI,
     ];
     for (const uri of expectedResources) {
       assert.ok(
@@ -223,6 +272,78 @@ describe("MCP server smoke tests", () => {
         `Missing resource: ${uri}. Got: ${resourceUris}`,
       );
     }
+
+    const rendererResource = (
+      res.result.resources as Array<{
+        uri: string;
+        _meta?: Record<string, unknown>;
+      }>
+    ).find((resource) => resource.uri === RENDERER_RESOURCE_URI);
+    assert.ok(rendererResource, "Expected renderer resource to be listed.");
+    assert.equal(
+      rendererResource._meta?.["ags/bundleVersion"],
+      BUNDLE_VERSION,
+    );
+  });
+
+  it("resources/read returns the renderer bundle", async () => {
+    await mcpRequest("initialize", {
+      protocolVersion: "2025-03-26",
+      capabilities: {},
+      clientInfo: { name: "smoke-test", version: "1.0.0" },
+    });
+
+    const res = await mcpRequest(
+      "resources/read",
+      { uri: RENDERER_RESOURCE_URI },
+      31,
+    );
+    assert.ok(res.result, `Expected result, got: ${JSON.stringify(res)}`);
+
+    const contents = res.result.contents as Array<{
+      uri: string;
+      text?: string;
+    }>;
+    assert.equal(contents[0]?.uri, RENDERER_RESOURCE_URI);
+    assert.ok(contents[0]?.text);
+    assert.match(contents[0]?.text ?? "", /<main id="app"><\/main>/);
+  });
+
+  it('render_bar_chart returns a bar payload for provider="direct"', async () => {
+    await mcpRequest("initialize", {
+      protocolVersion: "2025-03-26",
+      capabilities: {},
+      clientInfo: { name: "smoke-test", version: "1.0.0" },
+    });
+
+    const res = await mcpRequest(
+      "tools/call",
+      {
+        name: "render_bar_chart",
+        arguments: {
+          provider: "direct",
+          data_columns: [
+            { name: "category", type: "string" },
+            { name: "value", type: "number" },
+          ],
+          data_rows: [
+            ["alpha", "3"],
+            ["beta", "8"],
+          ],
+          x: "category",
+          y: "value",
+        },
+      },
+      32,
+    );
+    assert.ok(res.result, `Expected result, got: ${JSON.stringify(res)}`);
+
+    const structured = res.result.structuredContent as {
+      chart_type: string;
+      data: { rows: string[][] };
+    };
+    assert.equal(structured.chart_type, "bar");
+    assert.ok(structured.data.rows.length > 0);
   });
 
   it("prompts/list returns expected prompts", async () => {

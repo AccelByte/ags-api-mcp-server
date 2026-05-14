@@ -7,6 +7,7 @@
 
 ### Added
 - **`ALLOW_PARENT_DOMAIN_ISSUER`** env var (default `false`): opt-in for AGS deployments where a single OAuth authorization server signs tokens for multiple subdomain environments (e.g. issuer `internal.gamingservices.accelbyte.io` issuing for `<env>.internal.gamingservices.accelbyte.io`). Only loosens the host-equality check; signature verification against the issuer's JWKS is unchanged. Strict-subdomain match required — bare suffix matches and issuers with paths are still rejected. See `docs/ENVIRONMENT_VARIABLES.md`.
+- **Analytics and visualization MCP surface**: added 15 `render_*` tools, Athena Facade (`afs`) integration through `run-apis`, and the `ui://renderer/index.html` MCP app resource backed by the V2 renderer bundle. `ENABLE_RENDER_TOOLS` is the operational rollback flag.
 
 ---
 

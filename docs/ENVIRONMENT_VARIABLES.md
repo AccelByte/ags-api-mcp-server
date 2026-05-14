@@ -17,7 +17,7 @@ See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for the V2 stateless, HTTP-only arc
 - **Example**: `https://yourgame.accelbyte.io`
 - **Default**: `https://development.accelbyte.io`
 - **Required**: No (but strongly recommended for non-development environments)
-- **Note**: Used for API calls to AccelByte services. If not set, defaults to the AccelByte development environment. Always set this explicitly in staging and production to avoid unintended API calls to the wrong environment.
+- **Note**: Used for API calls to AccelByte services, including Athena Facade requests when render tools use `provider="facade"`. If not set, defaults to the AccelByte development environment. Always set this explicitly in staging and production to avoid unintended API calls to the wrong environment.
 
 ---
 
@@ -64,6 +64,13 @@ See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for the V2 stateless, HTTP-only arc
 # Disable auth for local testing (not recommended for production)
 export MCP_AUTH=false
 ```
+
+### `ENABLE_RENDER_TOOLS`
+- **Description**: Enable analytics render tools and the renderer app resource
+- **Default**: `true`
+- **Required**: No
+- **Options**: `true`, `false`
+- **Note**: This is the only new analytics-related server environment variable. Set to `false` as an operational rollback switch to suppress all 15 `render_*` tools and `ui://renderer/index.html`.
 
 ### `MCP_AUTH_SERVER_DISCOVERY_MODE`
 - **Description**: OAuth authorization server discovery workaround mode for MCP clients that don't support cross-host discovery (e.g., VS Code)
@@ -497,4 +504,3 @@ export MCP_PORT=3001
 - [Quick Start Guide](QUICK_START.md)
 - [API Reference](API_REFERENCE.md)
 - [V1 Environment Variables](v1/ENVIRONMENT_VARIABLES.md) (legacy)
-

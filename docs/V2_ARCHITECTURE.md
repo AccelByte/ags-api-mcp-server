@@ -119,6 +119,7 @@ Per [MCP Specification](https://modelcontextprotocol.io/specification/2025-11-25
 | `search-apis` | ✅ | ✅ | ✅ **Improved** | Zod validation, output schema |
 | `describe-apis` | ✅ | ✅ | ✅ **Improved** | Zod validation, output schema |
 | `run-apis` | ✅ | ✅ | ✅ **Improved** | User consent via elicitation |
+| `render_*` (15 analytics tools) | ❌ | ✅ | ✅ **Added** | Charts, tables, and metrics backed by provider-based data resolution |
 
 ### MCP Prompts
 
@@ -133,6 +134,7 @@ Per [MCP Specification](https://modelcontextprotocol.io/specification/2025-11-25
 | `resource://workflows/schema` | ✅ | ✅ | ✅ **Ported** |
 | `resource://workflows/technical-specification` | ✅ | ✅ | ✅ **Ported** |
 | `resource://workflows` | ✅ | ✅ | ✅ **Ported** |
+| `ui://renderer/index.html` | ❌ | ✅ | ✅ **Added** | Single-file MCP app renderer bundle for analytics views |
 
 ### HTTP Endpoints
 
@@ -182,6 +184,7 @@ Per [MCP Specification](https://modelcontextprotocol.io/specification/2025-11-25
 | **V2-Specific** |
 | MCP path | ❌ | `MCP_PATH` | Default `/mcp` |
 | Auth enabled | ❌ | `MCP_AUTH` | Toggle authentication |
+| Render tools enabled | ❌ | `ENABLE_RENDER_TOOLS` | Operational rollback flag for analytics tools/resources |
 
 ### V2 Improvements
 
@@ -195,8 +198,42 @@ Per [MCP Specification](https://modelcontextprotocol.io/specification/2025-11-25
 | **Configurable Limits** | Max search results, timeouts enforced |
 | **Error Codes** | Proper McpError with ErrorCode enums |
 | **Structured Responses** | Both text content and structuredContent |
+| **Analytics Render Tools** | 15 MCP tools render charts, tables, and metrics from Athena Facade or inline data |
+| **Renderer Resource** | `ui://renderer/index.html` is registered through `@modelcontextprotocol/ext-apps` and cached server-side |
+| **Bundle Version Handshake** | Shared `BUNDLE_VERSION` detects stale host-cached renderer bundles |
 | **Request ID Support** | Ready for distributed tracing (TODO) |
 | **Rate Limiting** | 1000 req/15min by default |
+
+---
+
+## Analytics & Visualization Architecture
+
+V2 now has a second tool family alongside the core OpenAPI tools:
+- `run-apis` still exposes raw HTTP access to all loaded specs, including `afs.json`
+- 15 `render_*` tools resolve tabular data through a provider registry and emit strict `structuredContent` payloads for the browser bundle
+
+### Provider Routing
+
+Each request-scoped server instance builds its own provider registry:
+- `facade` resolves `query_id` + `namespace` against the Athena Facade using the per-request effective AGS base URL
+- `direct` accepts inline `data_columns` + `data_rows` for small datasets and tests
+
+Because V2 creates a fresh `McpServer` per HTTP POST, provider registration stays request-scoped and hosted-mode tenant routing is preserved.
+
+### Renderer Resource
+
+The analytics UI is shipped as `ui://renderer/index.html`:
+- Registered via `@modelcontextprotocol/ext-apps`
+- Built by Vite into `dist/v2/renderer/index.html`
+- Loaded once and memoized on the server
+- Advertises `_meta["ags/bundleVersion"]`
+- Validated by the browser bundle against the shared `BUNDLE_VERSION`
+
+The renderer source lives under `src/v2/renderer/**`, while `tsconfig.renderer.json` isolates DOM/browser typing from the server `tsconfig.json`.
+
+### AFS Spec Integration
+
+`openapi-specs/afs.json` joins the existing spec set and is surfaced through the unchanged `search-apis`, `describe-apis`, and `run-apis` tools. That keeps Athena Facade access on the same contract as the rest of the OpenAPI-backed API surface.
 
 ---
 
@@ -366,4 +403,3 @@ Both versions are production-ready. Choose based on your needs:
 - [MCP Specification (2025-11-25)](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)
 - [V2 Implementation: src/v2/](../src/v2/)
 - [V1 Implementation: src/](../src/)
-

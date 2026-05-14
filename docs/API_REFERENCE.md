@@ -202,7 +202,7 @@ pnpm start
 
 ## MCP Tools
 
-V2 provides 4 core tools:
+V2 provides 4 core tools plus 15 analytics render tools.
 
 ### 1. `get_token_info`
 
@@ -332,6 +332,105 @@ Execute API requests against endpoints.
 
 **User Consent**: For write operations (POST/PUT/PATCH/DELETE), the tool uses **elicitation** to request user approval before execution.
 
+#### Athena Facade Operations via `afs`
+
+The Athena Facade spec is loaded like every other OpenAPI spec and can be executed through `run-apis`.
+
+| Operation | Purpose |
+|----------|---------|
+| `POST /afs/v1/admin/namespaces/{namespace}/queries` | Submit an Athena SQL query |
+| `GET /afs/v1/admin/namespaces/{namespace}/queries/{id}` | Poll query status and fetch rows when terminal |
+| `GET /afs/v1/admin/namespaces/{namespace}/tables` | List/search tables within a database |
+| `GET /afs/v1/admin/namespaces/{namespace}/tables/{database}/{table}` | Fetch full table metadata |
+
+### 5. Analytics Render Tools
+
+All render tools share the same data-source model.
+
+**Common input fields**
+
+```json
+{
+  "provider": "facade",
+  "query_id": "required when provider=facade",
+  "namespace": "required when provider=facade",
+  "data_columns": "required when provider=direct",
+  "data_rows": "required when provider=direct",
+  "max_rows": 10000,
+  "title": "optional",
+  "description": "optional",
+  "column_hints": {
+    "my_column": {
+      "type": "quantitative",
+      "label": "My Column",
+      "format": ".2f"
+    }
+  },
+  "filters": [
+    {
+      "column": "status",
+      "op": "eq",
+      "value": "SUCCEEDED"
+    }
+  ]
+}
+```
+
+**Providers**
+
+- `provider="facade"`: fetches rows from Athena Facade using `query_id` and `namespace`
+- `provider="direct"`: renders inline data from `data_columns` and `data_rows`
+
+**Shared output shape**
+
+Every render tool returns strict structured content with the shape below. The exact `chart_type` literal and `options` object vary by tool.
+
+```json
+{
+  "chart_type": "tool-specific discriminator",
+  "title": "optional",
+  "description": "optional",
+  "column_hints": {},
+  "filters": [],
+  "data": {
+    "columns": [
+      { "name": "column_name", "type": "string" }
+    ],
+    "rows": [["value"]]
+  },
+  "options": {}
+}
+```
+
+| Tool | Required option fields | Optional option fields | Output `chart_type` |
+|------|------------------------|------------------------|---------------------|
+| `render_bar_chart` | `x`, `y` | `color`, `bar_mode`, `orientation`, `label`, `facet_col`, `facet_row`, `x_label`, `y_label`, `tooltip` | `bar` |
+| `render_line_chart` | `x`, `y` | `color`, `show_points`, `curve`, `facet_col`, `facet_row`, `x_label`, `y_label`, `tooltip` | `line` |
+| `render_area_chart` | `x`, `y` | `color`, `stack_mode`, `curve`, `facet_col`, `facet_row`, `x_label`, `y_label`, `tooltip` | `area` |
+| `render_scatter_chart` | `x`, `y` | `color`, `size`, `label`, `trend_line`, `facet_col`, `facet_row`, `x_label`, `y_label`, `tooltip` | `scatter` |
+| `render_histogram_chart` | `column` | `bin_count`, `normalize`, `color`, `facet_col`, `facet_row`, `x_label`, `y_label` | `histogram` |
+| `render_box_chart` | `x`, `y` | `color`, `facet_col`, `facet_row`, `x_label`, `y_label` | `box` |
+| `render_heatmap_chart` | `x`, `y`, `value` | `color_scheme`, `show_values`, `x_label`, `y_label` | `heatmap` |
+| `render_pie_chart` | `category`, `value` | `show_labels`, `other_threshold` | `pie` |
+| `render_donut_chart` | `category`, `value` | `show_labels`, `other_threshold`, `center_label`, `hole` | `donut` |
+| `render_waterfall_chart` | `category`, `value` | `is_total`, `x_label`, `y_label` | `waterfall` |
+| `render_funnel_chart` | `stage`, `value` | `orientation`, `show_conversion` | `funnel` |
+| `render_gauge_chart` | `value`, `max` | `min`, `thresholds`, `unit` | `gauge` |
+| `render_state_timeline_chart` | `entity`, `start`, `end`, `state` | none | `state_timeline` |
+| `render_table` | none | `columns_order`, `page_size` | `table` |
+| `render_metric` | `value` | `compare`, `label`, `unit`, `format` | `metric` |
+
+## MCP Resources
+
+V2 exposes four resources:
+
+| Resource URI | Purpose |
+|--------------|---------|
+| `resource://workflows/schema` | Workflow schema |
+| `resource://workflows/technical-specification` | Workflow technical specification |
+| `resource://workflows` | Workflow catalog |
+| `ui://renderer/index.html` | Single-file analytics renderer bundle with `_meta["ags/bundleVersion"]` |
+
 ---
 
 ## Rate Limiting
@@ -413,4 +512,3 @@ See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for detailed comparison.
 - [MCP Specification (2025-11-25)](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)
 - [V2 Architecture Guide](V2_ARCHITECTURE.md)
 - [V1 API Reference](v1/API_REFERENCE.md) (legacy)
-

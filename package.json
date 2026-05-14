@@ -4,6 +4,7 @@
   "description": "Stateless MCP server for AccelByte Gaming Services APIs with OpenAPI integration",
   "type": "module",
   "main": "dist/v2/index.js",
+  "packageManager": "pnpm@10.17.0",
   "scripts": {
     "build:renderer": "tsc -p tsconfig.renderer.json --noEmit && vite build --config vite.config.ts",
     "build": "pnpm run build:renderer && tsc && (cp -r assets dist/ 2>/dev/null || true)",
@@ -83,5 +84,10 @@
     "typescript": "^5.9.3",
     "vite": "^5.4.0",
     "vite-plugin-singlefile": "^2.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
