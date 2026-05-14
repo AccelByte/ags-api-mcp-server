@@ -24,5 +24,5 @@ module.exports = {
     node: true,
     es2022: true,
   },
-  ignorePatterns: ['node_modules/', 'dist/', 'build/'],
+  ignorePatterns: ['node_modules/', 'dist/', 'build/', 'src/v2/renderer/**'],
 };

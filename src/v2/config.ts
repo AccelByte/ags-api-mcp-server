@@ -42,6 +42,7 @@ const McpConfigSchema = z.object({
   path: z.string().default("/mcp"),
   serverUrl: z.string().url(),
   enableAuth: EnvBooleanSchema.default(true),
+  enableRenderTools: EnvBooleanSchema.default(true),
   /**
    * TEMPORARY WORKAROUND: OAuth authorization server discovery mode.
    * Needed because VS Code (and some MCP clients) cannot discover the actual
@@ -134,6 +135,7 @@ function loadConfig(): Config {
         path: process.env.MCP_PATH,
         serverUrl: mcpServerUrl,
         enableAuth: process.env.MCP_AUTH,
+        enableRenderTools: process.env.ENABLE_RENDER_TOOLS,
         authServerDiscoveryMode: process.env.MCP_AUTH_SERVER_DISCOVERY_MODE,
       },
       openapi: {
@@ -197,6 +199,7 @@ function loadConfig(): Config {
         mcpPath: config.mcp.path,
         mcpServerUrl: config.mcp.serverUrl,
         mcpAuthEnabled: config.mcp.enableAuth,
+        enableRenderTools: config.mcp.enableRenderTools,
         mcpAuthServerDiscoveryMode: config.mcp.authServerDiscoveryMode,
         // OpenAPI Configuration
         openapiSpecsDir: config.openapi.specsDir,

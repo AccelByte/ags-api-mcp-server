@@ -5,10 +5,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 import { Config } from "../config.js";
+import { registerRendererResource } from "./renderer-resource.js";
 import { McpRequestContext } from "./routes.js";
 import setupApiTools from "./tools/api.js";
 import setupAuthTools from "./tools/auth.js";
 import setupWorkflows from "./prompts/workflows.js";
+import setupRenderTools from "./tools/renderers/index.js";
 
 /**
  * Creates a new MCP server instance with tools and prompts registered.
@@ -45,6 +47,11 @@ async function createServer(
   await setupApiTools(server, effectiveConfig, requestContext?.namespace);
   setupAuthTools(server);
   await setupWorkflows(server);
+
+  if (effectiveConfig.mcp.enableRenderTools) {
+    setupRenderTools(server, effectiveConfig);
+    await registerRendererResource(server);
+  }
 
   return server;
 }
