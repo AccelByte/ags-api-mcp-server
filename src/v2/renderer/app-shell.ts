@@ -1,0 +1,218 @@
+// Copyright (c) 2025 AccelByte Inc. All Rights Reserved.
+// This is licensed software from AccelByte Inc, for limitations
+// and restrictions contact your company contract manager.
+
+import {
+  App,
+  applyDocumentTheme,
+  applyHostFonts,
+  applyHostStyleVariables,
+  type McpUiHostContext,
+  type McpUiToolInputNotification,
+  type McpUiToolResultNotification,
+} from "@modelcontextprotocol/ext-apps";
+import { BUNDLE_VERSION, RenderOutputSchema } from "../shared/render-schemas.js";
+import { renderChart } from "./views/chart.js";
+import { renderMetric } from "./views/metric.js";
+import { renderTable } from "./views/table.js";
+
+export interface RendererHostStyleAppliers {
+  applyTheme(theme: McpUiHostContext["theme"]): void;
+  applyStyleVariables(variables: NonNullable<McpUiHostContext["styles"]>["variables"]): void;
+  applyFonts(fonts: NonNullable<NonNullable<McpUiHostContext["styles"]>["css"]>["fonts"]): void;
+}
+
+export interface RendererToolResultLike {
+  structuredContent?: unknown;
+  isError?: boolean;
+  content?: Array<{ type?: string; text?: string }>;
+}
+
+export interface RendererAppLike {
+  connect(): Promise<void>;
+  getHostContext(): McpUiHostContext | undefined;
+  onerror?: ((error: Error) => void) | undefined;
+  onhostcontextchanged?: ((context: McpUiHostContext) => void) | undefined;
+  ontoolinput?:
+    | ((params: McpUiToolInputNotification["params"]) => void)
+    | undefined;
+  ontoolresult?:
+    | ((result: McpUiToolResultNotification["params"]) => void)
+    | undefined;
+}
+
+export interface BootstrapRendererOptions {
+  root?: HTMLElement;
+  styleAppliers?: RendererHostStyleAppliers;
+}
+
+export const defaultHostStyleAppliers: RendererHostStyleAppliers = {
+  applyTheme: (theme) => {
+    if (theme) {
+      applyDocumentTheme(theme);
+    }
+  },
+  applyStyleVariables: (variables) => {
+    if (variables) {
+      applyHostStyleVariables(variables);
+    }
+  },
+  applyFonts: (fonts) => {
+    if (fonts) {
+      applyHostFonts(fonts);
+    }
+  },
+};
+
+function appRoot(root?: HTMLElement): HTMLElement {
+  if (root) {
+    return root;
+  }
+
+  const element = document.getElementById("app");
+  if (!element) {
+    throw new Error('Renderer root element "#app" was not found.');
+  }
+
+  return element;
+}
+
+export function showError(message: string, root?: HTMLElement): void {
+  const element = appRoot(root);
+  element.replaceChildren();
+
+  const container = document.createElement("div");
+  container.className = "render-error";
+  container.textContent = message;
+  element.appendChild(container);
+}
+
+export function showLoading(root?: HTMLElement): void {
+  const element = appRoot(root);
+  element.replaceChildren();
+
+  const container = document.createElement("div");
+  container.className = "render-loading";
+  container.textContent = "Loading…";
+  element.appendChild(container);
+}
+
+export function applyHostContext(
+  context: McpUiHostContext,
+  styleAppliers: RendererHostStyleAppliers = defaultHostStyleAppliers,
+): void {
+  if (context.theme) {
+    styleAppliers.applyTheme(context.theme);
+  }
+  if (context.styles?.variables) {
+    styleAppliers.applyStyleVariables(context.styles.variables);
+  }
+  if (context.styles?.css?.fonts) {
+    styleAppliers.applyFonts(context.styles.css.fonts);
+  }
+}
+
+export function assertBundleVersion(
+  context: McpUiHostContext | undefined,
+  root?: HTMLElement,
+): void {
+  const resourceMeta =
+    context?.resource &&
+    typeof context.resource === "object" &&
+    "_meta" in context.resource &&
+    context.resource._meta &&
+    typeof context.resource._meta === "object"
+      ? (context.resource._meta as Record<string, unknown>)
+      : undefined;
+  const advertisedVersion = resourceMeta?.["ags/bundleVersion"];
+  if (
+    typeof advertisedVersion === "string" &&
+    advertisedVersion !== BUNDLE_VERSION
+  ) {
+    showError(
+      `Renderer bundle is out of date (host ${advertisedVersion} vs. bundle ${BUNDLE_VERSION}). Refresh the page to load the latest version.`,
+      root,
+    );
+    throw new Error("BUNDLE_VERSION mismatch");
+  }
+}
+
+function extractErrorText(result: RendererToolResultLike): string {
+  const firstText = result.content?.find(
+    (item) => item.type === "text" && typeof item.text === "string",
+  );
+
+  return firstText?.text ?? "Could not render this result.";
+}
+
+export function renderToolResult(
+  result: RendererToolResultLike,
+  root?: HTMLElement,
+): void {
+  const element = appRoot(root);
+
+  if (result.isError) {
+    showError(extractErrorText(result), element);
+    return;
+  }
+
+  const parsed = RenderOutputSchema.parse(result.structuredContent);
+
+  if (parsed.chart_type === "table") {
+    renderTable(element, parsed);
+    return;
+  }
+
+  if (parsed.chart_type === "metric") {
+    renderMetric(element, parsed);
+    return;
+  }
+
+  renderChart(element, parsed);
+}
+
+export async function bootstrapRenderer(
+  app: RendererAppLike = new App({
+    name: "AGS Renderer",
+    version: BUNDLE_VERSION,
+  }),
+  options: BootstrapRendererOptions = {},
+): Promise<RendererAppLike> {
+  const root = appRoot(options.root);
+  const styleAppliers = options.styleAppliers ?? defaultHostStyleAppliers;
+
+  app.onerror = (error) => {
+    showError(error instanceof Error ? error.message : String(error), root);
+  };
+
+  app.onhostcontextchanged = (context) => {
+    applyHostContext(context, styleAppliers);
+  };
+
+  app.ontoolinput = () => {
+    showLoading(root);
+  };
+
+  app.ontoolresult = (result) => {
+    try {
+      renderToolResult(result, root);
+    } catch (error) {
+      showError(
+        error instanceof Error
+          ? `Could not render this result: ${error.message}`
+          : "Could not render this result.",
+        root,
+      );
+    }
+  };
+
+  await app.connect();
+
+  const context = app.getHostContext();
+  if (context) {
+    applyHostContext(context, styleAppliers);
+    assertBundleVersion(context, root);
+  }
+
+  return app;
+}

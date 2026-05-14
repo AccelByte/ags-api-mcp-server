@@ -5,7 +5,8 @@
   "type": "module",
   "main": "dist/v2/index.js",
   "scripts": {
-    "build": "tsc && cp -r assets dist/ 2>/dev/null || true",
+    "build:renderer": "tsc -p tsconfig.renderer.json --noEmit && vite build --config vite.config.ts",
+    "build": "pnpm run build:renderer && tsc && (cp -r assets dist/ 2>/dev/null || true)",
     "build+": "pnpm run format && pnpm run lint && pnpm run build",
     "start": "node dist/v2/index.js",
     "start:v2": "node dist/v2/index.js",
@@ -22,6 +23,7 @@
     "format": "prettier --write 'src/**/*.ts'",
     "format:check": "prettier --check 'src/**/*.ts'",
     "test": "pnpm run test:unit",
+    "test:analytics-e2e": "RUN_E2E=1 NODE_ENV=test node --import tsx --test tests/v2/analytics-e2e.test.ts",
     "test:env": "node -r dotenv/config tests/v1/test-server.js",
     "test:integration": "node tests/v1/test-server.js",
     "test:unit": "NODE_ENV=test node --import tsx --test tests/**/*.test.ts",
@@ -58,6 +60,8 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@observablehq/inputs": "^0.12.0",
+    "@observablehq/plot": "^0.6.17",
     "@types/cookie-parser": "^1.4.9",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
@@ -65,15 +69,19 @@
     "@types/node": "^24.7.2",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
+    "d3": "^7.9.0",
     "eslint": "^8.57.1",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-config-airbnb-typescript": "^18.0.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-prettier": "^5.5.4",
+    "jsdom": "^25.0.0",
     "prettier": "^3.6.2",
     "ts-node": "^10.9.0",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^5.4.0",
+    "vite-plugin-singlefile": "^2.0.0"
   }
 }
