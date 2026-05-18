@@ -6,7 +6,7 @@ import type {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod/v3";
 
-import type { Config } from "../../../../../src/v2/config.js";
+import type { OpenApiTools } from "../../../../../src/tools/openapi-tools.js";
 import { setupRenderTools } from "../../../../../src/v2/mcp/tools/renderers/index.js";
 
 interface CapturedTool {
@@ -28,48 +28,19 @@ function createCapturingServer(capturedTools: CapturedTool[]) {
   };
 }
 
-function createConfig(serverUrl: string): Config {
-  return {
-    mcp: {
-      port: 3000,
-      path: "/mcp",
-      serverUrl: "http://localhost:3000",
-      enableAuth: false,
-      authServerDiscoveryMode: "none",
-    },
-    openapi: {
-      specsDir: "/tmp/openapi-specs",
-      searchLimit: 10,
-      maxSearchLimit: 50,
-      runTimeoutMs: 15000,
-      maxRunTimeoutMs: 60000,
-      serverUrl,
-      includeWriteRequests: true,
-    },
-    runtime: {
-      nodeEnv: "development",
-      logLevel: "warn",
-    },
-    hosted: {
-      enabled: false,
-      validateTokenIssuer: true,
-      allowParentDomainIssuer: false,
-    },
-  } as Config;
-}
-
 describe("setupRenderTools", () => {
   test("registers exactly 15 tools on each server instance without shared provider state", () => {
     const firstServerTools: CapturedTool[] = [];
     const secondServerTools: CapturedTool[] = [];
+    const openApiToolsStub = {} as OpenApiTools;
 
     setupRenderTools(
       createCapturingServer(firstServerTools) as never,
-      createConfig("https://first.example.com"),
+      openApiToolsStub,
     );
     setupRenderTools(
       createCapturingServer(secondServerTools) as never,
-      createConfig("https://second.example.com"),
+      openApiToolsStub,
     );
 
     const expectedToolNames = [

@@ -4,7 +4,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
-import type { Config } from "../../../config.js";
+import type { OpenApiTools } from "../../../../tools/openapi-tools.js";
 import { createDirectProvider } from "../providers/direct.js";
 import { createFacadeProvider } from "../providers/facade.js";
 import { createProviderRegistry } from "../providers/registry.js";
@@ -30,10 +30,10 @@ import { setupRenderWaterfallChart } from "./waterfall.js";
  */
 export function setupRenderTools(
   server: McpServer,
-  effectiveConfig: Config,
+  openApiTools: OpenApiTools,
 ): void {
   const registry = createProviderRegistry([
-    createFacadeProvider(effectiveConfig),
+    createFacadeProvider(openApiTools),
     createDirectProvider(),
   ]);
 

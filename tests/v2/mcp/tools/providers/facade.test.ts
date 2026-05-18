@@ -1,233 +1,34 @@
 import assert from "node:assert/strict";
-import { afterEach, describe, test } from "node:test";
+import { describe, test } from "node:test";
 
-import type { Config } from "../../../../../src/v2/config.js";
+import type { OpenApiTools } from "../../../../../src/tools/openapi-tools.js";
 import {
   createFacadeProvider,
   FacadeError,
 } from "../../../../../src/v2/mcp/tools/providers/facade.js";
 
-const originalFetch = globalThis.fetch;
+type RunApiResult = Awaited<ReturnType<OpenApiTools["runApi"]>>;
+type RunApiStub = (
+  args: Record<string, unknown>,
+  userContext?: unknown,
+  accessToken?: string,
+) => Promise<RunApiResult>;
 
-function createConfig(overrides: Partial<Config["openapi"]> = {}): Config {
+function createOpenApiToolsStub(runApi: RunApiStub): OpenApiTools {
   return {
-    mcp: {
-      port: 3000,
-      path: "/mcp",
-      serverUrl: "http://localhost:3000",
-      enableAuth: true,
-      authServerDiscoveryMode: "none",
-    },
-    openapi: {
-      specsDir: "/tmp/openapi-specs",
-      searchLimit: 10,
-      maxSearchLimit: 50,
-      runTimeoutMs: 25,
-      maxRunTimeoutMs: 60_000,
-      serverUrl: "https://analytics.example.com",
-      includeWriteRequests: true,
-      ...overrides,
-    },
-    runtime: {
-      nodeEnv: "test",
-      logLevel: "info",
-    },
-    hosted: {
-      enabled: false,
-      validateTokenIssuer: true,
-      allowParentDomainIssuer: false,
-    },
-  } as Config;
-}
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
+    runApi,
+  } as unknown as OpenApiTools;
 }
 
 describe("createFacadeProvider", () => {
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  test("uses the effectiveConfig serverUrl, encodes path params, forwards token and max_rows", async () => {
-    let capturedUrl = "";
-    let capturedAuthHeader = "";
-
-    globalThis.fetch = async (
-      input: string | URL | Request,
-      init?: RequestInit,
-    ): Promise<Response> => {
-      capturedUrl = String(input);
-      capturedAuthHeader = String(
-        new Headers(init?.headers).get("Authorization"),
-      );
-
-      return jsonResponse({
-        query_id: "query/1",
-        status: "succeeded",
-        columns: [{ name: "value", type: "bigint" }],
-        rows: [["1"]],
-      });
-    };
-
-    const provider = createFacadeProvider(
-      createConfig({ serverUrl: "https://tenant.example.com/base" }),
-    );
-
-    const result = await provider.resolve(
-      {
-        query_id: "query/1",
-        namespace: "game space",
-        max_rows: 42,
-      },
-      "token-123",
-    );
-
-    assert.equal(
-      capturedUrl,
-      "https://tenant.example.com/base/v1/admin/namespaces/game%20space/queries/query%2F1?max_rows=42",
-    );
-    assert.equal(capturedAuthHeader, "Bearer token-123");
-    assert.deepEqual(result, {
-      columns: [{ name: "value", type: "bigint" }],
-      rows: [["1"]],
-    });
-  });
-
-  test("returns columns and rows when status is succeeded", async () => {
-    globalThis.fetch = async (): Promise<Response> =>
-      jsonResponse({
-        query_id: "q1",
-        status: "succeeded",
-        columns: [{ name: "state", type: "varchar" }],
-        rows: [["ready"]],
-        truncated: true,
-      });
-
-    const provider = createFacadeProvider(createConfig());
-    const result = await provider.resolve(
-      { query_id: "q1", namespace: "demo" },
-      "token",
-    );
-
-    assert.deepEqual(result, {
-      columns: [{ name: "state", type: "varchar" }],
-      rows: [["ready"]],
-    });
-  });
-
-  test("throws NOT_READY when status is running", async () => {
-    globalThis.fetch = async (): Promise<Response> =>
-      jsonResponse({
-        query_id: "q1",
-        status: "running",
-        instruction: "retry in a few seconds",
-      });
-
-    const provider = createFacadeProvider(createConfig());
-
-    await assert.rejects(
-      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
-      (error: unknown) =>
-        error instanceof FacadeError &&
-        error.code === "NOT_READY" &&
-        error.message.includes("running") &&
-        error.message.includes("retry in a few seconds"),
-    );
-  });
-
-  test("throws NOT_READY when status is queued", async () => {
-    globalThis.fetch = async (): Promise<Response> =>
-      jsonResponse({
-        query_id: "q1",
-        status: "queued",
-      });
-
-    const provider = createFacadeProvider(createConfig());
-
-    await assert.rejects(
-      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
-      (error: unknown) =>
-        error instanceof FacadeError &&
-        error.code === "NOT_READY" &&
-        error.message.includes("queued"),
-    );
-  });
-
-  test("throws CANCELLED when status is cancelled", async () => {
-    globalThis.fetch = async (): Promise<Response> =>
-      jsonResponse({
-        query_id: "q1",
-        status: "cancelled",
-      });
-
-    const provider = createFacadeProvider(createConfig());
-
-    await assert.rejects(
-      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
-      (error: unknown) =>
-        error instanceof FacadeError &&
-        error.code === "CANCELLED" &&
-        error.message.includes("cancelled"),
-    );
-  });
-
-  test("throws facade error details when status is failed", async () => {
-    globalThis.fetch = async (): Promise<Response> =>
-      jsonResponse({
-        query_id: "q1",
-        status: "failed",
-        error: {
-          code: "QUERY_FAILED",
-          message: "Athena execution failed",
-        },
-      });
-
-    const provider = createFacadeProvider(createConfig());
-
-    await assert.rejects(
-      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
-      (error: unknown) =>
-        error instanceof FacadeError &&
-        error.code === "QUERY_FAILED" &&
-        error.message === "Athena execution failed",
-    );
-  });
-
-  test("maps non-2xx response body error into FacadeError", async () => {
-    globalThis.fetch = async (): Promise<Response> =>
-      jsonResponse(
-        {
-          error: {
-            code: "FORBIDDEN",
-            message: "No access",
-          },
-        },
-        403,
-      );
-
-    const provider = createFacadeProvider(createConfig());
-
-    await assert.rejects(
-      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
-      (error: unknown) =>
-        error instanceof FacadeError &&
-        error.code === "FORBIDDEN" &&
-        error.message === "No access",
-    );
-  });
-
-  test("throws without calling fetch when query_id is missing", async () => {
+  test("throws without calling runApi when query_id is missing", async () => {
     let calls = 0;
-    globalThis.fetch = async (): Promise<Response> => {
-      calls += 1;
-      return jsonResponse({});
-    };
-
-    const provider = createFacadeProvider(createConfig());
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => {
+        calls += 1;
+        return {};
+      }),
+    );
 
     await assert.rejects(
       provider.resolve({ namespace: "demo" }, "token"),
@@ -239,14 +40,14 @@ describe("createFacadeProvider", () => {
     assert.equal(calls, 0);
   });
 
-  test("throws without calling fetch when namespace is missing", async () => {
+  test("throws without calling runApi when namespace is missing", async () => {
     let calls = 0;
-    globalThis.fetch = async (): Promise<Response> => {
-      calls += 1;
-      return jsonResponse({});
-    };
-
-    const provider = createFacadeProvider(createConfig());
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => {
+        calls += 1;
+        return {};
+      }),
+    );
 
     await assert.rejects(
       provider.resolve({ query_id: "q1" }, "token"),
@@ -258,29 +59,305 @@ describe("createFacadeProvider", () => {
     assert.equal(calls, 0);
   });
 
-  test("aborts the request when the timeout elapses", async () => {
-    let aborted = false;
+  test("calls runApi with the afs query-status operation, max_rows, and token", async () => {
+    const captured: {
+      args?: Record<string, unknown>;
+      userContext?: unknown;
+      accessToken?: string;
+    } = {};
 
-    globalThis.fetch = async (
-      _input: string | URL | Request,
-      init?: RequestInit,
-    ): Promise<Response> =>
-      new Promise((_resolve, reject) => {
-        init?.signal?.addEventListener("abort", () => {
-          aborted = true;
-          const error = new Error("aborted");
-          error.name = "AbortError";
-          reject(error);
-        });
-      });
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async (args, userContext, accessToken) => {
+        captured.args = args;
+        captured.userContext = userContext;
+        captured.accessToken = accessToken;
 
-    const provider = createFacadeProvider(createConfig({ runTimeoutMs: 5 }));
+        return {
+          response: {
+            status: 200,
+            data: {
+              query_id: "query/1",
+              status: "succeeded",
+              columns: [{ name: "value", type: "bigint" }],
+              rows: [["1"]],
+            },
+          },
+        };
+      }),
+    );
+
+    const result = await provider.resolve(
+      {
+        query_id: "query/1",
+        namespace: "game-space",
+        max_rows: 42,
+      },
+      "token-123",
+    );
+
+    assert.deepEqual(captured, {
+      args: {
+        spec: "afs",
+        method: "GET",
+        path: "/afs/v1/admin/namespaces/{namespace}/queries/{id}",
+        pathParams: {
+          namespace: "game-space",
+          id: "query/1",
+        },
+        query: {
+          max_rows: 42,
+        },
+        useAccessToken: true,
+      },
+      userContext: undefined,
+      accessToken: "token-123",
+    });
+    assert.deepEqual(result, {
+      columns: [{ name: "value", type: "bigint" }],
+      rows: [["1"]],
+    });
+  });
+
+  test("returns columns and rows when status is succeeded", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => ({
+        response: {
+          status: 200,
+          data: {
+            query_id: "q1",
+            status: "succeeded",
+            columns: [{ name: "state", type: "varchar" }],
+            rows: [["ready"]],
+            truncated: true,
+          },
+        },
+      })),
+    );
+
+    const result = await provider.resolve(
+      { query_id: "q1", namespace: "demo" },
+      "token",
+    );
+
+    assert.deepEqual(result, {
+      columns: [{ name: "state", type: "varchar" }],
+      rows: [["ready"]],
+    });
+  });
+
+  test("throws FORBIDDEN from structured non-2xx response", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => ({
+        response: {
+          status: 403,
+          data: {
+            error: {
+              code: "FORBIDDEN",
+              message: "No access",
+            },
+          },
+        },
+      })),
+    );
 
     await assert.rejects(
       provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
       (error: unknown) =>
-        error instanceof Error && error.name === "AbortError",
+        error instanceof FacadeError &&
+        error.code === "FORBIDDEN" &&
+        error.message === "No access",
     );
-    assert.equal(aborted, true);
+  });
+
+  test("falls back on unstructured non-2xx response", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => ({
+        response: {
+          status: 500,
+          data: {
+            message: "oops",
+          },
+        },
+      })),
+    );
+
+    await assert.rejects(
+      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
+      (error: unknown) =>
+        error instanceof FacadeError &&
+        error.code === "INTERNAL" &&
+        error.message === "Facade returned 500",
+    );
+  });
+
+  test("throws NOT_READY when status is running", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => ({
+        response: {
+          status: 200,
+          data: {
+            query_id: "q1",
+            status: "running",
+            instruction: "retry in a few seconds",
+          },
+        },
+      })),
+    );
+
+    await assert.rejects(
+      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
+      (error: unknown) =>
+        error instanceof FacadeError &&
+        error.code === "NOT_READY" &&
+        error.message.includes("running") &&
+        error.message.includes("retry in a few seconds") &&
+        error.message.includes("/afs/v1/admin/namespaces/{namespace}/queries/{id}"),
+    );
+  });
+
+  test("throws NOT_READY when status is queued", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => ({
+        response: {
+          status: 200,
+          data: {
+            query_id: "q1",
+            status: "queued",
+          },
+        },
+      })),
+    );
+
+    await assert.rejects(
+      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
+      (error: unknown) =>
+        error instanceof FacadeError &&
+        error.code === "NOT_READY" &&
+        error.message.includes("queued"),
+    );
+  });
+
+  test("throws CANCELLED when status is cancelled", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => ({
+        response: {
+          status: 200,
+          data: {
+            query_id: "q1",
+            status: "cancelled",
+          },
+        },
+      })),
+    );
+
+    await assert.rejects(
+      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
+      (error: unknown) =>
+        error instanceof FacadeError &&
+        error.code === "CANCELLED" &&
+        error.message.includes("cancelled"),
+    );
+  });
+
+  test("throws facade error details when status is failed", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => ({
+        response: {
+          status: 200,
+          data: {
+            query_id: "q1",
+            status: "failed",
+            error: {
+              code: "QUERY_FAILED",
+              message: "Athena execution failed",
+            },
+          },
+        },
+      })),
+    );
+
+    await assert.rejects(
+      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
+      (error: unknown) =>
+        error instanceof FacadeError &&
+        error.code === "QUERY_FAILED" &&
+        error.message === "Athena execution failed",
+    );
+  });
+
+  test("falls back when failed status omits structured error details", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => ({
+        response: {
+          status: 200,
+          data: {
+            query_id: "q1",
+            status: "failed",
+          },
+        },
+      })),
+    );
+
+    await assert.rejects(
+      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
+      (error: unknown) =>
+        error instanceof FacadeError &&
+        error.code === "QUERY_FAILED" &&
+        error.message === "Query q1 failed.",
+    );
+  });
+
+  test("maps timeout transport envelopes to TIMEOUT", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => ({
+        error: {
+          code: "ECONNABORTED",
+          message: "timeout of 15000ms exceeded",
+        },
+      })),
+    );
+
+    await assert.rejects(
+      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
+      (error: unknown) =>
+        error instanceof FacadeError &&
+        error.code === "TIMEOUT" &&
+        error.message === "timeout of 15000ms exceeded",
+    );
+  });
+
+  test("maps non-timeout transport envelopes to TRANSPORT_ERROR", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => ({
+        error: {
+          code: "ECONNRESET",
+          message: "socket hang up",
+        },
+      })),
+    );
+
+    await assert.rejects(
+      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
+      (error: unknown) =>
+        error instanceof FacadeError &&
+        error.code === "TRANSPORT_ERROR" &&
+        error.message === "socket hang up",
+    );
+  });
+
+  test("wraps thrown runtime errors as INTERNAL", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => {
+        throw new Error("spec lookup failed");
+      }),
+    );
+
+    await assert.rejects(
+      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
+      (error: unknown) =>
+        error instanceof FacadeError &&
+        error.code === "INTERNAL" &&
+        error.message === "spec lookup failed",
+    );
   });
 });

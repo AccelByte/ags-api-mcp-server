@@ -8,6 +8,7 @@ import { Config } from "../config.js";
 import { registerRendererResource } from "./renderer-resource.js";
 import { McpRequestContext } from "./routes.js";
 import setupApiTools from "./tools/api.js";
+import { getOrCreateOpenApiTools } from "./tools/openapi-tools-factory.js";
 import setupAuthTools from "./tools/auth.js";
 import setupWorkflows from "./prompts/workflows.js";
 import setupRenderTools from "./tools/renderers/index.js";
@@ -43,13 +44,20 @@ async function createServer(
     },
   };
 
+  const openApiTools = await getOrCreateOpenApiTools(effectiveConfig);
+
   // Pass namespace from requestContext to setupApiTools for default path param
-  await setupApiTools(server, effectiveConfig, requestContext?.namespace);
+  await setupApiTools(
+    server,
+    effectiveConfig,
+    openApiTools,
+    requestContext?.namespace,
+  );
   setupAuthTools(server);
   await setupWorkflows(server);
 
   if (effectiveConfig.mcp.enableRenderTools) {
-    setupRenderTools(server, effectiveConfig);
+    setupRenderTools(server, openApiTools);
     await registerRendererResource(server);
   }
 

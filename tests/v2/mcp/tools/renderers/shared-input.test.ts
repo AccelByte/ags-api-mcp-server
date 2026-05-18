@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { z } from "zod/v3";
 
+import type { OpenApiTools } from "../../../../../src/tools/openapi-tools.js";
 import { createDirectProvider } from "../../../../../src/v2/mcp/tools/providers/direct.js";
 import { createFacadeProvider } from "../../../../../src/v2/mcp/tools/providers/facade.js";
-import type { Config } from "../../../../../src/v2/config.js";
 import { createProviderRegistry } from "../../../../../src/v2/mcp/tools/providers/registry.js";
 import type {
   Provider,
@@ -15,35 +15,7 @@ import {
   sharedRenderFields,
 } from "../../../../../src/v2/mcp/tools/renderers/shared-input.js";
 
-function createConfig(): Config {
-  return {
-    mcp: {
-      port: 3000,
-      path: "/mcp",
-      serverUrl: "http://localhost:3000",
-      enableAuth: true,
-      authServerDiscoveryMode: "none",
-    },
-    openapi: {
-      specsDir: "/tmp/openapi-specs",
-      searchLimit: 10,
-      maxSearchLimit: 50,
-      runTimeoutMs: 25,
-      maxRunTimeoutMs: 60_000,
-      serverUrl: "https://analytics.example.com",
-      includeWriteRequests: true,
-    },
-    runtime: {
-      nodeEnv: "test",
-      logLevel: "info",
-    },
-    hosted: {
-      enabled: false,
-      validateTokenIssuer: true,
-      allowParentDomainIssuer: false,
-    },
-  } as Config;
-}
+const openApiToolsStub = {} as OpenApiTools;
 
 describe("shared render input helpers", () => {
   test("resolveData routes direct provider inputs to direct", async () => {
@@ -70,7 +42,7 @@ describe("shared render input helpers", () => {
     let receivedInput: Record<string, unknown> | undefined;
 
     const stubFacade: Provider = {
-      ...createFacadeProvider(createConfig()),
+      ...createFacadeProvider(openApiToolsStub),
       async resolve(input, token): Promise<ProviderData> {
         receivedInput = input;
         receivedToken = token;
@@ -108,7 +80,7 @@ describe("shared render input helpers", () => {
   test("resolveData unknown provider error includes registered names", async () => {
     const registry = createProviderRegistry([
       createDirectProvider(),
-      createFacadeProvider(createConfig()),
+      createFacadeProvider(openApiToolsStub),
     ]);
 
     await assert.rejects(
@@ -120,7 +92,7 @@ describe("shared render input helpers", () => {
   test("sharedRenderFields includes the built-in provider fields", () => {
     const registry = createProviderRegistry([
       createDirectProvider(),
-      createFacadeProvider(createConfig()),
+      createFacadeProvider(openApiToolsStub),
     ]);
 
     const fields = sharedRenderFields(registry);

@@ -268,61 +268,22 @@ const RunApisOutputSchema = z.object({
 
 // #endregion Schemas
 
-// Cache for OpenApiTools instance to avoid reloading specs on every createServer call
-// Since the MCP server is stateless, createServer is called frequently, but the
-// OpenAPI specs don't change, so we can cache the instance.
-let cachedConfigKey: string | null = null;
-let cachedOpenApiTools: OpenApiTools | null = null;
-
-function getConfigKey(config: Config): string {
-  return JSON.stringify(config.openapi);
-}
-
-async function getOrCreateOpenApiTools(config: Config): Promise<OpenApiTools> {
-  const configKey = getConfigKey(config);
-
-  // Reuse cached instance if config matches
-  if (cachedOpenApiTools && cachedConfigKey === configKey) {
-    return cachedOpenApiTools;
-  }
-
-  // Create new instance without loading specs synchronously
-  cachedOpenApiTools = new OpenApiTools({
-    specsDir: config.openapi.specsDir,
-    defaultSearchLimit: config.openapi.searchLimit,
-    maxSearchLimit: config.openapi.maxSearchLimit,
-    defaultRunTimeoutMs: config.openapi.runTimeoutMs,
-    maxRunTimeoutMs: config.openapi.maxRunTimeoutMs,
-    defaultServerUrl: config.openapi.serverUrl,
-    includeWriteRequests: config.openapi.includeWriteRequests,
-    loadSpecs: false, // Don't load specs in constructor
-  });
-
-  // Load specs asynchronously
-  await cachedOpenApiTools.loadSpecsAsync();
-
-  cachedConfigKey = configKey;
-
-  return cachedOpenApiTools;
-}
-
 /**
  * Registers API tools on the MCP server.
  * @param mcpServer MCP server instance
  * @param config Effective config (may be per-request)
+ * @param openApiTools Shared OpenAPI transport/service instance
  * @param defaultNamespace If provided, used as the default for pathParams.namespace in run-apis
  */
 async function setupApiTools(
   mcpServer: McpServer,
   config: Config,
+  openApiTools: OpenApiTools,
   defaultNamespace?: string,
 ) {
   // Create schemas with config values
   const SearchApisInputSchema = createSearchApisInputSchema(config);
   const RunApisInputSchema = createRunApisInputSchema(config);
-
-  // Reuse cached OpenApiTools instance to avoid reloading specs
-  const openApiTools = await getOrCreateOpenApiTools(config);
 
   mcpServer.registerTool(
     "search-apis",
