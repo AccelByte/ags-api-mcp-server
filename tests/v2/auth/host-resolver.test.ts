@@ -313,8 +313,11 @@ describe("resolveAgsHost - allowParentDomainIssuer × validateTokenIssuer", () =
       res.json({ baseUrl: req.ags?.baseUrl });
     });
 
-    return new Promise((resolve) => {
-      const server = http.createServer(app).listen(0, "127.0.0.1", () => {
+    return new Promise((resolve, reject) => {
+      const server = http.createServer(app);
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", () => {
+        server.off("error", reject);
         const addr = server.address() as { port: number };
         resolve({
           url: `http://127.0.0.1:${addr.port}`,

@@ -50,7 +50,7 @@ let server: http.Server;
 let agsBaseUrl: string;
 
 async function startMockServer(): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     server = http.createServer((req, res) => {
       res.setHeader("Content-Type", "application/json");
 
@@ -68,7 +68,10 @@ async function startMockServer(): Promise<void> {
       res.end("{}");
     });
 
+    server.once("error", reject);
+
     server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject);
       const addr = server.address() as { port: number };
       agsBaseUrl = `http://127.0.0.1:${addr.port}`;
       resolve();
@@ -77,6 +80,10 @@ async function startMockServer(): Promise<void> {
 }
 
 async function stopMockServer(): Promise<void> {
+  if (!server?.listening) {
+    return;
+  }
+
   return new Promise((resolve) => server.close(() => resolve()));
 }
 

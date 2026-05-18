@@ -93,6 +93,51 @@ async function waitForServer(timeoutMs = 15_000) {
   throw new Error(`Server did not become ready within ${timeoutMs}ms`);
 }
 
+async function waitForServerOrExit(
+  server: ChildProcess,
+  timeoutMs = 15_000,
+): Promise<void> {
+  let stderr = "";
+  const onStderr = (chunk: Buffer) => {
+    stderr += chunk.toString();
+  };
+  server.stderr?.on("data", onStderr);
+
+  try {
+    await Promise.race([
+      waitForServer(timeoutMs),
+      new Promise<never>((_, reject) => {
+        server.once("exit", (code, signal) => {
+          server.stdout?.destroy();
+          server.stderr?.destroy();
+          const details = stderr.trim();
+          reject(
+            new Error(
+              `Server exited before becoming ready (code=${String(code)} signal=${String(signal)})${details ? `\n${details}` : ""}`,
+            ),
+          );
+        });
+      }),
+    ]);
+  } finally {
+    server.stderr?.off("data", onStderr);
+  }
+}
+
+async function stopServerProcess(server: ChildProcess): Promise<void> {
+  server.stdout?.destroy();
+  server.stderr?.destroy();
+
+  if (server.exitCode !== null || server.signalCode !== null) {
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    server.once("close", () => resolve());
+    server.kill("SIGTERM");
+  });
+}
+
 // ── Test suite ───────────────────────────────────────────────────────────────
 
 describe("MCP server smoke tests", () => {
@@ -124,12 +169,17 @@ describe("MCP server smoke tests", () => {
       }
     });
 
-    await waitForServer();
+    try {
+      await waitForServerOrExit(server);
+    } catch (error) {
+      await stopServerProcess(server);
+      throw error;
+    }
   });
 
-  after(() => {
-    if (server && !server.killed) {
-      server.kill("SIGTERM");
+  after(async () => {
+    if (server) {
+      await stopServerProcess(server);
     }
   });
 
