@@ -1,5 +1,4 @@
 {
-  "host": "demo.accelbyte.io",
   "info": {
     "description": "Proof-of-concept facade with an asynchronous, polled query lifecycle.\nRoutes follow the AGS admin-endpoint convention: {SERVER_BASE_PATH}/v1/admin/namespaces/{namespace}/...\nThe MCP server is the only intended client and is responsible for the poll loop.",
     "title": "Athena Facade POC",
@@ -8,10 +7,6 @@
   "schemes": [
     "https"
   ],
-  "externalDocs": {
-    "description": "",
-    "url": ""
-  },
   "securityDefinitions": {
     "bearerAuth": {
       "description": "AccelByte IAM JWT (RS256) validated against AB IAM's JWKS via the IAM Go SDK.",
@@ -25,6 +20,7 @@
     "/afs/v1/admin/namespaces/{namespace}/context": {
       "get": {
         "description": "Returns Markdown by default; pass format=json for a JSON-wrapped response.",
+        "operationId": "AdminGetContext",
         "parameters": [
           {
             "description": "Target namespace.",
@@ -79,7 +75,19 @@
         "tags": [
           "context"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
       }
     },
     "/afs/v1/admin/namespaces/{namespace}/queries": {
@@ -88,6 +96,7 @@
           "application/json"
         ],
         "description": "Returns 202 with query_id, or 200 with rows inline if the query terminates within the fast-path window.",
+        "operationId": "AdminSubmitQuery",
         "parameters": [
           {
             "description": "Target namespace. Caller must have ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY permission.",
@@ -129,7 +138,7 @@
             }
           },
           "400": {
-            "description": "Bad request (invalid SQL, unknown database, malformed body).",
+            "description": "Bad request (invalid SQL, unknown database, malformed body, missing partition predicate).",
             "schema": {
               "$ref": "#/definitions/handler.errorBody"
             }
@@ -141,7 +150,7 @@
             }
           },
           "403": {
-            "description": "JWT valid but lacks the required permission.",
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
             "schema": {
               "$ref": "#/definitions/handler.errorBody"
             }
@@ -157,6 +166,12 @@
             "schema": {
               "$ref": "#/definitions/handler.errorBody"
             }
+          },
+          "503": {
+            "description": "Transient tenancy provisioning failure; retry.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
           }
         },
         "security": [
@@ -168,11 +183,24 @@
         "tags": [
           "queries"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
       }
     },
     "/afs/v1/admin/namespaces/{namespace}/queries/{id}": {
       "delete": {
+        "operationId": "AdminCancelQuery",
         "parameters": [
           {
             "description": "Target namespace.",
@@ -224,9 +252,22 @@
         "tags": [
           "queries"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
       },
       "get": {
+        "operationId": "AdminFetchQuery",
         "parameters": [
           {
             "description": "Target namespace.",
@@ -293,11 +334,24 @@
         "tags": [
           "queries"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
       }
     },
     "/afs/v1/admin/namespaces/{namespace}/tables": {
       "get": {
+        "operationId": "AdminSearchTables",
         "parameters": [
           {
             "description": "Target namespace.",
@@ -370,11 +424,24 @@
         "tags": [
           "tables"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
       }
     },
     "/afs/v1/admin/namespaces/{namespace}/tables/{database}/{table}": {
       "get": {
+        "operationId": "AdminDescribeTable",
         "parameters": [
           {
             "description": "Target namespace.",
@@ -442,7 +509,19 @@
         "tags": [
           "tables"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
       }
     }
   },
@@ -730,14 +809,9 @@
       "type": "object"
     }
   },
-  "x-docs": {
-    "alias": "afs",
-    "host": "https://development.accelbyte.io",
-    "path": "/afs/openapi.json"
-  },
   "x-version": {
-    "buildDate": "2026-05-12T08:40:05Z",
-    "gitHash": "6ede6b3",
+    "buildDate": "2026-05-13T07:12:10Z",
+    "gitHash": "139ac23",
     "name": "athena-facade-api",
     "version": "0.4.0",
     "version-roles-seeding": "1.2.130"
