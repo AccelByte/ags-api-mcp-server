@@ -106,6 +106,7 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
     description: payload.description,
     chartType: "table",
     dataSource: payload.data_source,
+    stats: payload.stats,
   });
 
   const summary = document.createElement("p");

@@ -140,6 +140,7 @@ export function renderMetric(root: HTMLElement, payload: MetricPayload): void {
     description: payload.description,
     chartType: "metric",
     dataSource: payload.data_source,
+    stats: payload.stats,
   });
 
   const value = document.createElement("p");

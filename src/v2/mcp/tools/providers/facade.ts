@@ -16,6 +16,10 @@ interface FacadeQueryResponse {
   rows?: string[][];
   truncated?: boolean;
   error?: { code: string; message: string };
+  stats?: {
+    data_scanned_bytes?: number;
+    engine_execution_time_ms?: number;
+  };
 }
 
 interface RunApiEnvelope {
@@ -144,6 +148,28 @@ function parseFacadeQueryResponse(data: unknown): FacadeQueryResponse {
       )
     : undefined;
 
+  let stats: FacadeQueryResponse["stats"];
+  if (isRecord(data.stats)) {
+    const dataScannedBytes =
+      typeof data.stats.data_scanned_bytes === "number"
+        ? data.stats.data_scanned_bytes
+        : undefined;
+    const engineExecutionTimeMs =
+      typeof data.stats.engine_execution_time_ms === "number"
+        ? data.stats.engine_execution_time_ms
+        : undefined;
+    if (dataScannedBytes !== undefined || engineExecutionTimeMs !== undefined) {
+      stats = {
+        ...(dataScannedBytes !== undefined && {
+          data_scanned_bytes: dataScannedBytes,
+        }),
+        ...(engineExecutionTimeMs !== undefined && {
+          engine_execution_time_ms: engineExecutionTimeMs,
+        }),
+      };
+    }
+  }
+
   return {
     query_id: data.query_id,
     status,
@@ -155,6 +181,7 @@ function parseFacadeQueryResponse(data: unknown): FacadeQueryResponse {
     error: extractStructuredError(data) as
       | { code: string; message: string }
       | undefined,
+    stats,
   };
 }
 
@@ -259,7 +286,9 @@ export function createFacadeProvider(openApiTools: OpenApiTools): Provider {
                 },
                 "facadeProvider.resolve succeeded",
               );
-              return { columns, rows };
+              return body.stats
+                ? { columns, rows, stats: body.stats }
+                : { columns, rows };
             }
             default:
               throw new FacadeError(

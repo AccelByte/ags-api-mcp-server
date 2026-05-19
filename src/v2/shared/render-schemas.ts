@@ -56,6 +56,12 @@ const DataEnvelopeSchema = strictObject({
   rows: z.array(z.array(z.string())),
 });
 
+export const RenderStatsSchema = strictObject({
+  data_scanned_bytes: z.number().optional(),
+  engine_execution_time_ms: z.number().optional(),
+});
+export type RenderStats = z.infer<typeof RenderStatsSchema>;
+
 const CommonEnvelopeFields = {
   title: z.string().optional(),
   description: z.string().optional(),
@@ -63,6 +69,7 @@ const CommonEnvelopeFields = {
   filters: z.array(FilterSchema).optional(),
   data: DataEnvelopeSchema,
   data_source: z.string().optional(),
+  stats: RenderStatsSchema.optional(),
 };
 
 export const BarChartOutputSchema = strictObject({

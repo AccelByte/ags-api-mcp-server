@@ -57,7 +57,11 @@ export function defineRenderTool<TSchema extends AnyZodObject>({
       const token = extra.authInfo?.token ?? "";
 
       try {
-        const { columns, rows } = await resolveData(registry, toolInput, token);
+        const { columns, rows, stats } = await resolveData(
+          registry,
+          toolInput,
+          token,
+        );
         const view = outputSchema.parse({
           chart_type: chartType,
           title: toolInput.title,
@@ -66,6 +70,7 @@ export function defineRenderTool<TSchema extends AnyZodObject>({
           filters: toolInput.filters,
           data: { columns, rows },
           data_source: toolInput.provider,
+          stats,
           options: mapInputToOptions(toolInput),
         });
 

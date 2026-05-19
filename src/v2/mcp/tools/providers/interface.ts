@@ -7,10 +7,17 @@ import type { ZodTypeAny } from "zod/v3";
 /** A single column descriptor returned by a provider. */
 export type ProviderColumn = { name: string; type: string };
 
+/** Optional execution stats surfaced in the render footer (e.g. Athena). */
+export type ProviderStats = {
+  data_scanned_bytes?: number;
+  engine_execution_time_ms?: number;
+};
+
 /** Resolved tabular data — the unit every render tool consumes. */
 export type ProviderData = {
   columns: ProviderColumn[];
   rows: string[][];
+  stats?: ProviderStats;
 };
 
 /**

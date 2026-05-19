@@ -47,11 +47,17 @@ function isCategoryColumn(rows: Row[], key: string): boolean {
   });
 }
 
+export interface RenderStats {
+  data_scanned_bytes?: number;
+  engine_execution_time_ms?: number;
+}
+
 export interface MountShellOptions {
   title?: string;
   description?: string;
   chartType?: string;
   dataSource?: string;
+  stats?: RenderStats;
 }
 
 export interface ShellRefs {
@@ -66,6 +72,57 @@ export function appendInlineSourceNote(footer: HTMLElement, dataSource?: string)
   const note = document.createElement("span");
   note.className = "renderer-footer-source";
   note.textContent = "source: inline";
+  footer.appendChild(note);
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) {
+    return `${bytes} B`;
+  }
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  const digits = unitIndex === 0 || value >= 100 ? 0 : value >= 10 ? 1 : 2;
+  return `${value.toFixed(digits)} ${units[unitIndex]}`;
+}
+
+function formatDurationMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) {
+    return `${ms} ms`;
+  }
+  if (ms < 1000) {
+    return `${Math.round(ms)} ms`;
+  }
+  const seconds = ms / 1000;
+  if (seconds < 60) {
+    return `${seconds.toFixed(seconds >= 10 ? 1 : 2)} s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainder = Math.round(seconds - minutes * 60);
+  return `${minutes}m ${remainder}s`;
+}
+
+export function appendStatsNote(footer: HTMLElement, stats?: RenderStats): void {
+  if (!stats) {
+    return;
+  }
+  const parts: string[] = [];
+  if (typeof stats.data_scanned_bytes === "number") {
+    parts.push(`scanned ${formatBytes(stats.data_scanned_bytes)}`);
+  }
+  if (typeof stats.engine_execution_time_ms === "number") {
+    parts.push(formatDurationMs(stats.engine_execution_time_ms));
+  }
+  if (parts.length === 0) {
+    return;
+  }
+  const note = document.createElement("span");
+  note.className = "renderer-footer-stats";
+  note.textContent = parts.join(" · ");
   footer.appendChild(note);
 }
 
@@ -116,6 +173,7 @@ export function mountShell(
   root.appendChild(shell);
 
   appendInlineSourceNote(footer, options.dataSource);
+  appendStatsNote(footer, options.stats);
 
   return { body, footer };
 }
