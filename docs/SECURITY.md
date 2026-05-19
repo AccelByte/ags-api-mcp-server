@@ -44,8 +44,8 @@ In hosted (multi-tenant) mode, the AGS base URL is derived from the request's `H
 
 The `serverUrl` parameter has been removed from the `run-apis` tool across all implementations (V1 HTTP, V1 stdio, V2 MCP). Server URLs now come from:
 
-1. OpenAPI specification `servers` definitions
-2. `AB_BASE_URL` environment variable (fallback)
+1. `AB_BASE_URL` environment variable (or hosted-mode per-request AGS base URL)
+2. OpenAPI specification `servers` / Swagger 2 `host` metadata when no environment base URL is configured
 
 ### Private IP Blocking
 

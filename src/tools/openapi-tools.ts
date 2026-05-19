@@ -300,8 +300,8 @@ export class OpenApiTools {
     }
 
     const baseUrl = (
-      operation.servers[0] ||
       this.options.defaultServerUrl ||
+      operation.servers[0] ||
       ""
     ).replace(/\/$/, "");
     let resolvedPath: string;

@@ -12,10 +12,10 @@ const createTools = (options: Partial<ConstructorParameters<typeof OpenApiTools>
   new OpenApiTools({ specsDir, ...options });
 
 test('searchApis indexes GET operations by default', async () => {
-  const tools = createTools();
+  const tools = createTools({ includeWriteRequests: false });
   const result: any = await tools.searchApis({ query: 'pets' });
 
-  assert.equal(result.totalOperations, 3);
+  assert.equal(result.totalOperations, 4);
   assert.ok(result.results.length > 0);
   for (const entry of result.results) {
     assert.equal(entry.method, 'GET');
@@ -319,6 +319,19 @@ test('runApi passes validation when all fields including optional ones are prese
       `Expected network/other error but got validation error: ${error.message}`
     );
   }
+});
+
+test('runApi prefers defaultServerUrl over a Swagger 2 host defined in the spec', async () => {
+  const tools = createTools({ defaultServerUrl: 'https://configured-base.invalid' });
+
+  const result: any = await tools.runApi({
+    spec: 'swagger-2-host-api',
+    method: 'get',
+    path: '/status'
+  });
+
+  assert.match(result.error.message, /configured-base\.invalid/);
+  assert.doesNotMatch(result.error.message, /spec-host\.invalid/);
 });
 
 // ---------------------------------------------------------------------------
