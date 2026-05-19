@@ -40,6 +40,7 @@ export function renderChart(root: HTMLElement, payload: ChartPayload): void {
     title: payload.title,
     description: payload.description,
     chartType: payload.chart_type,
+    dataSource: payload.data_source,
   });
   let view: SVGElement | HTMLElement;
 

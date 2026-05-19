@@ -86,23 +86,4 @@ describe("renderTable chrome", () => {
     assert.ok(bodyRows.length >= 2, "tbody has multiple rows for zebra striping");
   });
 
-  test("footer contains a 'Generated at' line with an ISO timestamp", () => {
-    const root = resetRoot();
-    renderTable(root, samplePayload());
-
-    const footer = root.querySelector(".renderer-footer");
-    assert.ok(footer, "expected footer slot");
-    const text = footer?.textContent ?? "";
-    assert.match(text, /Generated at /);
-
-    const isoMatch = text.match(
-      /Generated at (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)/,
-    );
-    assert.ok(isoMatch, `footer should contain ISO timestamp, got: ${text}`);
-    const parsed = new Date(isoMatch![1]);
-    assert.ok(
-      !Number.isNaN(parsed.valueOf()),
-      "ISO timestamp must be parseable",
-    );
-  });
 });

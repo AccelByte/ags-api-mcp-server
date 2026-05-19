@@ -101,10 +101,11 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
   const displayRows = toDisplayRows(rows, columns);
   const pageSize = payload.options.page_size;
 
-  const { body: shell, footer } = mountShell(root, {
+  const { body: shell } = mountShell(root, {
     title: payload.title ?? "Query result table",
     description: payload.description,
     chartType: "table",
+    dataSource: payload.data_source,
   });
 
   const summary = document.createElement("p");
@@ -215,11 +216,6 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
     currentPage = 0;
     renderPage();
   });
-
-  const footerLine = document.createElement("span");
-  footerLine.className = "renderer-footer-generated";
-  footerLine.textContent = `Generated at ${new Date().toISOString()}`;
-  footer.appendChild(footerLine);
 
   renderPage();
 }

@@ -4,6 +4,7 @@
 
 import type { z } from "zod/v3";
 import { MetricOutputSchema } from "../../shared/render-schemas.js";
+import { mountShell } from "./base.js";
 import { toRows } from "./coerce.js";
 import { filterRows } from "./filter.js";
 import { getRowSetMeta, type Primitive, type Row } from "./types.js";
@@ -134,20 +135,12 @@ export function renderMetric(root: HTMLElement, payload: MetricPayload): void {
   const compareColumn = payload.options.compare;
   const compareRaw = compareColumn ? firstRowValue(rows, compareColumn) : undefined;
 
-  const card = document.createElement("section");
-  card.className = "metric-card";
-
-  const label = document.createElement("span");
-  label.className = "renderer-eyebrow metric-label";
-  label.textContent = payload.options.label ?? payload.title ?? payload.options.value;
-  card.appendChild(label);
-
-  if (payload.description) {
-    const description = document.createElement("p");
-    description.className = "renderer-description";
-    description.textContent = payload.description;
-    card.appendChild(description);
-  }
+  const { body: card } = mountShell(root, {
+    title: payload.options.label ?? payload.title ?? payload.options.value,
+    description: payload.description,
+    chartType: "metric",
+    dataSource: payload.data_source,
+  });
 
   const value = document.createElement("p");
   value.className = "metric-value";
@@ -223,6 +216,4 @@ export function renderMetric(root: HTMLElement, payload: MetricPayload): void {
       card.appendChild(chip);
     }
   }
-
-  root.appendChild(card);
 }

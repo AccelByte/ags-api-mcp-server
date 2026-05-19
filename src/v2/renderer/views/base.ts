@@ -51,11 +51,22 @@ export interface MountShellOptions {
   title?: string;
   description?: string;
   chartType?: string;
+  dataSource?: string;
 }
 
 export interface ShellRefs {
   body: HTMLDivElement;
   footer: HTMLDivElement;
+}
+
+export function appendInlineSourceNote(footer: HTMLElement, dataSource?: string): void {
+  if (dataSource !== "direct") {
+    return;
+  }
+  const note = document.createElement("span");
+  note.className = "renderer-footer-source";
+  note.textContent = "source: inline";
+  footer.appendChild(note);
 }
 
 export function mountShell(
@@ -103,6 +114,8 @@ export function mountShell(
 
   shell.append(header, body, footer);
   root.appendChild(shell);
+
+  appendInlineSourceNote(footer, options.dataSource);
 
   return { body, footer };
 }

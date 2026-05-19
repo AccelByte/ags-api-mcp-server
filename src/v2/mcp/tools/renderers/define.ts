@@ -65,6 +65,7 @@ export function defineRenderTool<TSchema extends AnyZodObject>({
           column_hints: toolInput.column_hints,
           filters: toolInput.filters,
           data: { columns, rows },
+          data_source: toolInput.provider,
           options: mapInputToOptions(toolInput),
         });
 

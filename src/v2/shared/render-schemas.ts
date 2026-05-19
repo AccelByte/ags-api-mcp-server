@@ -62,6 +62,7 @@ const CommonEnvelopeFields = {
   column_hints: z.record(z.string(), RenderColumnHintSchema).optional(),
   filters: z.array(FilterSchema).optional(),
   data: DataEnvelopeSchema,
+  data_source: z.string().optional(),
 };
 
 export const BarChartOutputSchema = strictObject({

@@ -72,6 +72,7 @@ const ExampleOutputSchema = strictObject({
     ),
     rows: z.array(z.array(z.string())),
   }),
+  data_source: z.string().optional(),
   options: strictObject({
     x: z.string(),
   }),
@@ -186,6 +187,7 @@ describe("defineRenderTool", () => {
       column_hints: undefined,
       filters: undefined,
       data: { columns, rows },
+      data_source: "direct",
       options: { x: "team" },
     });
     assert.equal("_meta" in result, false);
