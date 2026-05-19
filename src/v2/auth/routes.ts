@@ -93,6 +93,13 @@ function registerOAuthRoutes(
 
   const isDiscoveryWorkaroundEnabled =
     authorizationServerDiscoveryMode !== AuthorizationServerDiscoveryMode.None;
+  const hasPathAwareMcpRoute = mcpPath !== "/";
+  const pathAwareProtectedResourceRoute = hasPathAwareMcpRoute
+    ? `/.well-known/oauth-protected-resource${mcpPath}`
+    : null;
+  const pathAwareAuthorizationServerRoute = hasPathAwareMcpRoute
+    ? `/.well-known/oauth-authorization-server${mcpPath}`
+    : null;
 
   // In hosted mode the MCP server's public URL must come from the configured
   // resourceServerUrl, not from request-derived headers: X-Forwarded-Host is
@@ -118,6 +125,28 @@ function registerOAuthRoutes(
       res.status(200).json(metadata);
     },
   );
+
+  // RFC 9728 path-aware discovery probes
+  // /.well-known/oauth-protected-resource<resource-path> before falling back to
+  // the root document. Without this exact route, a resource path like "/mcp"
+  // collides with the custom namespace-aware endpoint below and gets
+  // misinterpreted as namespace="mcp", producing resource="/mcp/mcp".
+  if (pathAwareProtectedResourceRoute) {
+    app.get(pathAwareProtectedResourceRoute, (req: Request, res: Response) => {
+      const effectiveAuthServer = deriveBaseUrl(req, authorizationServerUrl);
+      const resourceBaseUrl = hostedMode
+        ? resourceServerUrl
+        : deriveBaseUrl(req, resourceServerUrl);
+      const protectedResourceUrl = `${resourceBaseUrl}${mcpPath}`;
+
+      const metadata: OAuthProtectedResourceMetadata = {
+        resource: protectedResourceUrl,
+        authorization_servers: [effectiveAuthServer],
+        bearer_methods_supported: ["header"],
+      };
+      res.status(200).json(metadata);
+    });
+  }
 
   // Namespace-aware protected resource metadata endpoint.
   // When a namespace is present, authorization_servers includes the namespace
@@ -292,6 +321,10 @@ function registerOAuthRoutes(
     };
 
     app.get("/.well-known/oauth-authorization-server", oauthAuthServerHandler);
+
+    if (pathAwareAuthorizationServerRoute) {
+      app.get(pathAwareAuthorizationServerRoute, oauthAuthServerHandler);
+    }
 
     app.get(
       "/.well-known/oauth-authorization-server/:namespace",

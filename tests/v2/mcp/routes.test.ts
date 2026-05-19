@@ -184,6 +184,25 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
     assert.ok(body.authorization_servers[0].includes(agsHost));
   });
 
+  test("path-aware protected resource doc for /mcp does not fall into namespace route", async () => {
+    const agsHost = "abtestdewa-pong.internal.gamingservices.accelbyte.io";
+
+    const res = await fetch(`${baseUrl}/.well-known/oauth-protected-resource/mcp`, {
+      headers: {
+        "X-Forwarded-Host": agsHost,
+        "X-Forwarded-Proto": "https",
+      },
+    });
+
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as {
+      resource: string;
+      authorization_servers: string[];
+    };
+    assert.equal(body.resource, `${MCP_SERVER_URL}/mcp`);
+    assert.equal(body.authorization_servers[0], `https://${agsHost}`);
+  });
+
   test("namespace-aware protected resource doc pins resource to MCP server", async () => {
     const agsHost = "abtestdewa-pong.internal.gamingservices.accelbyte.io";
     const res = await fetch(
