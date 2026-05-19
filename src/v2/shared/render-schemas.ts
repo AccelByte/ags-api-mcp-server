@@ -124,7 +124,6 @@ export const ScatterChartOutputSchema = strictObject({
     y: z.string(),
     color: z.string().optional(),
     size: z.string().optional(),
-    label: z.string().optional(),
     trend_line: z.enum(["none", "linear"]).default("none"),
     facet_col: z.string().optional(),
     facet_row: z.string().optional(),

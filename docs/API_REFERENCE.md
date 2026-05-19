@@ -409,7 +409,7 @@ Every render tool returns strict structured content with the shape below. The ex
 | `render_bar_chart` | `x`, `y` | `color`, `bar_mode`, `orientation`, `label`, `facet_col`, `facet_row`, `x_label`, `y_label`, `tooltip` | `bar` |
 | `render_line_chart` | `x`, `y` | `color`, `show_points`, `curve`, `facet_col`, `facet_row`, `x_label`, `y_label`, `tooltip` | `line` |
 | `render_area_chart` | `x`, `y` | `color`, `stack_mode`, `curve`, `facet_col`, `facet_row`, `x_label`, `y_label`, `tooltip` | `area` |
-| `render_scatter_chart` | `x`, `y` | `color`, `size`, `label`, `trend_line`, `facet_col`, `facet_row`, `x_label`, `y_label`, `tooltip` | `scatter` |
+| `render_scatter_chart` | `x`, `y` | `color`, `size`, `trend_line`, `facet_col`, `facet_row`, `x_label`, `y_label`, `tooltip` | `scatter` |
 | `render_histogram_chart` | `column` | `bin_count`, `normalize`, `color`, `facet_col`, `facet_row`, `x_label`, `y_label` | `histogram` |
 | `render_box_chart` | `x`, `y` | `color`, `facet_col`, `facet_row`, `x_label`, `y_label` | `box` |
 | `render_heatmap_chart` | `x`, `y`, `value` | `color_scheme`, `show_values`, `x_label`, `y_label` | `heatmap` |
