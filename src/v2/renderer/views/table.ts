@@ -5,10 +5,15 @@
 import { search, table } from "@observablehq/inputs";
 import type { z } from "zod/v3";
 import { TableOutputSchema } from "../../shared/render-schemas.js";
-import { mountChart } from "./base.js";
+import { mountShell } from "./base.js";
 import { toRows } from "./coerce.js";
 import { filterRows } from "./filter.js";
-import type { Primitive, RenderColumnHint, Row } from "./types.js";
+import {
+  getRowSetMeta,
+  type Primitive,
+  type RenderColumnHint,
+  type Row,
+} from "./types.js";
 
 type TablePayload = z.infer<typeof TableOutputSchema>;
 
@@ -83,6 +88,10 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
     payload.filters ?? [],
   );
   const columns = orderedColumns(payload);
+  const meta = getRowSetMeta(rows);
+  const numericColumns = new Set<string>(
+    columns.filter((column) => meta?.columnTypes[column] === "quantitative"),
+  );
   const headers = Object.fromEntries(
     columns.map((column) => [
       column,
@@ -92,17 +101,18 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
   const displayRows = toDisplayRows(rows, columns);
   const pageSize = payload.options.page_size;
 
-  const shell = mountChart(
-    root,
-    payload.title ?? "Query result table",
-    payload.description,
-  );
+  const { body: shell, footer } = mountShell(root, {
+    title: payload.title ?? "Query result table",
+    description: payload.description,
+    chartType: "table",
+  });
+
   const summary = document.createElement("p");
   summary.className = "renderer-summary";
   shell.appendChild(summary);
 
-  const controls = document.createElement("div");
-  controls.className = "renderer-table-wrap";
+  const toolbar = document.createElement("div");
+  toolbar.className = "renderer-table-toolbar";
 
   const searchControl = search(displayRows, {
     columns,
@@ -111,6 +121,7 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
   });
 
   const pager = document.createElement("div");
+  pager.className = "renderer-pager";
   const previousButton = document.createElement("button");
   previousButton.type = "button";
   previousButton.textContent = "Previous";
@@ -120,13 +131,36 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
   nextButton.textContent = "Next";
 
   const pageIndicator = document.createElement("span");
+  pageIndicator.className = "renderer-pager-indicator";
   pager.append(previousButton, pageIndicator, nextButton);
-  controls.append(searchControl, pager);
-  shell.appendChild(controls);
+  toolbar.append(searchControl, pager);
+  shell.appendChild(toolbar);
 
   const tableWrap = document.createElement("div");
   tableWrap.className = "renderer-table-wrap";
   shell.appendChild(tableWrap);
+
+  const decorateTable = (): void => {
+    const renderedTable = tableWrap.querySelector("table");
+    if (!renderedTable) {
+      return;
+    }
+    renderedTable.classList.add("renderer-table");
+    if (numericColumns.size === 0) {
+      return;
+    }
+    columns.forEach((column, index) => {
+      if (!numericColumns.has(column)) {
+        return;
+      }
+      const cellIndex = index + 1;
+      renderedTable
+        .querySelectorAll(
+          `thead th:nth-child(${cellIndex}), tbody td:nth-child(${cellIndex})`,
+        )
+        .forEach((cell) => cell.classList.add("is-numeric"));
+    });
+  };
 
   let currentPage = 0;
 
@@ -147,7 +181,7 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
       pageStart,
       pageEnd,
     );
-    pageIndicator.textContent = ` Page ${currentPage + 1} of ${totalPages} `;
+    pageIndicator.textContent = `Page ${currentPage + 1} of ${totalPages}`;
     previousButton.disabled = currentPage === 0;
     nextButton.disabled = currentPage >= totalPages - 1;
 
@@ -162,6 +196,7 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
         width: "100%",
       }),
     );
+    decorateTable();
   };
 
   previousButton.addEventListener("click", () => {
@@ -180,6 +215,11 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
     currentPage = 0;
     renderPage();
   });
+
+  const footerLine = document.createElement("span");
+  footerLine.className = "renderer-footer-generated";
+  footerLine.textContent = `Generated at ${new Date().toISOString()}`;
+  footer.appendChild(footerLine);
 
   renderPage();
 }

@@ -56,6 +56,129 @@ describe("renderMetric", () => {
     assert.match(root.textContent ?? "", /—/);
   });
 
+  test("renders an up delta with success direction for positive change", () => {
+    const root = resetRoot();
+
+    renderMetric(root, {
+      chart_type: "metric",
+      data: {
+        columns: [
+          { name: "value", type: "double" },
+          { name: "prev", type: "double" },
+        ],
+        rows: [["120", "100"]],
+      },
+      options: { value: "value", compare: "prev" },
+    });
+
+    const delta = root.querySelector(".delta-indicator--inline");
+    assert.ok(delta, "expected delta indicator element");
+    assert.equal(
+      (delta as HTMLElement).dataset.direction,
+      "up",
+      "positive change should be up",
+    );
+    assert.match(delta?.textContent ?? "", /▲/);
+    assert.match(delta?.textContent ?? "", /\+20\.0/);
+  });
+
+  test("renders a down delta with danger direction for negative change", () => {
+    const root = resetRoot();
+
+    renderMetric(root, {
+      chart_type: "metric",
+      data: {
+        columns: [
+          { name: "value", type: "double" },
+          { name: "prev", type: "double" },
+        ],
+        rows: [["98", "100"]],
+      },
+      options: { value: "value", compare: "prev" },
+    });
+
+    const delta = root.querySelector(".delta-indicator--inline");
+    assert.ok(delta, "expected delta indicator element");
+    assert.equal((delta as HTMLElement).dataset.direction, "down");
+    assert.match(delta?.textContent ?? "", /▼/);
+    assert.match(delta?.textContent ?? "", /-2\.0/);
+  });
+
+  test("falls back to raw compare text when values are non-numeric", () => {
+    const root = resetRoot();
+
+    renderMetric(root, {
+      chart_type: "metric",
+      data: {
+        columns: [
+          { name: "segment", type: "varchar" },
+          { name: "previous_segment", type: "varchar" },
+        ],
+        rows: [["alpha", "beta"]],
+      },
+      options: { value: "segment", compare: "previous_segment" },
+    });
+
+    assert.equal(root.querySelector(".delta-indicator--inline"), null);
+    const compare = root.querySelector(".metric-compare");
+    assert.ok(compare, "expected fallback compare element");
+    assert.equal(compare?.textContent, "beta");
+  });
+
+  test("omits the compare row entirely when compare option is missing", () => {
+    const root = resetRoot();
+
+    renderMetric(root, {
+      chart_type: "metric",
+      data: {
+        columns: [{ name: "value", type: "double" }],
+        rows: [["42"]],
+      },
+      options: { value: "value" },
+    });
+
+    assert.equal(root.querySelector(".metric-compare"), null);
+    assert.equal(root.querySelector(".delta-indicator"), null);
+  });
+
+  test("renders a secondary chip only when a third numeric column is present", () => {
+    const rootWithoutSecondary = resetRoot();
+    renderMetric(rootWithoutSecondary, {
+      chart_type: "metric",
+      data: {
+        columns: [
+          { name: "value", type: "double" },
+          { name: "prev", type: "double" },
+        ],
+        rows: [["10", "8"]],
+      },
+      options: { value: "value", compare: "prev" },
+    });
+    assert.equal(
+      rootWithoutSecondary.querySelector(".metric-secondary"),
+      null,
+      "no third numeric column → no secondary chip",
+    );
+
+    const rootWithSecondary = resetRoot();
+    renderMetric(rootWithSecondary, {
+      chart_type: "metric",
+      data: {
+        columns: [
+          { name: "value", type: "double" },
+          { name: "prev", type: "double" },
+          { name: "users", type: "bigint" },
+        ],
+        rows: [["10", "8", "1234"]],
+      },
+      options: { value: "value", compare: "prev" },
+    });
+    const chip = rootWithSecondary.querySelector(".metric-secondary");
+    assert.ok(chip, "third numeric column → secondary chip rendered");
+    assert.match(chip?.textContent ?? "", /users/);
+    assert.match(chip?.textContent ?? "", /1,?234/);
+  });
+
   test("applies filters before selecting the first metric row", () => {
     const root = resetRoot();
 

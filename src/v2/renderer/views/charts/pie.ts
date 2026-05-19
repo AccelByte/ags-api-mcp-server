@@ -5,25 +5,14 @@
 import type { z } from "zod/v3";
 
 import { PieChartOutputSchema } from "../../../shared/render-schemas.js";
-import { validateColumns } from "../base.js";
+import { seriesRange, validateColumns } from "../base.js";
 import type { Primitive, Row } from "../types.js";
 
 type PieOptions = z.infer<typeof PieChartOutputSchema>["options"];
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const ACCENT = "var(--color-accent)";
-const INFO = "var(--color-text-info)";
 const PANEL = "var(--color-panel)";
-const TEXT_PRIMARY = "var(--color-text-primary)";
 const TEXT_ON_ACCENT = "var(--color-text-on-accent)";
-const SERIES_RANGE = [
-  ACCENT,
-  INFO,
-  "color-mix(in srgb, var(--color-accent) 72%, var(--color-panel) 28%)",
-  "color-mix(in srgb, var(--color-text-info) 64%, var(--color-panel) 36%)",
-  "color-mix(in srgb, var(--color-accent) 48%, var(--color-text-info) 52%)",
-  "color-mix(in srgb, var(--color-text-info) 44%, var(--color-accent) 56%)",
-] as const;
 
 type SliceDatum = {
   category: string;
@@ -99,6 +88,7 @@ function collectSlices(
 ): SliceDatum[] {
   const order: string[] = [];
   const totals = new Map<string, number>();
+  const palette = seriesRange();
 
   for (const row of rows) {
     const category = asCategory(row[categoryKey]);
@@ -135,37 +125,31 @@ function collectSlices(
   return normalized.map((slice, index) => ({
     ...slice,
     share: slice.value / total,
-    fill: SERIES_RANGE[index % SERIES_RANGE.length],
+    fill: palette[index % palette.length],
   }));
 }
 
 function buildLegend(slices: SliceDatum[]): HTMLOListElement {
   const legend = document.createElement("ol");
-  legend.style.listStyle = "none";
-  legend.style.margin = "0";
-  legend.style.padding = "0";
-  legend.style.display = "grid";
-  legend.style.gap = "0.5rem";
+  legend.className = "pie-legend";
 
   for (const slice of slices) {
     const item = document.createElement("li");
-    item.style.display = "flex";
-    item.style.alignItems = "center";
-    item.style.gap = "0.65rem";
+    item.className = "pie-legend-item";
 
     const swatch = document.createElement("span");
-    swatch.style.display = "inline-block";
-    swatch.style.width = "0.85rem";
-    swatch.style.height = "0.85rem";
-    swatch.style.borderRadius = "999px";
-    swatch.style.background = slice.fill;
+    swatch.className = "series-swatch";
+    swatch.style.color = slice.fill;
 
-    const text = document.createElement("span");
-    text.style.color = TEXT_PRIMARY;
-    text.textContent =
-      `${slice.category} (${Math.round(slice.share * 100)}%) - ${formatNumber(slice.value)}`;
+    const label = document.createElement("span");
+    label.className = "pie-legend-label";
+    label.textContent = `${slice.category} (${Math.round(slice.share * 100)}%)`;
 
-    item.append(swatch, text);
+    const value = document.createElement("span");
+    value.className = "pie-legend-value";
+    value.textContent = formatNumber(slice.value);
+
+    item.append(swatch, label, value);
     legend.appendChild(item);
   }
 
@@ -185,15 +169,11 @@ export function renderPie(rows: Row[], options: PieOptions): SVGElement | HTMLEl
   const radius = 104;
 
   const wrapper = document.createElement("div");
-  wrapper.style.display = "grid";
-  wrapper.style.gridTemplateColumns = "minmax(0, 300px) minmax(0, 1fr)";
-  wrapper.style.alignItems = "center";
-  wrapper.style.gap = "1rem";
+  wrapper.className = "pie-wrap";
 
   const svg = svgElement("svg");
+  svg.setAttribute("class", "pie-svg");
   svg.setAttribute("viewBox", "0 0 260 260");
-  svg.setAttribute("width", "100%");
-  svg.setAttribute("height", "260");
 
   let startAngle = 0;
   for (const slice of slices) {

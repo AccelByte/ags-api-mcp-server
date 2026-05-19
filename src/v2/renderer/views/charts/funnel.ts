@@ -10,14 +10,6 @@ import type { Primitive, Row } from "../types.js";
 
 type FunnelOptions = z.infer<typeof FunnelChartOutputSchema>["options"];
 
-const PANEL_MUTED = "var(--color-panel-muted)";
-const BORDER = "var(--color-border)";
-const ACCENT = "var(--color-accent)";
-const INFO = "var(--color-text-info)";
-const TEXT_PRIMARY = "var(--color-text-primary)";
-const TEXT_SECONDARY = "var(--color-text-secondary)";
-const TEXT_ON_ACCENT = "var(--color-text-on-accent)";
-
 type FunnelStage = {
   stage: string;
   value: number;
@@ -52,14 +44,34 @@ function formatNumber(value: number): string {
   }).format(value);
 }
 
-function formatConversion(current: number, previous: number): string {
+function conversionRatio(current: number, previous: number): number | undefined {
   if (previous <= 0) {
-    return "n/a";
+    return undefined;
   }
+  return current / previous;
+}
+
+function formatPercent(ratio: number): string {
   return new Intl.NumberFormat(undefined, {
     style: "percent",
     maximumFractionDigits: 1,
-  }).format(current / previous);
+  }).format(ratio);
+}
+
+function buildConversionPill(
+  current: number,
+  previous: number,
+): HTMLSpanElement | undefined {
+  const ratio = conversionRatio(current, previous);
+  if (ratio === undefined) {
+    return undefined;
+  }
+
+  const pill = document.createElement("span");
+  pill.className = "delta-indicator delta-indicator--pill";
+  pill.dataset.direction = ratio >= 1 ? "up" : "down";
+  pill.textContent = formatPercent(ratio);
+  return pill;
 }
 
 export function renderFunnel(
@@ -88,97 +100,48 @@ export function renderFunnel(
   }
 
   const wrapper = document.createElement("div");
-  wrapper.style.display = "grid";
-  wrapper.style.gap = "0.85rem";
+  wrapper.className = "funnel-wrap";
+
+  const horizontal = options.orientation === "horizontal";
 
   stages.forEach((stage, index) => {
     const item = document.createElement("section");
-    item.style.display = "grid";
-    item.style.gap = "0.35rem";
-
-    if (options.orientation === "horizontal") {
-      item.style.gridTemplateColumns = "minmax(120px, 180px) minmax(0, 1fr)";
-      item.style.alignItems = "center";
-
-      const label = document.createElement("div");
-      label.style.display = "grid";
-      label.style.gap = "0.2rem";
-
-      const title = document.createElement("strong");
-      title.style.color = TEXT_PRIMARY;
-      title.textContent = stage.stage;
-
-      const meta = document.createElement("span");
-      meta.style.color = TEXT_SECONDARY;
-      meta.textContent = formatNumber(stage.value);
-      if (options.show_conversion && index > 0) {
-        meta.textContent += ` · ${formatConversion(stage.value, stages[index - 1].value)}`;
-      }
-
-      label.append(title, meta);
-
-      const barWrap = document.createElement("div");
-      barWrap.style.height = "2.1rem";
-      barWrap.style.borderRadius = "999px";
-      barWrap.style.background = PANEL_MUTED;
-      barWrap.style.border = `1px solid ${BORDER}`;
-      barWrap.style.padding = "0.2rem";
-
-      const bar = document.createElement("div");
-      bar.style.width = `${Math.max(16, (stage.value / maxValue) * 100)}%`;
-      bar.style.height = "100%";
-      bar.style.borderRadius = "999px";
-      bar.style.display = "flex";
-      bar.style.alignItems = "center";
-      bar.style.justifyContent = "flex-end";
-      bar.style.padding = "0 0.75rem";
-      bar.style.background =
-        "linear-gradient(90deg, var(--color-accent), var(--color-text-info))";
-      bar.style.color = TEXT_ON_ACCENT;
-      bar.style.fontWeight = "700";
-      bar.textContent = formatNumber(stage.value);
-
-      barWrap.appendChild(bar);
-      item.append(label, barWrap);
-      wrapper.appendChild(item);
-      return;
-    }
+    item.className = `funnel-stage ${horizontal ? "funnel-stage--horizontal" : "funnel-stage--vertical"}`;
+    const share = stage.value / maxValue;
+    item.style.setProperty("--share", share.toFixed(4));
 
     const label = document.createElement("div");
-    label.style.display = "flex";
-    label.style.justifyContent = "space-between";
-    label.style.gap = "0.75rem";
-    label.style.color = TEXT_PRIMARY;
+    label.className = "funnel-label";
 
     const title = document.createElement("strong");
+    title.className = "funnel-label-title";
     title.textContent = stage.stage;
     label.appendChild(title);
 
     const meta = document.createElement("span");
-    meta.style.color = TEXT_SECONDARY;
-    meta.textContent = formatNumber(stage.value);
+    meta.className = "funnel-label-meta";
+    const metaValue = document.createElement("span");
+    metaValue.textContent = formatNumber(stage.value);
+    meta.appendChild(metaValue);
+
     if (options.show_conversion && index > 0) {
-      meta.textContent += ` · ${formatConversion(stage.value, stages[index - 1].value)}`;
+      const pill = buildConversionPill(stage.value, stages[index - 1].value);
+      if (pill) {
+        meta.appendChild(pill);
+      }
     }
+
     label.appendChild(meta);
-    item.appendChild(label);
 
-    const bar = document.createElement("div");
-    const width = 26 + (stage.value / maxValue) * 74;
-    bar.style.width = `${width}%`;
-    bar.style.height = "2.5rem";
-    bar.style.margin = "0 auto";
-    bar.style.borderRadius = "16px";
-    bar.style.display = "flex";
-    bar.style.alignItems = "center";
-    bar.style.justifyContent = "center";
-    bar.style.background = index % 2 === 0 ? ACCENT : INFO;
-    bar.style.color = TEXT_ON_ACCENT;
-    bar.style.fontWeight = "700";
-    bar.style.boxShadow = "inset 0 0 0 1px rgba(255,255,255,0.1)";
-    bar.textContent = formatNumber(stage.value);
-    item.appendChild(bar);
+    const barWrap = document.createElement("div");
+    barWrap.className = "funnel-bar";
 
+    const barFill = document.createElement("div");
+    barFill.className = "funnel-bar-fill";
+    barFill.textContent = formatNumber(stage.value);
+    barWrap.appendChild(barFill);
+
+    item.append(label, barWrap);
     wrapper.appendChild(item);
   });
 

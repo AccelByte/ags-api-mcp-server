@@ -34,4 +34,12 @@ Object.defineProperties(globalThis, {
     configurable: true,
     value: dom.window.CustomEvent,
   },
+  NodeList: {
+    configurable: true,
+    value: dom.window.NodeList,
+  },
+  HTMLCollection: {
+    configurable: true,
+    value: dom.window.HTMLCollection,
+  },
 });

@@ -6,7 +6,7 @@ import type { z } from "zod/v3";
 import { MetricOutputSchema } from "../../shared/render-schemas.js";
 import { toRows } from "./coerce.js";
 import { filterRows } from "./filter.js";
-import type { Primitive, Row } from "./types.js";
+import { getRowSetMeta, type Primitive, type Row } from "./types.js";
 
 type MetricPayload = z.infer<typeof MetricOutputSchema>;
 
@@ -18,6 +18,14 @@ function formatAutoNumber(value: number): string {
   return new Intl.NumberFormat(undefined, {
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function formatPercentChange(percent: number): string {
+  const sign = percent >= 0 ? "+" : "";
+  return `${sign}${new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 1,
+  }).format(percent)} %`;
 }
 
 function formatMetricValue(
@@ -96,6 +104,26 @@ function formatCompareValue(value: Primitive | undefined): string | undefined {
   return value;
 }
 
+function findSecondaryColumn(
+  rows: Row[],
+  declaredColumns: string[],
+  exclude: ReadonlySet<string>,
+): string | undefined {
+  const meta = getRowSetMeta(rows);
+  for (const column of declaredColumns) {
+    if (exclude.has(column)) {
+      continue;
+    }
+    if (meta?.columnTypes[column] === "quantitative") {
+      return column;
+    }
+    if (typeof rows[0]?.[column] === "number") {
+      return column;
+    }
+  }
+  return undefined;
+}
+
 export function renderMetric(root: HTMLElement, payload: MetricPayload): void {
   root.replaceChildren();
   const rows = filterRows(
@@ -103,15 +131,14 @@ export function renderMetric(root: HTMLElement, payload: MetricPayload): void {
     payload.filters ?? [],
   );
   const metricValue = firstRowValue(rows, payload.options.value);
-  const compareValue = payload.options.compare
-    ? formatCompareValue(firstRowValue(rows, payload.options.compare))
-    : undefined;
+  const compareColumn = payload.options.compare;
+  const compareRaw = compareColumn ? firstRowValue(rows, compareColumn) : undefined;
 
   const card = document.createElement("section");
   card.className = "metric-card";
 
-  const label = document.createElement("h1");
-  label.className = "metric-label";
+  const label = document.createElement("span");
+  label.className = "renderer-eyebrow metric-label";
   label.textContent = payload.options.label ?? payload.title ?? payload.options.value;
   card.appendChild(label);
 
@@ -139,12 +166,62 @@ export function renderMetric(root: HTMLElement, payload: MetricPayload): void {
 
   card.appendChild(value);
 
-  const compareColumn = payload.options.compare;
-  if (compareColumn && compareValue) {
-    const compare = document.createElement("p");
-    compare.className = "metric-compare";
-    compare.textContent = compareValue;
-    card.appendChild(compare);
+  if (compareColumn && compareRaw !== undefined && compareRaw !== null) {
+    const valueIsNumeric = typeof metricValue === "number";
+    const compareIsNumeric = typeof compareRaw === "number";
+
+    if (valueIsNumeric && compareIsNumeric && compareRaw !== 0) {
+      const percentChange = ((metricValue - compareRaw) / compareRaw) * 100;
+      const direction = percentChange >= 0 ? "up" : "down";
+      const arrow = direction === "up" ? "▲" : "▼";
+
+      const compare = document.createElement("p");
+      compare.className = "metric-compare";
+
+      const delta = document.createElement("span");
+      delta.className = "delta-indicator delta-indicator--inline";
+      delta.dataset.direction = direction;
+      delta.textContent = `${arrow} ${formatPercentChange(percentChange)}`;
+      compare.appendChild(delta);
+
+      const comparable = document.createElement("span");
+      comparable.className = "metric-compare-value";
+      comparable.textContent = ` vs ${formatAutoNumber(compareRaw)}`;
+      compare.appendChild(comparable);
+
+      card.appendChild(compare);
+    } else {
+      const compareValue = formatCompareValue(compareRaw);
+      if (compareValue) {
+        const compare = document.createElement("p");
+        compare.className = "metric-compare";
+        compare.textContent = compareValue;
+        card.appendChild(compare);
+      }
+    }
+  }
+
+  const declaredColumns = payload.data.columns.map((column) => column.name);
+  const exclude = new Set<string>([payload.options.value]);
+  if (compareColumn) {
+    exclude.add(compareColumn);
+  }
+  const secondaryColumn = findSecondaryColumn(rows, declaredColumns, exclude);
+  if (secondaryColumn) {
+    const secondaryRaw = firstRowValue(rows, secondaryColumn);
+    if (typeof secondaryRaw === "number") {
+      const chip = document.createElement("span");
+      chip.className = "metric-secondary";
+      const chipLabel = document.createElement("span");
+      chipLabel.className = "metric-secondary-label";
+      chipLabel.textContent =
+        payload.column_hints?.[secondaryColumn]?.label ?? secondaryColumn;
+      const chipValue = document.createElement("span");
+      chipValue.className = "metric-secondary-value";
+      chipValue.textContent = formatAutoNumber(secondaryRaw);
+      chip.append(chipLabel, chipValue);
+      card.appendChild(chip);
+    }
   }
 
   root.appendChild(card);

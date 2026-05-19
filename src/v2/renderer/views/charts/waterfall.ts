@@ -6,14 +6,14 @@ import * as Plot from "@observablehq/plot";
 import type { z } from "zod/v3";
 
 import { WaterfallChartOutputSchema } from "../../../shared/render-schemas.js";
-import { validateColumns } from "../base.js";
+import { plotDefaults, validateColumns } from "../base.js";
 import type { Primitive, Row } from "../types.js";
 
 type WaterfallOptions = z.infer<typeof WaterfallChartOutputSchema>["options"];
 
-const ACCENT = "var(--color-accent)";
-const INFO = "var(--color-text-info)";
-const TOTAL = "color-mix(in srgb, var(--color-accent) 55%, var(--color-text-info) 45%)";
+const POSITIVE = "var(--color-success)";
+const NEGATIVE = "var(--color-danger)";
+const TOTAL = "var(--color-accent)";
 
 type WaterfallDatum = {
   category: string;
@@ -105,12 +105,21 @@ export function renderWaterfall(
     throw new Error("Waterfall chart requires at least one numeric step.");
   }
 
+  const defaults = plotDefaults();
+
   return Plot.plot({
-    x: { label: options.x_label ?? options.category },
-    y: { label: options.y_label ?? options.value, grid: true },
+    ...defaults,
+    marginLeft: 88,
+    x: { ...defaults.x, label: options.x_label ?? options.category },
+    y: {
+      ...defaults.y,
+      label: options.y_label ?? options.value,
+      tickFormat: "~s",
+    },
     color: {
+      type: "categorical",
       domain: ["positive", "negative", "total"],
-      range: [ACCENT, INFO, TOTAL],
+      range: [POSITIVE, NEGATIVE, TOTAL],
       legend: true,
     },
     marks: [

@@ -6,19 +6,17 @@ import * as Plot from "@observablehq/plot";
 import type { z } from "zod/v3";
 
 import { HistogramChartOutputSchema } from "../../../shared/render-schemas.js";
-import { facetConfig, validateColumns } from "../base.js";
+import {
+  facetConfig,
+  plotDefaults,
+  seriesRange,
+  validateColumns,
+} from "../base.js";
 import type { Row } from "../types.js";
 
 type HistogramOptions = z.infer<typeof HistogramChartOutputSchema>["options"];
 
 const ACCENT = "var(--color-accent)";
-const INFO = "var(--color-text-info)";
-const SERIES_RANGE = [
-  ACCENT,
-  INFO,
-  "color-mix(in srgb, var(--color-accent) 72%, var(--color-panel) 28%)",
-  "color-mix(in srgb, var(--color-text-info) 64%, var(--color-panel) 36%)",
-];
 
 export function renderHistogram(
   rows: Row[],
@@ -31,6 +29,8 @@ export function renderHistogram(
     options.facet_col,
     options.facet_row,
   );
+
+  const defaults = plotDefaults();
 
   const marks = [
     Plot.rectY(
@@ -54,12 +54,15 @@ export function renderHistogram(
   ];
 
   return Plot.plot({
-    x: { label: options.x_label ?? options.column },
+    ...defaults,
+    x: { ...defaults.x, label: options.x_label ?? options.column },
     y: {
+      ...defaults.y,
       label: options.y_label ?? (options.normalize ? "Proportion" : "Count"),
-      grid: true,
     },
-    color: options.color ? { range: SERIES_RANGE, legend: true } : undefined,
+    color: options.color
+      ? { range: seriesRange(), legend: true }
+      : defaults.color,
     marks,
   });
 }

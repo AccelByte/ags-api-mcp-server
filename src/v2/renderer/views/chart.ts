@@ -4,7 +4,7 @@
 
 import { toRows } from "./coerce.js";
 import { filterRows } from "./filter.js";
-import { mountChart } from "./base.js";
+import { mountShell } from "./base.js";
 import type { RenderOutput } from "../../shared/render-schemas.js";
 import { renderArea } from "./charts/area.js";
 import { renderBar } from "./charts/bar.js";
@@ -36,7 +36,11 @@ export function renderChart(root: HTMLElement, payload: ChartPayload): void {
     toRows(payload.data.columns, payload.data.rows, payload.column_hints ?? {}),
     payload.filters ?? [],
   );
-  const container = mountChart(root, payload.title, payload.description);
+  const { body: container } = mountShell(root, {
+    title: payload.title,
+    description: payload.description,
+    chartType: payload.chart_type,
+  });
   let view: SVGElement | HTMLElement;
 
   switch (payload.chart_type) {

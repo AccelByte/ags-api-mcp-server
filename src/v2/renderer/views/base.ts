@@ -47,35 +47,73 @@ function isCategoryColumn(rows: Row[], key: string): boolean {
   });
 }
 
-export function mountChart(
+export interface MountShellOptions {
+  title?: string;
+  description?: string;
+  chartType?: string;
+}
+
+export interface ShellRefs {
+  body: HTMLDivElement;
+  footer: HTMLDivElement;
+}
+
+export function mountShell(
   root: HTMLElement,
-  title?: string,
-  description?: string,
-): HTMLDivElement {
+  options: MountShellOptions = {},
+): ShellRefs {
   const shell = document.createElement("section");
   shell.className = "renderer-shell";
 
   const header = document.createElement("div");
   header.className = "renderer-header";
 
-  const heading = document.createElement("h1");
-  heading.className = "renderer-title";
-  heading.textContent = title ?? "Analytics visualization";
-  header.appendChild(heading);
+  const headerText = document.createElement("div");
+  headerText.className = "renderer-header-text";
 
-  if (description) {
-    const body = document.createElement("p");
-    body.className = "renderer-description";
-    body.textContent = description;
-    header.appendChild(body);
+  if (options.chartType) {
+    const eyebrow = document.createElement("span");
+    eyebrow.className = "renderer-eyebrow";
+    eyebrow.textContent = options.chartType;
+    headerText.appendChild(eyebrow);
   }
 
-  const content = document.createElement("div");
-  content.className = "renderer-chart-body";
+  const heading = document.createElement("h1");
+  heading.className = "renderer-title";
+  heading.textContent = options.title ?? "Analytics visualization";
+  headerText.appendChild(heading);
 
-  shell.append(header, content);
+  if (options.description) {
+    const description = document.createElement("p");
+    description.className = "renderer-description";
+    description.textContent = options.description;
+    headerText.appendChild(description);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "renderer-header-actions";
+
+  header.append(headerText, actions);
+
+  const body = document.createElement("div");
+  body.className = "renderer-chart-body";
+
+  const footer = document.createElement("div");
+  footer.className = "renderer-footer";
+
+  shell.append(header, body, footer);
   root.appendChild(shell);
-  return content;
+
+  return { body, footer };
+}
+
+export function mountChart(
+  root: HTMLElement,
+  title?: string,
+  description?: string,
+): HTMLDivElement {
+  const { body } = mountShell(root, { title, description });
+  return body;
 }
 
 export function pickNumericKey(
@@ -160,10 +198,16 @@ export function facetConfig(options: {
   facet_col?: string;
   facet_row?: string;
 }): { fx?: string; fy?: string } {
-  return {
-    fx: options.facet_col,
-    fy: options.facet_row,
-  };
+  // Only include keys when set; an explicit `undefined` would clobber facet
+  // channels (fx/fy) that a mark sets for grouping (e.g. bar grouped+color).
+  const config: { fx?: string; fy?: string } = {};
+  if (options.facet_col) {
+    config.fx = options.facet_col;
+  }
+  if (options.facet_row) {
+    config.fy = options.facet_row;
+  }
+  return config;
 }
 
 export function tooltipChannels(
@@ -192,6 +236,49 @@ export function ordinalColor(color?: string): { fill?: string; stroke?: string }
   return {
     fill: color,
     stroke: color,
+  };
+}
+
+export function seriesRange(): string[] {
+  return [
+    "var(--series-1)",
+    "var(--series-2)",
+    "var(--series-3)",
+    "var(--series-4)",
+    "var(--series-5)",
+    "var(--series-6)",
+  ];
+}
+
+export function plotDefaults() {
+  return {
+    style: {
+      fontFamily: "var(--font-sans)",
+      fontSize: "12px",
+      color: "var(--color-text-primary)",
+    },
+    marginLeft: 72,
+    marginRight: 24,
+    marginTop: 28,
+    // Leave room for the axis label below a possible two-level time-tick stack ("12" / "Apr").
+    marginBottom: 72,
+    x: {
+      tickPadding: 8,
+      labelAnchor: "center" as const,
+      labelArrow: "none" as const,
+      labelOffset: 56,
+    },
+    y: {
+      tickPadding: 8,
+      grid: true,
+      gridOpacity: 0.35,
+      labelAnchor: "center" as const,
+      labelArrow: "none" as const,
+      labelOffset: 56,
+    },
+    fx: { label: null, labelOffset: 0 },
+    fy: { label: null, labelOffset: 0 },
+    color: { range: seriesRange() },
   };
 }
 

@@ -5,26 +5,24 @@
 import type { z } from "zod/v3";
 
 import { DonutChartOutputSchema } from "../../../shared/render-schemas.js";
-import { validateColumns } from "../base.js";
+import { seriesRange, validateColumns } from "../base.js";
 import type { Primitive, Row } from "../types.js";
 
 type DonutOptions = z.infer<typeof DonutChartOutputSchema>["options"];
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const ACCENT = "var(--color-accent)";
-const INFO = "var(--color-text-info)";
 const PANEL = "var(--color-panel)";
 const TEXT_PRIMARY = "var(--color-text-primary)";
 const TEXT_SECONDARY = "var(--color-text-secondary)";
-const TEXT_ON_ACCENT = "var(--color-text-on-accent)";
-const SERIES_RANGE = [
-  ACCENT,
-  INFO,
-  "color-mix(in srgb, var(--color-accent) 72%, var(--color-panel) 28%)",
-  "color-mix(in srgb, var(--color-text-info) 64%, var(--color-panel) 36%)",
-  "color-mix(in srgb, var(--color-accent) 48%, var(--color-text-info) 52%)",
-  "color-mix(in srgb, var(--color-text-info) 44%, var(--color-accent) 56%)",
-] as const;
+
+const VIEWBOX_SIZE = 320;
+const CENTER = VIEWBOX_SIZE / 2;
+const OUTER_RADIUS = 104;
+const LABEL_RADIUS = OUTER_RADIUS + 18;
+// Horizontal padding reserved on each side of the SVG viewBox so on-chart slice
+// labels (which extend outward past the donut) don't clip at the SVG edges.
+const VIEWBOX_PAD_X = 36;
+const MAX_SLICE_LABEL_CHARS = 11;
 
 type SliceDatum = {
   category: string;
@@ -42,8 +40,8 @@ function svgElement<K extends keyof SVGElementTagNameMap>(
 function polar(radius: number, angleDegrees: number): { x: number; y: number } {
   const radians = ((angleDegrees - 90) * Math.PI) / 180;
   return {
-    x: 130 + radius * Math.cos(radians),
-    y: 130 + radius * Math.sin(radians),
+    x: CENTER + radius * Math.cos(radians),
+    y: CENTER + radius * Math.sin(radians),
   };
 }
 
@@ -68,13 +66,17 @@ function describeSlice(
   ].join(" ");
 }
 
-function labelPosition(
+function labelPlacement(
   startAngle: number,
   endAngle: number,
-  innerRadius: number,
-  outerRadius: number,
-): { x: number; y: number } {
-  return polar((innerRadius + outerRadius) / 2, (startAngle + endAngle) / 2);
+  radius: number,
+): { x: number; y: number; anchor: "start" | "middle" | "end" } {
+  const midAngle = (startAngle + endAngle) / 2;
+  const point = polar(radius, midAngle);
+  const radians = ((midAngle - 90) * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const anchor = cos > 0.15 ? "start" : cos < -0.15 ? "end" : "middle";
+  return { x: point.x, y: point.y, anchor };
 }
 
 function asNumber(value: Primitive): number | undefined {
@@ -111,6 +113,7 @@ function collectSlices(
 ): SliceDatum[] {
   const order: string[] = [];
   const totals = new Map<string, number>();
+  const palette = seriesRange();
 
   for (const row of rows) {
     const category = asCategory(row[categoryKey]);
@@ -147,7 +150,7 @@ function collectSlices(
   return normalized.map((slice, index) => ({
     ...slice,
     share: slice.value / total,
-    fill: SERIES_RANGE[index % SERIES_RANGE.length],
+    fill: palette[index % palette.length],
   }));
 }
 
@@ -197,19 +200,22 @@ export function renderDonut(
     options.other_threshold,
   );
   const total = slices.reduce((sum, slice) => sum + slice.value, 0);
-  const outerRadius = 104;
+  const outerRadius = OUTER_RADIUS;
   const innerRadius = outerRadius * options.hole;
 
   const wrapper = document.createElement("div");
   wrapper.style.display = "grid";
-  wrapper.style.gridTemplateColumns = "minmax(0, 300px) minmax(0, 1fr)";
+  wrapper.style.gridTemplateColumns = "minmax(0, 340px) minmax(0, 1fr)";
   wrapper.style.alignItems = "center";
   wrapper.style.gap = "1rem";
 
   const svg = svgElement("svg");
-  svg.setAttribute("viewBox", "0 0 260 260");
+  svg.setAttribute(
+    "viewBox",
+    `${-VIEWBOX_PAD_X} 0 ${VIEWBOX_SIZE + VIEWBOX_PAD_X * 2} ${VIEWBOX_SIZE}`,
+  );
   svg.setAttribute("width", "100%");
-  svg.setAttribute("height", "260");
+  svg.setAttribute("height", String(VIEWBOX_SIZE));
 
   let startAngle = 0;
   for (const slice of slices) {
@@ -223,29 +229,32 @@ export function renderDonut(
     path.setAttribute("fill", slice.fill);
     path.setAttribute("stroke", PANEL);
     path.setAttribute("stroke-width", "2");
-
-    const title = svgElement("title");
-    title.textContent =
-      `${slice.category}: ${formatNumber(slice.value)} (${Math.round(slice.share * 100)}%)`;
-    path.appendChild(title);
     svg.appendChild(path);
 
-    if (options.show_labels && slice.share >= 0.06 && endAngle - startAngle >= 24) {
-      const { x, y } = labelPosition(
+    if (options.show_labels && slice.share >= 0.04) {
+      const { x, y, anchor } = labelPlacement(
         startAngle,
         endAngle,
-        innerRadius,
-        outerRadius,
+        LABEL_RADIUS,
       );
+      const truncated = slice.category.length > MAX_SLICE_LABEL_CHARS;
       const label = svgElement("text");
       label.setAttribute("x", x.toFixed(2));
       label.setAttribute("y", y.toFixed(2));
-      label.setAttribute("text-anchor", "middle");
+      label.setAttribute("text-anchor", anchor);
       label.setAttribute("dominant-baseline", "central");
-      label.setAttribute("fill", TEXT_ON_ACCENT);
+      label.setAttribute("fill", TEXT_PRIMARY);
       label.setAttribute("font-size", "11");
-      label.setAttribute("font-weight", "700");
-      label.textContent = slice.category;
+      label.setAttribute("font-weight", "600");
+      // Full category name remains visible in the legend; on-chart label is
+      // truncated only to avoid clipping at the SVG edge.
+      label.appendChild(
+        document.createTextNode(
+          truncated
+            ? `${slice.category.slice(0, MAX_SLICE_LABEL_CHARS - 1)}…`
+            : slice.category,
+        ),
+      );
       svg.appendChild(label);
     }
 
@@ -253,8 +262,8 @@ export function renderDonut(
   }
 
   const centerValue = svgElement("text");
-  centerValue.setAttribute("x", "130");
-  centerValue.setAttribute("y", "126");
+  centerValue.setAttribute("x", String(CENTER));
+  centerValue.setAttribute("y", String(CENTER - 4));
   centerValue.setAttribute("text-anchor", "middle");
   centerValue.setAttribute("fill", TEXT_PRIMARY);
   centerValue.setAttribute("font-size", "24");
@@ -263,8 +272,8 @@ export function renderDonut(
   svg.appendChild(centerValue);
 
   const centerLabel = svgElement("text");
-  centerLabel.setAttribute("x", "130");
-  centerLabel.setAttribute("y", "148");
+  centerLabel.setAttribute("x", String(CENTER));
+  centerLabel.setAttribute("y", String(CENTER + 18));
   centerLabel.setAttribute("text-anchor", "middle");
   centerLabel.setAttribute("fill", TEXT_SECONDARY);
   centerLabel.setAttribute("font-size", "12");

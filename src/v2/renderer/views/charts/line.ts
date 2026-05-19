@@ -8,6 +8,8 @@ import type { z } from "zod/v3";
 import { LineChartOutputSchema } from "../../../shared/render-schemas.js";
 import {
   facetConfig,
+  plotDefaults,
+  seriesRange,
   tooltipChannels,
   validateColumns,
 } from "../base.js";
@@ -17,12 +19,6 @@ type LineOptions = z.infer<typeof LineChartOutputSchema>["options"];
 
 const ACCENT = "var(--color-accent)";
 const INFO = "var(--color-text-info)";
-const SERIES_RANGE = [
-  ACCENT,
-  INFO,
-  "color-mix(in srgb, var(--color-accent) 72%, var(--color-panel) 28%)",
-  "color-mix(in srgb, var(--color-text-info) 64%, var(--color-panel) 36%)",
-];
 const CURVE_MAP = {
   linear: "linear",
   smooth: "catmull-rom",
@@ -43,6 +39,7 @@ export function renderLine(rows: Row[], options: LineOptions): SVGElement | HTML
     facet_col: options.facet_col,
     facet_row: options.facet_row,
   });
+  const defaults = plotDefaults();
 
   const marks = [
     Plot.lineY(rows, {
@@ -72,9 +69,12 @@ export function renderLine(rows: Row[], options: LineOptions): SVGElement | HTML
   }
 
   return Plot.plot({
-    x: { label: options.x_label ?? options.x },
-    y: { label: options.y_label ?? options.y, grid: true },
-    color: options.color ? { range: SERIES_RANGE, legend: true } : undefined,
+    ...defaults,
+    x: { ...defaults.x, label: options.x_label ?? options.x },
+    y: { ...defaults.y, label: options.y_label ?? options.y },
+    color: options.color
+      ? { range: seriesRange(), legend: true }
+      : defaults.color,
     marks,
   });
 }

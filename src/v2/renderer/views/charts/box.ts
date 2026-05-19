@@ -8,6 +8,8 @@ import type { z } from "zod/v3";
 import { BoxChartOutputSchema } from "../../../shared/render-schemas.js";
 import {
   facetConfig,
+  plotDefaults,
+  seriesRange,
   tooltipChannels,
   validateColumns,
 } from "../base.js";
@@ -17,12 +19,6 @@ type BoxOptions = z.infer<typeof BoxChartOutputSchema>["options"];
 
 const ACCENT = "var(--color-accent)";
 const INFO = "var(--color-text-info)";
-const SERIES_RANGE = [
-  ACCENT,
-  INFO,
-  "color-mix(in srgb, var(--color-accent) 72%, var(--color-panel) 28%)",
-  "color-mix(in srgb, var(--color-text-info) 64%, var(--color-panel) 36%)",
-];
 
 export function renderBox(rows: Row[], options: BoxOptions): SVGElement | HTMLElement {
   validateColumns(
@@ -34,10 +30,15 @@ export function renderBox(rows: Row[], options: BoxOptions): SVGElement | HTMLEl
     options.facet_row,
   );
 
+  const defaults = plotDefaults();
+
   return Plot.plot({
-    x: { label: options.x_label ?? options.x },
-    y: { label: options.y_label ?? options.y, grid: true },
-    color: options.color ? { range: SERIES_RANGE, legend: true } : undefined,
+    ...defaults,
+    x: { ...defaults.x, label: options.x_label ?? options.x },
+    y: { ...defaults.y, label: options.y_label ?? options.y },
+    color: options.color
+      ? { range: seriesRange(), legend: true }
+      : defaults.color,
     marks: [
       Plot.boxY(rows, {
         x: options.x,
