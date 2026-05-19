@@ -317,8 +317,11 @@ All render tools require a `provider`:
 - `provider="direct"` renders small inline datasets from `data_columns` + `data_rows`
 
 The Athena Facade APIs are available through the `afs` OpenAPI spec, so the common flow is:
-1. Use `run-apis` to submit or poll a query
-2. Pass the resulting `query_id` to a `render_*` tool with `provider="facade"`
+1. Use `run-apis` to submit a query, preferably with `wait_ms=0` if you plan to render by `query_id`
+2. Poll `GET /afs/v1/admin/namespaces/{namespace}/queries/{id}` until the query reaches `status="SUCCEEDED"`
+3. Pass that `query_id` to a `render_*` tool with `provider="facade"`
+
+If `POST /afs/v1/admin/namespaces/{namespace}/queries` returns `200` with inline rows on the fast path, render those rows with `provider="direct"` instead of reusing the returned `query_id`.
 
 See [docs/API_REFERENCE.md](docs/API_REFERENCE.md) for the render-tool inputs, the `ui://renderer/index.html` resource, and the Athena Facade operation list.
 

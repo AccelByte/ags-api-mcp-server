@@ -88,6 +88,15 @@ function normalizeHttpError(
 ): FacadeError {
   const upstreamError = extractStructuredError(data);
 
+  if (status === 404) {
+    const baseMessage = upstreamError?.message ?? "query_id not found";
+    const message =
+      `${baseMessage}. ` +
+      'If this id came from a POST /afs/.../queries fast-path 200 response with inline rows, render those rows via provider="direct" or re-run the query with wait_ms=0 and then poll GET /afs/v1/admin/namespaces/{namespace}/queries/{id}.';
+
+    return new FacadeError(upstreamError?.code ?? "NOT_FOUND", message);
+  }
+
   return new FacadeError(
     upstreamError?.code ?? "INTERNAL",
     upstreamError?.message ?? `Facade returned ${status ?? "unknown status"}`,
@@ -102,7 +111,8 @@ function parseFacadeQueryResponse(data: unknown): FacadeQueryResponse {
     );
   }
 
-  const { status } = data;
+  const rawStatus = typeof data.status === "string" ? data.status : undefined;
+  const status = rawStatus?.toLowerCase();
   if (
     status !== "running" &&
     status !== "queued" &&
@@ -112,7 +122,7 @@ function parseFacadeQueryResponse(data: unknown): FacadeQueryResponse {
   ) {
     throw new FacadeError(
       "INVALID_RESPONSE",
-      `Query ${data.query_id} returned unsupported status "${String(status)}".`,
+      `Query ${data.query_id} returned unsupported status "${String(data.status)}".`,
     );
   }
 
@@ -156,7 +166,7 @@ export function createFacadeProvider(openApiTools: OpenApiTools): Provider {
         .string()
         .optional()
         .describe(
-          'Athena Facade query id (required when provider="facade"). Obtain by calling run-apis against POST /afs/v1/admin/namespaces/{namespace}/queries and polling GET /afs/v1/admin/namespaces/{namespace}/queries/{id} until status="succeeded".',
+          'Athena Facade query id (required when provider="facade"). Prefer obtaining it by calling run-apis against POST /afs/v1/admin/namespaces/{namespace}/queries with wait_ms=0, then polling GET /afs/v1/admin/namespaces/{namespace}/queries/{id} until status="succeeded". If POST returns 200 with inline rows on the fast path, render those rows via provider="direct" instead of reusing the returned query_id.',
         ),
       namespace: z
         .string()

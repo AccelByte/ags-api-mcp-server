@@ -343,6 +343,8 @@ The Athena Facade spec is loaded like every other OpenAPI spec and can be execut
 | `GET /afs/v1/admin/namespaces/{namespace}/tables` | List/search tables within a database |
 | `GET /afs/v1/admin/namespaces/{namespace}/tables/{database}/{table}` | Fetch full table metadata |
 
+If you intend to render via `provider="facade"`, prefer submitting with `wait_ms=0` so you can reliably poll `GET /afs/v1/admin/namespaces/{namespace}/queries/{id}` until `status="SUCCEEDED"`. If the submit endpoint returns `200` with inline rows on the fast path, use those `columns` and `rows` with `provider="direct"` instead of reusing the returned `query_id`.
+
 ### 5. Analytics Render Tools
 
 All render tools share the same data-source model.

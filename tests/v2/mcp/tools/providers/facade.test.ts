@@ -145,6 +145,32 @@ describe("createFacadeProvider", () => {
     });
   });
 
+  test("normalizes uppercase succeeded status from facade", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => ({
+        response: {
+          status: 200,
+          data: {
+            query_id: "q1",
+            status: "SUCCEEDED",
+            columns: [{ name: "state", type: "varchar" }],
+            rows: [["ready"]],
+          },
+        },
+      })),
+    );
+
+    const result = await provider.resolve(
+      { query_id: "q1", namespace: "demo" },
+      "token",
+    );
+
+    assert.deepEqual(result, {
+      columns: [{ name: "state", type: "varchar" }],
+      rows: [["ready"]],
+    });
+  });
+
   test("throws FORBIDDEN from structured non-2xx response", async () => {
     const provider = createFacadeProvider(
       createOpenApiToolsStub(async () => ({
@@ -187,6 +213,31 @@ describe("createFacadeProvider", () => {
         error instanceof FacadeError &&
         error.code === "INTERNAL" &&
         error.message === "Facade returned 500",
+    );
+  });
+
+  test("adds fast-path guidance for not found query ids", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => ({
+        response: {
+          status: 404,
+          data: {
+            error: {
+              code: "NOT_FOUND",
+              message: "query_id not found",
+            },
+          },
+        },
+      })),
+    );
+
+    await assert.rejects(
+      provider.resolve({ query_id: "q1", namespace: "demo" }, "token"),
+      (error: unknown) =>
+        error instanceof FacadeError &&
+        error.code === "NOT_FOUND" &&
+        error.message.includes('provider="direct"') &&
+        error.message.includes("wait_ms=0"),
     );
   });
 
