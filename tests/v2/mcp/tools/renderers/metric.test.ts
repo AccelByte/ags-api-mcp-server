@@ -9,6 +9,10 @@ import { ZodError, z } from "zod/v3";
 import { MetricOutputSchema } from "../../../../../src/v2/shared/render-schemas.js";
 import { createDirectProvider } from "../../../../../src/v2/mcp/tools/providers/direct.js";
 import { createProviderRegistry } from "../../../../../src/v2/mcp/tools/providers/registry.js";
+import type {
+  Provider,
+  ProviderData,
+} from "../../../../../src/v2/mcp/tools/providers/interface.js";
 import { setupRenderMetric } from "../../../../../src/v2/mcp/tools/renderers/metric.js";
 
 interface CapturedMetricTool {
@@ -108,5 +112,28 @@ describe("setupRenderMetric", () => {
         }),
       ZodError,
     );
+  });
+
+  test("surfaces sql from resolveData onto structuredContent", async () => {
+    const captured = {} as CapturedMetricTool;
+    const sqlProvider: Provider = {
+      name: "sql-stub",
+      resolve: async (): Promise<ProviderData> => ({
+        columns: [{ name: "v", type: "bigint" }],
+        rows: [["1"]],
+        sql: "SELECT v FROM t",
+      }),
+    };
+    const registry = createProviderRegistry([sqlProvider]);
+
+    setupRenderMetric(createCapturingServer(captured) as never, registry);
+
+    const result = await captured.callback(
+      { provider: "sql-stub", value: "v" },
+      { authInfo: { token: "token-123" } },
+    );
+
+    const parsed = MetricOutputSchema.parse(result.structuredContent);
+    assert.equal(parsed.sql, "SELECT v FROM t");
   });
 });

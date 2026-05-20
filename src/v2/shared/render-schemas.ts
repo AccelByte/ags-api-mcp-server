@@ -70,6 +70,7 @@ const CommonEnvelopeFields = {
   data: DataEnvelopeSchema,
   data_source: z.string().optional(),
   stats: RenderStatsSchema.optional(),
+  sql: z.string().optional(),
 };
 
 export const BarChartOutputSchema = strictObject({

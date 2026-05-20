@@ -2,7 +2,12 @@
 // This is licensed software from AccelByte Inc, for limitations
 // and restrictions contact your company contract manager.
 
+import { table } from "@observablehq/inputs";
+
+import type { RenderColumnHint } from "../../shared/render-schemas.js";
 import { getRowSetMeta, type Row } from "./types.js";
+
+export const FOLDOUT_TABLE_MAX_ROWS = 50;
 
 function availableColumns(rows: Row[]): string[] {
   const meta = getRowSetMeta(rows);
@@ -52,12 +57,20 @@ export interface RenderStats {
   engine_execution_time_ms?: number;
 }
 
+export interface FoldoutTableData {
+  columnNames: string[];
+  rows: Row[];
+  column_hints?: Record<string, RenderColumnHint>;
+}
+
 export interface MountShellOptions {
   title?: string;
   description?: string;
   chartType?: string;
   dataSource?: string;
   stats?: RenderStats;
+  sql?: string;
+  tableData?: FoldoutTableData;
 }
 
 export interface ShellRefs {
@@ -172,10 +185,275 @@ export function mountShell(
   shell.append(header, body, footer);
   root.appendChild(shell);
 
+  mountFoldouts(shell, footer, options);
   appendInlineSourceNote(footer, options.dataSource);
   appendStatsNote(footer, options.stats);
 
   return { body, footer };
+}
+
+const SQL_KEYWORDS = new Set([
+  "select",
+  "from",
+  "where",
+  "and",
+  "or",
+  "not",
+  "in",
+  "is",
+  "null",
+  "as",
+  "on",
+  "join",
+  "inner",
+  "outer",
+  "left",
+  "right",
+  "full",
+  "cross",
+  "using",
+  "group",
+  "by",
+  "order",
+  "having",
+  "limit",
+  "offset",
+  "distinct",
+  "union",
+  "intersect",
+  "except",
+  "all",
+  "with",
+  "case",
+  "when",
+  "then",
+  "else",
+  "end",
+  "between",
+  "like",
+  "ilike",
+  "exists",
+  "any",
+  "some",
+  "asc",
+  "desc",
+  "true",
+  "false",
+  "values",
+  "into",
+  "insert",
+  "update",
+  "delete",
+  "set",
+  "create",
+  "table",
+  "view",
+  "index",
+  "drop",
+  "alter",
+  "add",
+  "column",
+  "primary",
+  "key",
+  "foreign",
+  "references",
+  "constraint",
+  "unique",
+  "default",
+  "cast",
+  "over",
+  "partition",
+  "window",
+  "rows",
+  "range",
+  "preceding",
+  "following",
+  "current",
+  "row",
+  "unbounded",
+  "if",
+  "ifnull",
+  "coalesce",
+  "interval",
+]);
+
+function highlightSql(sql: string, target: HTMLElement): void {
+  const tokenRe =
+    /(\/\*[\s\S]*?\*\/|--[^\n]*)|('(?:''|[^'])*')|("(?:""|[^"])*")|(`(?:[^`])*`)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_][A-Za-z0-9_]*)|(\s+)|([^\s])/g;
+
+  let match: RegExpExecArray | null;
+  while ((match = tokenRe.exec(sql)) !== null) {
+    const [
+      ,
+      comment,
+      string,
+      doubleQuoted,
+      backtickQuoted,
+      number,
+      word,
+      whitespace,
+      punct,
+    ] = match;
+
+    if (comment !== undefined) {
+      appendSpan(target, comment, "sql-comment");
+    } else if (string !== undefined) {
+      appendSpan(target, string, "sql-string");
+    } else if (doubleQuoted !== undefined || backtickQuoted !== undefined) {
+      appendSpan(target, match[0], "sql-identifier");
+    } else if (number !== undefined) {
+      appendSpan(target, number, "sql-number");
+    } else if (word !== undefined) {
+      const cls = SQL_KEYWORDS.has(word.toLowerCase())
+        ? "sql-keyword"
+        : "sql-name";
+      appendSpan(target, word, cls);
+    } else if (whitespace !== undefined) {
+      target.appendChild(document.createTextNode(whitespace));
+    } else if (punct !== undefined) {
+      appendSpan(target, punct, "sql-punct");
+    }
+  }
+}
+
+function appendSpan(target: HTMLElement, text: string, className: string): void {
+  const span = document.createElement("span");
+  span.className = className;
+  span.textContent = text;
+  target.appendChild(span);
+}
+
+function buildSqlFoldoutContent(sql: string): HTMLElement {
+  const pre = document.createElement("pre");
+  pre.className = "renderer-foldout-sql";
+  const code = document.createElement("code");
+  highlightSql(sql, code);
+  pre.appendChild(code);
+  return pre;
+}
+
+function buildTableFoldoutContent(data: FoldoutTableData): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "renderer-foldout-table-wrap";
+
+  const totalRows = data.rows.length;
+  const displayRows = data.rows.slice(0, FOLDOUT_TABLE_MAX_ROWS);
+
+  if (totalRows > FOLDOUT_TABLE_MAX_ROWS) {
+    const note = document.createElement("p");
+    note.className = "renderer-foldout-truncation";
+    note.textContent = `Showing first ${FOLDOUT_TABLE_MAX_ROWS} of ${totalRows} rows. Use render_table to see all.`;
+    wrap.appendChild(note);
+  }
+
+  const headers = Object.fromEntries(
+    data.columnNames.map((column) => [
+      column,
+      data.column_hints?.[column]?.label ?? column,
+    ]),
+  );
+
+  const meta = getRowSetMeta(data.rows);
+  const numericColumns = new Set<string>(
+    data.columnNames.filter(
+      (column) =>
+        meta?.columnTypes[column] === "quantitative" &&
+        data.rows.some((row) => typeof row[column] === "number"),
+    ),
+  );
+
+  const renderedTable = table(displayRows, {
+    columns: data.columnNames,
+    header: headers,
+    layout: data.columnNames.length >= 12 ? "auto" : "fixed",
+    required: false,
+    rows: Math.max(displayRows.length, 1),
+    select: false,
+    width: "100%",
+  });
+
+  wrap.appendChild(renderedTable);
+
+  const tableEl = wrap.querySelector("table");
+  if (tableEl) {
+    tableEl.classList.add("renderer-table");
+    if (numericColumns.size > 0) {
+      data.columnNames.forEach((column, index) => {
+        if (!numericColumns.has(column)) {
+          return;
+        }
+        const cellIndex = index + 1;
+        tableEl
+          .querySelectorAll(
+            `thead th:nth-child(${cellIndex}), tbody td:nth-child(${cellIndex})`,
+          )
+          .forEach((cell) => cell.classList.add("is-numeric"));
+      });
+    }
+  }
+
+  return wrap;
+}
+
+export function mountFoldouts(
+  shell: HTMLElement,
+  footer: HTMLElement,
+  options: MountShellOptions,
+): void {
+  const hasSql = typeof options.sql === "string" && options.sql.length > 0;
+  const hasTable = options.tableData !== undefined;
+
+  if (!hasSql && !hasTable) {
+    return;
+  }
+
+  const foldouts = document.createElement("div");
+  foldouts.className = "renderer-foldouts";
+
+  if (hasSql && options.sql !== undefined) {
+    foldouts.appendChild(
+      buildFoldout("SQL", () => buildSqlFoldoutContent(options.sql as string)),
+    );
+  }
+
+  if (hasTable && options.tableData !== undefined) {
+    const tableData = options.tableData;
+    foldouts.appendChild(
+      buildFoldout("Table", () => buildTableFoldoutContent(tableData)),
+    );
+  }
+
+  shell.insertBefore(foldouts, footer);
+}
+
+function buildFoldout(label: string, build: () => HTMLElement): HTMLElement {
+  const details = document.createElement("details");
+  details.className = "renderer-foldout";
+
+  const summary = document.createElement("summary");
+  summary.className = "renderer-foldout-summary";
+
+  const chevron = document.createElement("span");
+  chevron.className = "renderer-foldout-chevron";
+  chevron.setAttribute("aria-hidden", "true");
+
+  const text = document.createElement("span");
+  text.className = "renderer-foldout-label";
+  text.textContent = label;
+
+  summary.append(chevron, text);
+  details.appendChild(summary);
+
+  let mounted = false;
+  details.addEventListener("toggle", () => {
+    if (mounted || !details.open) {
+      return;
+    }
+    mounted = true;
+    details.appendChild(build());
+  });
+
+  return details;
 }
 
 export function mountChart(

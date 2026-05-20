@@ -118,6 +118,57 @@ describe("createFacadeProvider", () => {
     });
   });
 
+  test("surfaces sql on succeeded result when AFS includes it", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => ({
+        response: {
+          status: 200,
+          data: {
+            query_id: "q1",
+            status: "succeeded",
+            columns: [{ name: "v", type: "bigint" }],
+            rows: [["1"]],
+            sql: "SELECT v FROM games",
+          },
+        },
+      })),
+    );
+
+    const result = await provider.resolve(
+      { query_id: "q1", namespace: "demo" },
+      "token",
+    );
+
+    assert.deepEqual(result, {
+      columns: [{ name: "v", type: "bigint" }],
+      rows: [["1"]],
+      sql: "SELECT v FROM games",
+    });
+  });
+
+  test("omits sql on succeeded result when AFS does not include it", async () => {
+    const provider = createFacadeProvider(
+      createOpenApiToolsStub(async () => ({
+        response: {
+          status: 200,
+          data: {
+            query_id: "q1",
+            status: "succeeded",
+            columns: [{ name: "v", type: "bigint" }],
+            rows: [["1"]],
+          },
+        },
+      })),
+    );
+
+    const result = await provider.resolve(
+      { query_id: "q1", namespace: "demo" },
+      "token",
+    );
+
+    assert.equal("sql" in result, false);
+  });
+
   test("returns columns and rows when status is succeeded", async () => {
     const provider = createFacadeProvider(
       createOpenApiToolsStub(async () => ({

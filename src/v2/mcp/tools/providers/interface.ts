@@ -18,6 +18,7 @@ export type ProviderData = {
   columns: ProviderColumn[];
   rows: string[][];
   stats?: ProviderStats;
+  sql?: string;
 };
 
 /**

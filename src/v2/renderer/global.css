@@ -213,6 +213,120 @@ body {
   gap: var(--space-4);
 }
 
+.renderer-foldouts {
+  display: grid;
+  gap: var(--space-2);
+  padding-block: var(--space-2) var(--space-3);
+}
+
+.renderer-foldout {
+  border: var(--border-width-regular) solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  background: var(--color-panel-muted);
+  overflow: hidden;
+}
+
+.renderer-foldout-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  list-style: none;
+  user-select: none;
+}
+
+.renderer-foldout-summary::-webkit-details-marker {
+  display: none;
+}
+
+.renderer-foldout-chevron {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--color-text-secondary);
+  transform: rotate(-90deg);
+  transition: transform var(--dur-1) var(--ease-out);
+}
+
+.renderer-foldout[open] > .renderer-foldout-summary .renderer-foldout-chevron {
+  transform: rotate(0deg);
+}
+
+.renderer-foldout-label {
+  font-weight: 600;
+}
+
+.renderer-foldout-sql {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--color-panel);
+  border-top: var(--border-width-regular) solid var(--color-border);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.renderer-foldout-sql .sql-keyword {
+  color: light-dark(#7c3aed, #c4b5fd);
+  font-weight: 600;
+}
+
+.renderer-foldout-sql .sql-string {
+  color: light-dark(#15803d, #86efac);
+}
+
+.renderer-foldout-sql .sql-number {
+  color: light-dark(#b45309, #fbbf24);
+}
+
+.renderer-foldout-sql .sql-comment {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.renderer-foldout-sql .sql-identifier {
+  color: light-dark(#0e7490, #67e8f9);
+}
+
+.renderer-foldout-sql .sql-punct {
+  color: var(--color-text-secondary);
+}
+
+.renderer-foldout-table-wrap {
+  padding: var(--space-3);
+  background: var(--color-panel);
+  border-top: var(--border-width-regular) solid var(--color-border);
+  overflow-x: auto;
+}
+
+.renderer-foldout-table-wrap > form {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  max-height: none !important;
+  height: auto !important;
+  overflow: visible;
+}
+
+.renderer-foldout-table-wrap .renderer-table th,
+.renderer-foldout-table-wrap .renderer-table td {
+  white-space: nowrap;
+}
+
+.renderer-foldout-truncation {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
 .renderer-footer {
   padding-block: var(--space-3);
   border-top: var(--border-width-regular) solid var(--color-border);
@@ -365,13 +479,15 @@ body {
 
 .renderer-table-wrap {
   padding-block: 0 var(--space-5);
+  overflow-x: auto;
 }
 
 /* @observablehq/inputs table() sets an inline maxHeight on its <form> wrapper;
  * with pagination handling row visibility we don't want the inner clip. */
 .renderer-table-wrap > form {
   display: block;
-  width: 100%;
+  min-width: 100%;
+  width: max-content;
   max-height: none !important;
   height: auto !important;
   overflow: visible;

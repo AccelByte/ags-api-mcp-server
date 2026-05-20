@@ -73,6 +73,13 @@ const ExampleOutputSchema = strictObject({
     rows: z.array(z.array(z.string())),
   }),
   data_source: z.string().optional(),
+  stats: z
+    .object({
+      data_scanned_bytes: z.number().optional(),
+      engine_execution_time_ms: z.number().optional(),
+    })
+    .optional(),
+  sql: z.string().optional(),
   options: strictObject({
     x: z.string(),
   }),
@@ -188,9 +195,75 @@ describe("defineRenderTool", () => {
       filters: undefined,
       data: { columns, rows },
       data_source: "direct",
+      stats: undefined,
+      sql: undefined,
       options: { x: "team" },
     });
     assert.equal("_meta" in result, false);
+  });
+
+  test("includes sql on structuredContent when provider returns it", async () => {
+    const captured = {} as CapturedTool;
+    const columns = [{ name: "team", type: "varchar" }];
+    const rows = [["blue"]];
+    const registry = createProviderRegistry([
+      createProvider(
+        async (): Promise<ProviderData> => ({
+          columns,
+          rows,
+          sql: "SELECT team FROM games",
+        }),
+      ),
+    ]);
+
+    defineRenderTool({
+      server: createCapturingServer(captured) as never,
+      registry,
+      name: "render_example_chart",
+      title: "Render Example Chart",
+      description: "Render example data.",
+      chartType: "example",
+      optionFields: { x: z.string() },
+      outputSchema: ExampleOutputSchema,
+      mapInputToOptions: (input) => ({ x: input.x }),
+    });
+
+    const result = await captured.callback(
+      { provider: "direct", x: "team" },
+      { authInfo: { token: "token-123" } },
+    );
+
+    const structured = result.structuredContent as Record<string, unknown>;
+    assert.equal(structured.sql, "SELECT team FROM games");
+  });
+
+  test("omits sql on structuredContent when provider does not return it", async () => {
+    const captured = {} as CapturedTool;
+    const columns = [{ name: "team", type: "varchar" }];
+    const rows = [["blue"]];
+    const registry = createProviderRegistry([
+      createProvider(async (): Promise<ProviderData> => ({ columns, rows })),
+    ]);
+
+    defineRenderTool({
+      server: createCapturingServer(captured) as never,
+      registry,
+      name: "render_example_chart",
+      title: "Render Example Chart",
+      description: "Render example data.",
+      chartType: "example",
+      optionFields: { x: z.string() },
+      outputSchema: ExampleOutputSchema,
+      mapInputToOptions: (input) => ({ x: input.x }),
+    });
+
+    const result = await captured.callback(
+      { provider: "direct", x: "team" },
+      { authInfo: { token: "token-123" } },
+    );
+
+    const structured = result.structuredContent as Record<string, unknown>;
+    assert.equal(structured.sql, undefined);
   });
 
   test("maps FacadeError into isError results with code metadata", async () => {

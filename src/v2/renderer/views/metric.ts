@@ -141,6 +141,7 @@ export function renderMetric(root: HTMLElement, payload: MetricPayload): void {
     chartType: "metric",
     dataSource: payload.data_source,
     stats: payload.stats,
+    sql: payload.sql,
   });
 
   const value = document.createElement("p");

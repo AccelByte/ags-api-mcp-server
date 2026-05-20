@@ -9,6 +9,10 @@ import { ZodError, z } from "zod/v3";
 import { TableOutputSchema } from "../../../../../src/v2/shared/render-schemas.js";
 import { createDirectProvider } from "../../../../../src/v2/mcp/tools/providers/direct.js";
 import { createProviderRegistry } from "../../../../../src/v2/mcp/tools/providers/registry.js";
+import type {
+  Provider,
+  ProviderData,
+} from "../../../../../src/v2/mcp/tools/providers/interface.js";
 import { setupRenderTable } from "../../../../../src/v2/mcp/tools/renderers/table.js";
 
 interface CapturedTableTool {
@@ -106,5 +110,28 @@ describe("setupRenderTable", () => {
         }),
       ZodError,
     );
+  });
+
+  test("surfaces sql from resolveData onto structuredContent", async () => {
+    const captured = {} as CapturedTableTool;
+    const sqlProvider: Provider = {
+      name: "sql-stub",
+      resolve: async (): Promise<ProviderData> => ({
+        columns: [{ name: "v", type: "bigint" }],
+        rows: [["1"]],
+        sql: "SELECT v FROM t",
+      }),
+    };
+    const registry = createProviderRegistry([sqlProvider]);
+
+    setupRenderTable(createCapturingServer(captured) as never, registry);
+
+    const result = await captured.callback(
+      { provider: "sql-stub" },
+      { authInfo: { token: "token-123" } },
+    );
+
+    const parsed = TableOutputSchema.parse(result.structuredContent);
+    assert.equal(parsed.sql, "SELECT v FROM t");
   });
 });

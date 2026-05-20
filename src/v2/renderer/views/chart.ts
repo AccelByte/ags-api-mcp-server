@@ -42,6 +42,12 @@ export function renderChart(root: HTMLElement, payload: ChartPayload): void {
     chartType: payload.chart_type,
     dataSource: payload.data_source,
     stats: payload.stats,
+    sql: payload.sql,
+    tableData: {
+      columnNames: payload.data.columns.map((column) => column.name),
+      rows,
+      column_hints: payload.column_hints,
+    },
   });
   let view: SVGElement | HTMLElement;
 

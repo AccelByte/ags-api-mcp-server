@@ -20,6 +20,7 @@ interface FacadeQueryResponse {
     data_scanned_bytes?: number;
     engine_execution_time_ms?: number;
   };
+  sql?: string;
 }
 
 interface RunApiEnvelope {
@@ -182,6 +183,7 @@ function parseFacadeQueryResponse(data: unknown): FacadeQueryResponse {
       | { code: string; message: string }
       | undefined,
     stats,
+    sql: typeof data.sql === "string" ? data.sql : undefined,
   };
 }
 
@@ -286,9 +288,14 @@ export function createFacadeProvider(openApiTools: OpenApiTools): Provider {
                 },
                 "facadeProvider.resolve succeeded",
               );
-              return body.stats
-                ? { columns, rows, stats: body.stats }
-                : { columns, rows };
+              const result: ProviderData = { columns, rows };
+              if (body.stats) {
+                result.stats = body.stats;
+              }
+              if (body.sql !== undefined) {
+                result.sql = body.sql;
+              }
+              return result;
             }
             default:
               throw new FacadeError(

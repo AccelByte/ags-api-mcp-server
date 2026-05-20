@@ -57,7 +57,7 @@ export function defineRenderTool<TSchema extends AnyZodObject>({
       const token = extra.authInfo?.token ?? "";
 
       try {
-        const { columns, rows, stats } = await resolveData(
+        const { columns, rows, stats, sql } = await resolveData(
           registry,
           toolInput,
           token,
@@ -71,6 +71,7 @@ export function defineRenderTool<TSchema extends AnyZodObject>({
           data: { columns, rows },
           data_source: toolInput.provider,
           stats,
+          sql,
           options: mapInputToOptions(toolInput),
         });
 

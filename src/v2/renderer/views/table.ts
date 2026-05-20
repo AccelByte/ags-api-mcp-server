@@ -90,7 +90,11 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
   const columns = orderedColumns(payload);
   const meta = getRowSetMeta(rows);
   const numericColumns = new Set<string>(
-    columns.filter((column) => meta?.columnTypes[column] === "quantitative"),
+    columns.filter(
+      (column) =>
+        meta?.columnTypes[column] === "quantitative" &&
+        rows.some((row) => typeof row[column] === "number"),
+    ),
   );
   const headers = Object.fromEntries(
     columns.map((column) => [
@@ -107,6 +111,7 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
     chartType: "table",
     dataSource: payload.data_source,
     stats: payload.stats,
+    sql: payload.sql,
   });
 
   const summary = document.createElement("p");
