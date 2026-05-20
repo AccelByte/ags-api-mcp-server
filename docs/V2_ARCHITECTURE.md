@@ -184,7 +184,7 @@ Per [MCP Specification](https://modelcontextprotocol.io/specification/2025-11-25
 | **V2-Specific** |
 | MCP path | ❌ | `MCP_PATH` | Default `/mcp` |
 | Auth enabled | ❌ | `MCP_AUTH` | Toggle authentication |
-| Render tools enabled | ❌ | `ENABLE_RENDER_TOOLS` | Operational rollback flag for analytics tools/resources |
+| Render tools enabled | ❌ | `MCP_RENDER_TOOLS` | Operational rollback flag for analytics tools/resources |
 
 ### V2 Improvements
 

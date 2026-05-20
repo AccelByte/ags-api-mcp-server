@@ -135,7 +135,7 @@ function loadConfig(): Config {
         path: process.env.MCP_PATH,
         serverUrl: mcpServerUrl,
         enableAuth: process.env.MCP_AUTH,
-        enableRenderTools: process.env.ENABLE_RENDER_TOOLS,
+        enableRenderTools: process.env.MCP_RENDER_TOOLS,
         authServerDiscoveryMode: process.env.MCP_AUTH_SERVER_DISCOVERY_MODE,
       },
       openapi: {

@@ -65,7 +65,7 @@ See [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) for the V2 stateless, HTTP-only arc
 export MCP_AUTH=false
 ```
 
-### `ENABLE_RENDER_TOOLS`
+### `MCP_RENDER_TOOLS`
 - **Description**: Enable analytics render tools and the renderer app resource
 - **Default**: `true`
 - **Required**: No

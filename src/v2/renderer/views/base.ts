@@ -4,7 +4,10 @@
 
 import { table } from "@observablehq/inputs";
 
-import type { RenderColumnHint } from "../../shared/render-schemas.js";
+import type {
+  RenderColumnHint,
+  RenderStats,
+} from "../../shared/render-schemas.js";
 import { getRowSetMeta, type Row } from "./types.js";
 
 export const FOLDOUT_TABLE_MAX_ROWS = 50;
@@ -50,11 +53,6 @@ function isCategoryColumn(rows: Row[], key: string): boolean {
     const value = row[key];
     return typeof value === "string" || typeof value === "boolean";
   });
-}
-
-export interface RenderStats {
-  data_scanned_bytes?: number;
-  engine_execution_time_ms?: number;
 }
 
 export interface FoldoutTableData {
