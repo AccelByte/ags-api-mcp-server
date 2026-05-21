@@ -1,0 +1,133 @@
+library(
+  identifier: 'jenkins-shared-library@v0.1.0',
+  retriever: modernSCM(
+    [
+      $class: 'GitSCMSource',
+      remote: 'https://github.com/AccelByte/extend-jenkins-pipeline-library.git'
+    ]
+  )
+)
+
+bitbucketCredentials = "bitbucket-build-extend-https"
+bitbucketCredentialsSsh = "bitbucket-build-extend-ssh"
+
+bitbucketPayload = null
+bitbucketCommitHref = null
+bitbucketCommitTagName = null
+
+imageName = 'ags-api-mcp-server'
+
+pipeline {
+  agent {
+    label "extend-builder-batch"
+  }
+  stages {
+    stage('Check Parameters') {
+      steps {
+        script {
+          if (params.RELEASE_TAG_BRANCH) {
+            env.SKIP_WEBHOOK = 'true'
+            echo "Using provided parameter for tag/branch: ${params.RELEASE_TAG_BRANCH}"
+            bitbucketCommitTagName = params.RELEASE_TAG_BRANCH
+          }
+        }
+      }
+    }
+    stage('Prepare From Webhook') {
+      when {
+        expression { return env.SKIP_WEBHOOK != 'true' }
+      }
+      steps {
+        script {
+          if (env.BITBUCKET_PAYLOAD) {
+            bitbucketPayload = readJSON text: env.BITBUCKET_PAYLOAD
+          }
+
+          if (!bitbucketPayload?.push || bitbucketPayload.push.changes[0].new.type != "tag") {
+            currentBuild.result = 'NOT_BUILT'
+            env.SKIP_PIPELINE = 'true'
+            echo "Skipping: not a tag push event"
+            return
+          }
+        
+          if (bitbucketPayload.push.changes[0].new.target.type != "commit") {
+            currentBuild.result = 'NOT_BUILT'
+            env.SKIP_PIPELINE = 'true'
+            echo "Skipping: not a commit target type"
+            return
+          }
+
+          bitbucketCommitHref = bitbucketPayload.push.changes[0].new.target.links.self.href
+          bitbucketCommitTagName = bitbucketPayload.push.changes[0].new.name
+
+          if (bitbucketCommitHref) {
+            bitbucket.setBuildStatus(bitbucketCredentials, bitbucketCommitHref, "INPROGRESS", env.JOB_NAME, "${env.JOB_NAME}-${env.BUILD_NUMBER}", "Jenkins", "${env.BUILD_URL}console")
+          }
+        }
+      }
+    }        
+    stage('Push to ECR') {
+      when {
+        expression { return env.SKIP_PIPELINE != 'true' }
+      }
+      steps {
+        withCredentials([
+            [
+                $class: 'AmazonWebServicesCredentialsBinding',
+                credentialsId: "AWS-Prod-Cluster",
+                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+            ]
+        ]) {
+          script {
+            sh "git checkout ${bitbucketCommitTagName}"
+
+            def commitHash = sh(returnStdout: true, script: 'git rev-parse HEAD').trim().take(10)
+            def masterImageTag = "master-${commitHash}"
+            def ecrRepo = "144436415367.dkr.ecr.us-west-2.amazonaws.com/ags-api-mcp-server"
+
+            sh "docker run --rm -t -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY amazon/aws-cli ecr get-login-password --region 'us-west-2' | docker login --username AWS --password-stdin 144436415367.dkr.ecr.us-west-2.amazonaws.com"
+
+            def masterTagExists = sh(
+              returnStatus: true,
+              script: "docker run --rm -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY amazon/aws-cli ecr describe-images --repository-name ags-api-mcp-server --region us-west-2 --image-ids imageTag=${masterImageTag} > /dev/null 2>&1"
+            ) == 0
+            if (!masterTagExists) {
+              error("Image master-${commitHash} does not exist in ECR, failing job")
+            }
+
+            def releaseTagExists = sh(
+              returnStatus: true,
+              script: "docker run --rm -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY amazon/aws-cli ecr describe-images --repository-name ags-api-mcp-server --region us-west-2 --image-ids imageTag=${bitbucketCommitTagName} > /dev/null 2>&1"
+            ) == 0
+            if (releaseTagExists) {
+              error("Image tag ${bitbucketCommitTagName} already exists in ECR, failing job")
+            }
+
+            sh "docker pull ${ecrRepo}:${masterImageTag}"
+            sh "docker tag ${ecrRepo}:${masterImageTag} ${ecrRepo}:${bitbucketCommitTagName}"
+
+            // We only run amd64 at the moment.
+            sh "docker push ${ecrRepo}:${bitbucketCommitTagName}"
+          }
+        }
+      }
+    }
+  }
+  post {
+    success {
+      script {
+        if (bitbucketCommitHref) {
+          bitbucket.setBuildStatus(bitbucketCredentials, bitbucketCommitHref, "SUCCESSFUL", env.JOB_NAME, "${env.JOB_NAME}-${env.BUILD_NUMBER}", "Jenkins", "${env.BUILD_URL}console")
+        }
+      }
+    }
+    failure {
+      script {
+        if (bitbucketCommitHref) {
+          bitbucket.setBuildStatus(bitbucketCredentials, bitbucketCommitHref, "FAILED", env.JOB_NAME, "${env.JOB_NAME}-${env.BUILD_NUMBER}", "Jenkins", "${env.BUILD_URL}console")
+        }
+      }
+    }
+  }
+}
