@@ -89,7 +89,7 @@ Unless explicitly requested:
 * `/dist/` — Build outputs (regenerate with `pnpm build`)
 * `/.git/` — Git metadata
 * `/openapi-specs/` — Source OpenAPI specs (processed, not edited)
-* `/docs/v1/` — V1 documentation (legacy)
+* `/docs/v1/README.md` — V1 legacy archive (single file)
 
 ### Behavioral Constraints
 
@@ -102,7 +102,7 @@ Unless explicitly requested, avoid:
 
 ### Locked-In Assumptions
 
-* V2 stateless architecture is intentional (see `docs/V2_ARCHITECTURE.md`)
+* V2 stateless architecture is intentional (see `docs/ARCHITECTURE.md`)
 * Express 5 is the chosen framework
 * MCP SDK patterns are followed per specification
 
@@ -111,14 +111,12 @@ Unless explicitly requested, avoid:
 ## Documentation Map
 
 * `CLAUDE.md` ← **Authoritative architectural overview** (you are here)
-* `README.md` → Main project documentation, quick start
-* `docs/V2_ARCHITECTURE.md` → V2 design rationale and trade-offs
-* `docs/API_REFERENCE.md` → API endpoint specifications
-* `docs/DEVELOPMENT.md` → Development workflow
-* `docs/TESTING.md` → Testing guide
-* `docs/DOCKER.md` → Docker deployment
+* `README.md` → Main project documentation, hosted-server install
+* `INSTALL.md` → AI-assistant install guide for the hosted server
+* `docs/ARCHITECTURE.md` → Architecture, security (JWT, SSRF, rate limits), render tools, AFS operations
 * `docs/ENVIRONMENT_VARIABLES.md` → Environment configuration
-* `docs/v1/` → V1 documentation (legacy)
+* `docs/DEVELOPMENT.md` → Self-hosting, development, testing, and Docker deployment
+* `docs/v1/README.md` → V1 legacy archive (single file)
 * `CHANGELOG.md` → Version history
 
 ---

@@ -212,7 +212,7 @@ The typical Athena Facade flow:
 
 If the submit returns `200` with inline rows on the fast path, render those rows directly with `provider="direct"`.
 
-See [docs/API_REFERENCE.md](docs/API_REFERENCE.md) for render-tool inputs and the Athena Facade operation list.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#render-tools) for the render-tool input matrix and the Athena Facade operation list.
 
 ### Workflow Prompts
 
@@ -237,15 +237,12 @@ Your AccelByte user may not have permission for the operation you're calling. Ch
 ## Documentation
 
 - [Installation Guide](INSTALL.md) — followed by the Quick Install prompt; readable on its own
-- [V2 Architecture](docs/V2_ARCHITECTURE.md) — design rationale and trade-offs
-- [API Reference](docs/API_REFERENCE.md) — render tools, resources, operation details
-- [Environment Variables](docs/ENVIRONMENT_VARIABLES.md) — configuration reference (mostly relevant to self-hosters)
-- [Development Guide](docs/DEVELOPMENT.md) — local builds, self-hosting, contributing
-- [Docker Deployment](docs/DOCKER.md) — self-hosting via Docker
-- [Testing Guide](docs/TESTING.md)
+- [Architecture](docs/ARCHITECTURE.md) — design, security mechanisms, render tools, AFS operations
+- [Environment Variables](docs/ENVIRONMENT_VARIABLES.md) — for self-hosters
+- [Self-Hosting & Development](docs/DEVELOPMENT.md) — build, run, test, deploy with Docker
 
-> **Looking for V1?** V1 (stdio transport, server-managed OAuth) lives in [docs/v1/](docs/v1/README.md).
+> Looking for V1? See [docs/v1/README.md](docs/v1/README.md) (legacy; stdio + server-managed OAuth).
 
-## Support
+## Contributions
 
-For issues and questions, open an issue in the repository.
+This repository is published as-is. We don't accept external pull requests at this time. For bug reports and questions, please open an issue.

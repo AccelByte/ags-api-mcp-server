@@ -4,10 +4,32 @@
 
 ### Fixed
 - **OAuth discovery in hosted mode**: the `WWW-Authenticate` header on `401` responses now advertises `resource_metadata` at the configured `MCP_SERVER_URL` instead of the upstream AGS host carried in `X-Forwarded-Host`. Spec-compliant MCP clients (e.g. `mcp-remote`) running on a different hostname than the AGS environment can now discover the protected-resource document and complete OAuth.
+- **OpenAPI base URL resolution**: `run-apis` now prefers `AB_BASE_URL` (or the hosted-mode per-request base URL) over the OpenAPI spec's `servers` / Swagger 2 `host` metadata. Self-hosters who relied on spec-host fallback should set `AB_BASE_URL` explicitly.
+- **Athena Facade fast-path rendering**: when the submit endpoint returns inline rows on the fast path, the guidance now steers callers to render with `provider="direct"` instead of polling the returned `query_id`, avoiding a guaranteed-empty facade fetch.
 
 ### Added
 - **`ALLOW_PARENT_DOMAIN_ISSUER`** env var (default `false`): opt-in for AGS deployments where a single OAuth authorization server signs tokens for multiple subdomain environments (e.g. issuer `internal.gamingservices.accelbyte.io` issuing for `<env>.internal.gamingservices.accelbyte.io`). Only loosens the host-equality check; signature verification against the issuer's JWKS is unchanged. Strict-subdomain match required — bare suffix matches and issuers with paths are still rejected. See `docs/ENVIRONMENT_VARIABLES.md`.
-- **Analytics and visualization MCP surface**: added 15 `render_*` tools, Athena Facade (`afs`) integration through `run-apis`, and the `ui://renderer/index.html` MCP app resource backed by the V2 renderer bundle. `MCP_RENDER_TOOLS` is the operational rollback flag.
+- **Analytics and visualization MCP surface**: a new tool family for turning tabular data into charts, tables, and metrics inside MCP hosts that render app resources.
+  - **15 `render_*` tools**: `render_bar_chart`, `render_line_chart`, `render_area_chart`, `render_scatter_chart`, `render_histogram_chart`, `render_box_chart`, `render_heatmap_chart`, `render_pie_chart`, `render_donut_chart`, `render_waterfall_chart`, `render_funnel_chart`, `render_gauge_chart`, `render_state_timeline_chart`, `render_table`, `render_metric`. See `docs/ARCHITECTURE.md#render-tools` for the input matrix.
+  - **Two data-source providers**: `provider="facade"` reads Athena Facade query results by `query_id` + `namespace`; `provider="direct"` renders inline `data_columns` + `data_rows` (handy for the fast path and small datasets).
+  - **Athena Facade (`afs`) integration**: `openapi-specs/afs.json` is loaded like any other spec and exposed through `search-apis`, `describe-apis`, and `run-apis` — no separate tool surface.
+  - **`ui://renderer/index.html` MCP app resource**: single-file renderer bundle (Vite-built, memoized server-side), validated by the browser against a shared `BUNDLE_VERSION` and tagged with `_meta["ags/bundleVersion"]`.
+  - **Write-op elicitation**: POST/PUT/PATCH/DELETE through `run-apis` requests user consent via MCP elicitation before executing.
+  - **Operational rollback**: `MCP_RENDER_TOOLS=false` hides the entire surface without redeploying.
+
+### Changed
+- **Renderer UI polish.** Unified chart shell with shared design tokens; chart renders now expose foldout panels for the underlying SQL and result table; the footer surfaces query execution stats (duration, row count, scanned bytes); inline data sources are flagged in the chart header.
+- **Hosted-server framing.** `README.md` rewritten to lead with the hosted server URL + AI-assistant install. New `INSTALL.md` is the AI-assistant-consumable install workflow (paste-and-go from `README.md`'s Quick Install).
+- **Breaking: `render_scatter_chart` `label` option removed.** Use `tooltip` to surface per-point text; calls that pass `label` will fail Zod validation.
+- **Documentation consolidated.** `docs/` now contains three load-bearing files plus the V1 archive: `ARCHITECTURE.md` (design, security, render tools, AFS), `DEVELOPMENT.md` (self-host, test, Docker), `ENVIRONMENT_VARIABLES.md`. README is the hosted-service entry point; `INSTALL.md` is the AI-assistant install guide. The seven `docs/v1/` files collapsed into a single archive at `docs/v1/README.md`.
+- **Breaking link changes.** External bookmarks to the following paths now 404 — update them to the destinations listed:
+  - `docs/V2_ARCHITECTURE.md` → `docs/ARCHITECTURE.md`
+  - `docs/SECURITY.md` → `docs/ARCHITECTURE.md#security`
+  - `docs/API_REFERENCE.md` → `docs/ARCHITECTURE.md#render-tools` (render-tool matrix) or MCP `tools/list` introspection (everything else)
+  - `docs/DOCKER.md` → `docs/DEVELOPMENT.md#docker`
+  - `docs/TESTING.md` → `docs/DEVELOPMENT.md#testing`
+  - `docs/QUICK_START.md`, `docs/DOCUMENTATION_GUIDE.md` → removed (content folded into `README.md` + `docs/DEVELOPMENT.md`)
+  - `docs/v1/API_REFERENCE.md`, `docs/v1/DEVELOPMENT.md`, `docs/v1/ENVIRONMENT_VARIABLES.md`, `docs/v1/OAUTH_FLOW.md`, `docs/v1/QUICK_START.md`, `docs/v1/STREAMABLE_HTTP.md` → `docs/v1/README.md`
 
 ---
 
