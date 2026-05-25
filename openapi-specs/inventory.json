@@ -7,7 +7,7 @@
     },
     "description": "Justice Inventory Service",
     "title": "justice-inventory-service (Early Access)",
-    "version": "0.2.22"
+    "version": "0.2.25"
   },
   "schemes": [
     "https"
@@ -21,90 +21,6 @@
   },
   "swagger": "2.0",
   "paths": {
-    "/inventory/v1/admin/namespaces/{namespace}/chainingOperations": {
-      "post": {
-        "consumes": [
-          "application/json"
-        ],
-        "description": "\n\t\t\tCreate chaining Operations.\n\t\t\tThis process will run sequentially \n\t\t\t1. remove item process\n\t\t\t2. consume item process\n\t\t\t3. update item process\n\t\t\t4. create item process\n               if toSpecificInventory set as true, then inventoryId field will be mandatory, vice versa\n\t\t\t\n\t\t\tThe behavior of each process is same with current admin level endpoint\n\n\t\t\trequestId: Request id(Optional), client should provide a unique request id to perform at most once execution, When a request id is resubmitted, \n\t\t\t\t\t   it will return original successful response\n\t\t\treplayed : replayed, if true,the response is original successful response. This will not be included in response if client have not pass request id.\n\n\t\t\tPermission: ADMIN:NAMESPACE:{namespace}:USER:{userId}:INVENTORY:ITEM [CREATE]\n\t\t",
-        "operationId": "AdminCreateChainingOperations",
-        "parameters": [
-          {
-            "in": "body",
-            "name": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/apimodels.ChainingOperationReq"
-            }
-          },
-          {
-            "description": "Namespace",
-            "in": "path",
-            "name": "namespace",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/apimodels.ChainingOperationResp"
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "schema": {
-              "$ref": "#/definitions/apimodels.ChainingOperationResp"
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "schema": {
-              "$ref": "#/definitions/apimodels.ChainingOperationResp"
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "schema": {
-              "$ref": "#/definitions/apimodels.ChainingOperationResp"
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "schema": {
-              "$ref": "#/definitions/apimodels.ChainingOperationResp"
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "schema": {
-              "$ref": "#/definitions/apimodels.ChainingOperationResp"
-            }
-          }
-        },
-        "security": [
-          {
-            "authorization": []
-          }
-        ],
-        "summary": "To Create Chaining Operation",
-        "tags": [
-          "Admin Chaining Operations"
-        ],
-        "x-errorCodes": {},
-        "x-security": [
-          {
-            "userPermissions": [
-              "ADMIN:NAMESPACE:{namespace}:USER:{userId}:INVENTORY:ITEM [CREATE]"
-            ]
-          }
-        ]
-      }
-    },
     "/inventory/v1/admin/namespaces/{namespace}/integrationConfigurations": {
       "get": {
         "description": "\n\t\t\tListing all integration configurations in a namespace.\n\t\t\tThe response body will be in the form of standard pagination.\n\n\t\t\tPermission: ADMIN:NAMESPACE:{namespace}:INVENTORY:INTEGRATIONCONFIGURATION [READ]\n\t\t",
@@ -4783,10 +4699,10 @@
     }
   },
   "x-version": {
-    "buildDate": "2026-02-16T03:07:07+00:00",
-    "gitHash": "e24f8ec37da5e2e1e9915bcdc917ad3ff2ca8801",
+    "buildDate": "2026-05-12T07:40:45+00:00",
+    "gitHash": "445f26ea1477c1d41097fccb08370ee3c7ddbf3e",
     "name": "justice-inventory-service",
-    "version": "0.2.22",
+    "version": "0.2.25",
     "version-roles-seeding": "1.2.34"
   }
 }
