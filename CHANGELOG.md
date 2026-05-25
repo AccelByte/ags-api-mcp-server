@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v2026.3.0 (2026-05-25)
 
 ### Fixed
 - **OAuth discovery in hosted mode**: the `WWW-Authenticate` header on `401` responses now advertises `resource_metadata` at the configured `MCP_SERVER_URL` instead of the upstream AGS host carried in `X-Forwarded-Host`. Spec-compliant MCP clients (e.g. `mcp-remote`) running on a different hostname than the AGS environment can now discover the protected-resource document and complete OAuth.
