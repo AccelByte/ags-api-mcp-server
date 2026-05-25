@@ -24,7 +24,9 @@ https://raw.githubusercontent.com/AccelByte/ags-api-mcp-server/refs/heads/main/I
 
 Works in **VS Code Copilot**, **Cursor**, **Claude Code**, **Antigravity**, and **Gemini CLI**.
 
-> **Claude Desktop users:** Switch to the **Code** tab before pasting (Chat and Cowork can't edit your config file).
+> **Claude Desktop users:** The simplest path is **Settings → Connectors → Add custom connector** (Name: `ags-api`, URL: your MCP URL) — no AI installer needed. See [Claude Desktop](#claude-desktop) below for the full instructions and the fallback for accounts where workspace policy blocks custom connectors.
+>
+> If you do want to use the Quick Install prompt above, switch to the **Code** tab first (Chat and Cowork can't edit your config file).
 >
 > ![Claude Desktop — Code tab](docs/images/claude-desktop-code.png)
 
@@ -135,11 +137,21 @@ See the [Gemini CLI MCP documentation](https://geminicli.com/docs/tools/mcp-serv
 
 #### Claude Desktop
 
-> **Claude Desktop always requires `mcp-remote`.** Claude Desktop only accepts custom MCP servers that have been submitted and approved as Anthropic connectors. The AccelByte connector submission is in progress; until it ships, `mcp-remote` is the only path.
+Claude Desktop has two install paths. Pick the first one that works for your account:
 
-Claude Desktop's settings UI doesn't expose `claude_desktop_config.json`, so the easiest manual approach is to use the **Quick Install** prompt above from inside Claude Desktop's **Code** tab.
+**Option A — Custom Connector (recommended for personal / Pro accounts)**
 
-If you'd rather edit the file directly:
+1. Open **Settings → Connectors → Add custom connector** (under the "Customize" area).
+2. Fill in:
+   - **Name**: `ags-api`
+   - **Remote MCP server URL**: your `<URL>` from Step 1
+3. Save. Claude Desktop handles OAuth (DCR + PKCE) natively — no config file edits, no `mcp-remote`.
+
+> **Don't see "Add custom connector"?** Some Team and Enterprise plans disable custom connectors via workspace policy. If the option is missing or greyed out, use Option B.
+
+**Option B — `mcp-remote` config file (fallback when custom connectors are blocked)**
+
+Edit `claude_desktop_config.json`:
 
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`

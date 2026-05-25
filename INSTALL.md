@@ -66,7 +66,7 @@ Use this decision table:
 | Visual Studio Code | Native (fall back to `mcp-remote` if you see DCR errors) |
 | Cursor | Native (fall back to `mcp-remote` if you see DCR errors) |
 | Claude Code | Native |
-| Claude Desktop | **Always `mcp-remote`** (Claude Desktop only allows Anthropic-approved connectors; the AccelByte connector submission is pending) |
+| Claude Desktop | Native via the **Add custom connector** UI (personal/Pro accounts). Fall back to `mcp-remote` only if the user's account is on a Team/Enterprise plan that disables custom connectors via workspace policy. |
 | Antigravity | Native (fall back to `mcp-remote` if you see DCR errors) |
 | Gemini CLI | Native |
 
@@ -154,13 +154,28 @@ Or edit `.mcp.json` in the project root with the same schema as Cursor.
 
 #### Claude Desktop
 
+Claude Desktop has two install paths. Try the Custom Connector UI first; fall back to the config file only if the user's account blocks it.
+
+**Path A — Custom Connector (default for personal / Pro accounts)**
+
+You cannot do this for the user — it's a manual UI action. Tell them to:
+
+1. Open **Settings → Connectors → Add custom connector** (under the "Customize" area).
+2. Set **Name** to `ags-api` and **Remote MCP server URL** to `<URL>`.
+3. Save.
+
+Claude Desktop handles OAuth natively (DCR + PKCE) — no config file, no `mcp-remote`. After Save, Claude Desktop will prompt for sign-in on the first tool call.
+
+If the user reports that **Add custom connector** is missing or greyed out, their account is on a Team/Enterprise plan with custom connectors disabled by workspace policy. Switch to Path B.
+
+**Path B — `mcp-remote` config file (fallback when custom connectors are blocked)**
+
 **File:**
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
 Create with `{}` if it doesn't exist.
 
-Always use `mcp-remote`:
 ```json
 {
   "mcpServers": {
