@@ -1,9 +1,24 @@
 # Changelog
 
-## Unreleased
+## v2026.3.1 (2026-05-26)
 
 ### Changed
-- **Renderer charts switched from Observable Plot to Chart.js.** Faceting (`facet_col` / `facet_row`) is no longer supported on any chart.
+- **Renderer charts switched from Observable Plot to Chart.js.** The seven Plot-using renderers (`render_line_chart`, `render_area_chart`, `render_bar_chart`, `render_scatter_chart`, `render_histogram_chart`, `render_box_chart`, `render_waterfall_chart`) and the `render_table` view (previously on `@observablehq/inputs`) are now backed by `chart.js` + `@sgratzl/chartjs-chart-boxplot` + `chartjs-plugin-trendline` + `chartjs-plugin-datalabels` + `chartjs-adapter-date-fns`. Net gains: responsive resize, hover tooltips with full series values, and auto-rotation/auto-skip on crowded x-axis ticks. The six SVG-rendered charts (`render_pie_chart`, `render_donut_chart`, `render_heatmap_chart`, `render_funnel_chart`, `render_gauge_chart`, `render_state_timeline_chart`) are unchanged.
+- **Renderer adopts the AccelByte brand palette.** Surfaces, accents, series colors, radii (4 / 8 / 12 / pill), and elevation now match `assets/brand-guidelines/`. Dual-mode via `light-dark()` — Porcelain/White light, Vulcan/Navy dark; AccelByte Blue as the accent. Flat (radial-gradient backdrop removed).
+
+### Removed
+- **Breaking: faceting (`facet_col` / `facet_row`) removed.** No longer accepted by `render_bar_chart`, `render_line_chart`, `render_area_chart`, `render_scatter_chart`, `render_histogram_chart`, or `render_box_chart`; calls passing these fields will fail Zod validation. Chart.js has no native small-multiples support.
+
+### Fixed
+- **Renderer iframe shrinks when a foldout collapses.** The previous `html, body { min-height: 100% }` pinned the document height to the iframe's last reported size, defeating the MCP SDK's auto-resize. Removed; the iframe now correctly tracks content height in both directions.
+- **Canvas color resolution.** `var()` and `light-dark()` tokens now resolve via a hidden probe element rather than `getComputedStyle().getPropertyValue()` (which returned the literal `light-dark(...)` string). Affected chart elements that handed colors to canvas `fillStyle` indirectly — alpha-suffixed area fills and the scatter trend line both rendered black under the old path.
+- **`colorWithAlpha` now overrides alpha on `rgba(...)` inputs** instead of returning them unchanged, so multi-series overlap-mode area fills can't accidentally render at full opacity.
+- **`render_histogram_chart` no longer throws `RangeError` on large datasets.** Manual min/max loop replaces `Math.min(...values)` / `Math.max(...values)` spread, which fails above ~65K values in V8.
+- **`render_bar_chart` no longer flags the index axis as `stacked: true` on vertical bars** (was a tautology, harmless today but a latent regression risk).
+- **`render_waterfall_chart` legend restored** with explicit positive/negative/total tone keys (lost in the Plot→Chart.js migration), and small steps now render with a 3px minimum height so they remain visible at any scale.
+- **Pie chart in-slice labels.** White text with a thin dark outline + 16-character truncation; previously used `--color-text-on-accent` which resolved to a near-black tone in dark mode and was unreadable on most series colors.
+- **Heatmap row labels.** Fixed-width label column (14rem) with `overflow-wrap: anywhere`; long URL paths previously overflowed into the first data cell.
+- **README quick-install raw URL** points at the `master` branch (was `main`, which doesn't exist).
 
 ## v2026.3.0 (2026-05-25)
 
