@@ -19,7 +19,7 @@ Paste this into your AI coding assistant — it will fetch the install guide, as
 
 ```
 Install the AGS API MCP server for me. Fetch and follow the instructions at
-https://raw.githubusercontent.com/AccelByte/ags-api-mcp-server/refs/heads/main/INSTALL.md
+https://raw.githubusercontent.com/AccelByte/ags-api-mcp-server/refs/heads/master/INSTALL.md
 ```
 
 Works in **VS Code Copilot**, **Cursor**, **Claude Code**, **Antigravity**, and **Gemini CLI**.
