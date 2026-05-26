@@ -35,8 +35,6 @@ export function setupRenderAreaChart(
         .enum(["stacked", "normalized", "overlap"])
         .default("stacked"),
       curve: z.enum(["linear", "smooth", "step"]).default("linear"),
-      facet_col: z.string().optional(),
-      facet_row: z.string().optional(),
       x_label: z.string().optional(),
       y_label: z.string().optional(),
       tooltip: z.array(z.string()).optional(),
@@ -47,8 +45,6 @@ export function setupRenderAreaChart(
       color: input.color,
       stack_mode: input.stack_mode,
       curve: input.curve,
-      facet_col: input.facet_col,
-      facet_row: input.facet_row,
       x_label: input.x_label,
       y_label: input.y_label,
       tooltip: input.tooltip,

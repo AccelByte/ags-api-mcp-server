@@ -2,13 +2,40 @@
 // This is licensed software from AccelByte Inc, for limitations
 // and restrictions contact your company contract manager.
 
-import { table } from "@observablehq/inputs";
+import {
+  Chart,
+  registerables,
+  type ChartConfiguration,
+} from "chart.js";
+import {
+  BoxPlotController,
+  BoxAndWiskers,
+} from "@sgratzl/chartjs-chart-boxplot";
+import datalabelsPlugin from "chartjs-plugin-datalabels";
+import trendlinePlugin from "chartjs-plugin-trendline";
+import "chartjs-adapter-date-fns";
 
 import type {
   RenderColumnHint,
   RenderStats,
 } from "../../shared/render-schemas.js";
 import { getRowSetMeta, type Row } from "./types.js";
+
+let chartJsRegistered = false;
+function ensureChartJsRegistered(): void {
+  if (chartJsRegistered) {
+    return;
+  }
+  Chart.register(
+    ...registerables,
+    BoxPlotController,
+    BoxAndWiskers,
+    trendlinePlugin,
+  );
+  // Datalabels is opt-in per chart; register globally but default to display:false in commonChartOptions().
+  Chart.register(datalabelsPlugin);
+  chartJsRegistered = true;
+}
 
 export const FOLDOUT_TABLE_MAX_ROWS = 50;
 
@@ -330,6 +357,64 @@ function buildSqlFoldoutContent(sql: string): HTMLElement {
   return pre;
 }
 
+function formatCellValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "—";
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+}
+
+export function renderHtmlTable(
+  rows: Array<Record<string, unknown>>,
+  columns: string[],
+  headers: Record<string, string>,
+  numericColumns: Set<string> = new Set(),
+): HTMLTableElement {
+  const tableEl = document.createElement("table");
+  tableEl.className = "renderer-table";
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  for (const column of columns) {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.textContent = headers[column] ?? column;
+    if (numericColumns.has(column)) {
+      th.classList.add("is-numeric");
+    }
+    headerRow.appendChild(th);
+  }
+  thead.appendChild(headerRow);
+  tableEl.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    for (const column of columns) {
+      const td = document.createElement("td");
+      td.textContent = formatCellValue(row[column]);
+      if (numericColumns.has(column)) {
+        td.classList.add("is-numeric");
+      }
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  tableEl.appendChild(tbody);
+
+  return tableEl;
+}
+
 function buildTableFoldoutContent(data: FoldoutTableData): HTMLElement {
   const wrap = document.createElement("div");
   wrap.className = "renderer-foldout-table-wrap";
@@ -360,35 +445,14 @@ function buildTableFoldoutContent(data: FoldoutTableData): HTMLElement {
     ),
   );
 
-  const renderedTable = table(displayRows, {
-    columns: data.columnNames,
-    header: headers,
-    layout: data.columnNames.length >= 12 ? "auto" : "fixed",
-    required: false,
-    rows: Math.max(displayRows.length, 1),
-    select: false,
-    width: "100%",
-  });
-
-  wrap.appendChild(renderedTable);
-
-  const tableEl = wrap.querySelector("table");
-  if (tableEl) {
-    tableEl.classList.add("renderer-table");
-    if (numericColumns.size > 0) {
-      data.columnNames.forEach((column, index) => {
-        if (!numericColumns.has(column)) {
-          return;
-        }
-        const cellIndex = index + 1;
-        tableEl
-          .querySelectorAll(
-            `thead th:nth-child(${cellIndex}), tbody td:nth-child(${cellIndex})`,
-          )
-          .forEach((cell) => cell.classList.add("is-numeric"));
-      });
-    }
-  }
+  wrap.appendChild(
+    renderHtmlTable(
+      displayRows as Array<Record<string, unknown>>,
+      data.columnNames,
+      headers,
+      numericColumns,
+    ),
+  );
 
   return wrap;
 }
@@ -452,15 +516,6 @@ function buildFoldout(label: string, build: () => HTMLElement): HTMLElement {
   });
 
   return details;
-}
-
-export function mountChart(
-  root: HTMLElement,
-  title?: string,
-  description?: string,
-): HTMLDivElement {
-  const { body } = mountShell(root, { title, description });
-  return body;
 }
 
 export function pickNumericKey(
@@ -530,6 +585,18 @@ export function pickColorKey(
   );
 }
 
+export function xScaleType(
+  rows: Row[],
+  xKey: string,
+): "time" | "category" | "linear" {
+  const metaType = getRowSetMeta(rows)?.columnTypes[xKey];
+  if (metaType === "temporal") return "time";
+  if (metaType === "quantitative") return "linear";
+  if (rows.some((row) => row[xKey] instanceof Date)) return "time";
+  if (rows.some((row) => typeof row[xKey] === "number")) return "linear";
+  return "category";
+}
+
 export function validateColumns(rows: Row[], ...keys: Array<string | undefined>): void {
   const columns = new Set(availableColumns(rows));
   const missing = keys.filter(
@@ -541,51 +608,10 @@ export function validateColumns(rows: Row[], ...keys: Array<string | undefined>)
   }
 }
 
-export function facetConfig(options: {
-  facet_col?: string;
-  facet_row?: string;
-}): { fx?: string; fy?: string } {
-  // Only include keys when set; an explicit `undefined` would clobber facet
-  // channels (fx/fy) that a mark sets for grouping (e.g. bar grouped+color).
-  const config: { fx?: string; fy?: string } = {};
-  if (options.facet_col) {
-    config.fx = options.facet_col;
-  }
-  if (options.facet_row) {
-    config.fy = options.facet_row;
-  }
-  return config;
-}
+// ---------- ChartJS helpers ----------
 
-export function tooltipChannels(
-  columns?: string[],
-): { title?: (row: Row) => string } {
-  if (!columns || columns.length === 0) {
-    return {};
-  }
-
-  return {
-    title: (row) =>
-      columns
-        .map((column) => {
-          const value = row[column];
-          return `${column}: ${value instanceof Date ? value.toISOString() : String(value ?? "—")}`;
-        })
-        .join("\n"),
-  };
-}
-
-export function ordinalColor(color?: string): { fill?: string; stroke?: string } {
-  if (!color) {
-    return {};
-  }
-
-  return {
-    fill: color,
-    stroke: color,
-  };
-}
-
+// SVG-based renderers (pie, donut, state-timeline) can use raw `var(--series-N)` strings;
+// SVG resolves CSS variables at paint time. Kept for those callers.
 export function seriesRange(): string[] {
   return [
     "var(--series-1)",
@@ -597,61 +623,155 @@ export function seriesRange(): string[] {
   ];
 }
 
-export function plotDefaults() {
+// Canvas (ChartJS) doesn't resolve CSS variables — values must be concrete colors at draw time.
+// Uses a hidden probe element so the browser resolves both `var(--token)` and `light-dark()`
+// (which `getComputedStyle().getPropertyValue()` would otherwise return as a literal string).
+export function resolveCssVar(expr: string | undefined): string {
+  if (!expr) {
+    return "#000000";
+  }
+  if (!expr.includes("var(") && !expr.includes("light-dark")) {
+    return expr;
+  }
+  if (typeof document === "undefined" || !document.body) {
+    return expr;
+  }
+  const probe = document.createElement("span");
+  probe.style.display = "none";
+  probe.style.color = expr;
+  document.body.appendChild(probe);
+  const resolved = getComputedStyle(probe).color;
+  probe.remove();
+  return resolved || expr;
+}
+
+export function seriesPalette(): string[] {
+  return seriesRange().map(resolveCssVar);
+}
+
+// Apply opacity to a resolved color string. Handles rgb()/rgba()/hex inputs;
+// raw `var(...)`/`light-dark(...)` won't work — call resolveCssVar() first.
+export function colorWithAlpha(color: string, alpha: number): string {
+  if (color.startsWith("rgba(")) {
+    // Replace the existing alpha rather than returning the input unchanged.
+    return color.replace(/,\s*[\d.]+\s*\)$/, `, ${alpha})`);
+  }
+  if (color.startsWith("rgb(")) {
+    return color.replace(/^rgb\(/, "rgba(").replace(/\)$/, `, ${alpha})`);
+  }
+  return `${color}${Math.round(alpha * 255).toString(16).padStart(2, "0")}`;
+}
+
+export interface ChartTokens {
+  accent: string;
+  info: string;
+  textPrimary: string;
+  textSecondary: string;
+  border: string;
+  panel: string;
+  panelMuted: string;
+  success: string;
+  danger: string;
+  textOnAccent: string;
+}
+
+export function chartTokens(): ChartTokens {
   return {
-    style: {
-      fontFamily: "var(--font-sans)",
-      fontSize: "12px",
-      color: "var(--color-text-primary)",
-    },
-    marginLeft: 72,
-    marginRight: 24,
-    marginTop: 28,
-    // Leave room for the axis label below a possible two-level time-tick stack ("12" / "Apr").
-    marginBottom: 72,
-    x: {
-      tickPadding: 8,
-      labelAnchor: "center" as const,
-      labelArrow: "none" as const,
-      labelOffset: 56,
-    },
-    y: {
-      tickPadding: 8,
-      grid: true,
-      gridOpacity: 0.35,
-      labelAnchor: "center" as const,
-      labelArrow: "none" as const,
-      labelOffset: 56,
-    },
-    fx: { label: null, labelOffset: 0 },
-    fy: { label: null, labelOffset: 0 },
-    color: { range: seriesRange() },
+    accent: resolveCssVar("var(--color-accent)"),
+    info: resolveCssVar("var(--color-text-info)"),
+    textPrimary: resolveCssVar("var(--color-text-primary)"),
+    textSecondary: resolveCssVar("var(--color-text-secondary)"),
+    border: resolveCssVar("var(--color-border)"),
+    panel: resolveCssVar("var(--color-panel)"),
+    panelMuted: resolveCssVar("var(--color-panel-muted)"),
+    success: resolveCssVar("var(--color-success)"),
+    danger: resolveCssVar("var(--color-danger)"),
+    textOnAccent: resolveCssVar("var(--color-text-on-accent)"),
   };
 }
 
-export function aggregateBy(
-  rows: Row[],
-  categoryKey: string,
-  valueKey: string,
-): Row[] {
-  const totals = new Map<string, number>();
+export interface ChartMount {
+  wrapper: HTMLDivElement;
+  canvas: HTMLCanvasElement;
+}
 
-  for (const row of rows) {
-    const category = row[categoryKey];
-    const value = row[valueKey];
-    if (
-      (typeof category !== "string" && typeof category !== "boolean") ||
-      typeof value !== "number"
-    ) {
-      continue;
-    }
+export function createChartMount(height = 360): ChartMount {
+  const wrapper = document.createElement("div");
+  wrapper.className = "renderer-chart-canvas";
+  wrapper.style.position = "relative";
+  wrapper.style.height = `${height}px`;
+  wrapper.style.width = "100%";
+  const canvas = document.createElement("canvas");
+  wrapper.appendChild(canvas);
+  return { wrapper, canvas };
+}
 
-    const mapKey = String(category);
-    totals.set(mapKey, (totals.get(mapKey) ?? 0) + value);
+interface CanvasWithConfig extends HTMLCanvasElement {
+  __chartConfig?: ChartConfiguration;
+}
+
+// Instantiate a ChartJS chart on the canvas. The prepared config is stashed on the canvas
+// (via `__chartConfig`) so tests can introspect it without depending on a working 2D context.
+// In environments without a 2D context (e.g. JSDOM), `new Chart()` is skipped.
+export function instantiateChart(
+  canvas: HTMLCanvasElement,
+  config: ChartConfiguration,
+): void {
+  ensureChartJsRegistered();
+  (canvas as CanvasWithConfig).__chartConfig = config;
+  if (typeof canvas.getContext !== "function") {
+    return;
   }
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return;
+  }
+  new Chart(canvas, config);
+}
 
-  return Array.from(totals, ([category, value]) => ({
-    [categoryKey]: category,
-    [valueKey]: value,
-  }));
+export function getChartConfig(
+  canvas: HTMLCanvasElement,
+): ChartConfiguration | undefined {
+  return (canvas as CanvasWithConfig).__chartConfig;
+}
+
+export function commonChartOptions(): {
+  responsive: boolean;
+  maintainAspectRatio: boolean;
+  plugins: Record<string, unknown>;
+  scales: Record<string, unknown>;
+} {
+  const tokens = chartTokens();
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        labels: { color: tokens.textPrimary },
+      },
+      tooltip: {
+        backgroundColor: tokens.panel,
+        titleColor: tokens.textPrimary,
+        bodyColor: tokens.textPrimary,
+        borderColor: tokens.border,
+        borderWidth: 1,
+      },
+      datalabels: { display: false },
+    },
+    scales: {
+      x: {
+        ticks: {
+          color: tokens.textSecondary,
+          autoSkip: true,
+          maxRotation: 45,
+          minRotation: 0,
+        },
+        grid: { color: tokens.border, drawOnChartArea: false },
+      },
+      y: {
+        ticks: { color: tokens.textSecondary },
+        grid: { color: tokens.border, drawOnChartArea: true },
+      },
+    },
+  };
 }

@@ -12,7 +12,11 @@ type PieOptions = z.infer<typeof PieChartOutputSchema>["options"];
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const PANEL = "var(--color-panel)";
-const TEXT_ON_ACCENT = "var(--color-text-on-accent)";
+// Series palette colors are fixed darkish saturated tones (not theme-aware), so
+// white text + a subtle dark outline reads on every slice in both light and dark modes.
+const SLICE_LABEL_FILL = "rgba(255, 255, 255, 0.95)";
+const SLICE_LABEL_STROKE = "rgba(0, 0, 0, 0.4)";
+const SLICE_LABEL_MAX_CHARS = 16;
 
 type SliceDatum = {
   category: string;
@@ -198,10 +202,16 @@ export function renderPie(rows: Row[], options: PieOptions): SVGElement | HTMLEl
       label.setAttribute("y", y.toFixed(2));
       label.setAttribute("text-anchor", "middle");
       label.setAttribute("dominant-baseline", "central");
-      label.setAttribute("fill", TEXT_ON_ACCENT);
+      label.setAttribute("fill", SLICE_LABEL_FILL);
+      label.setAttribute("stroke", SLICE_LABEL_STROKE);
+      label.setAttribute("stroke-width", "0.6");
+      label.setAttribute("paint-order", "stroke");
       label.setAttribute("font-size", "11");
       label.setAttribute("font-weight", "700");
-      label.textContent = slice.category;
+      label.textContent =
+        slice.category.length > SLICE_LABEL_MAX_CHARS
+          ? `${slice.category.slice(0, SLICE_LABEL_MAX_CHARS - 1).trimEnd()}…`
+          : slice.category;
       svg.appendChild(label);
     }
 

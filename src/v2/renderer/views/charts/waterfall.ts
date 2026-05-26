@@ -2,61 +2,50 @@
 // This is licensed software from AccelByte Inc, for limitations
 // and restrictions contact your company contract manager.
 
-import * as Plot from "@observablehq/plot";
+import type { ChartConfiguration } from "chart.js";
 import type { z } from "zod/v3";
 
 import { WaterfallChartOutputSchema } from "../../../shared/render-schemas.js";
-import { plotDefaults, validateColumns } from "../base.js";
+import {
+  chartTokens,
+  commonChartOptions,
+  createChartMount,
+  instantiateChart,
+  validateColumns,
+} from "../base.js";
 import type { Primitive, Row } from "../types.js";
 
 type WaterfallOptions = z.infer<typeof WaterfallChartOutputSchema>["options"];
 
-const POSITIVE = "var(--color-success)";
-const NEGATIVE = "var(--color-danger)";
-const TOTAL = "var(--color-accent)";
-
-type WaterfallDatum = {
+interface WaterfallStep {
   category: string;
   lower: number;
   upper: number;
   tone: "positive" | "negative" | "total";
   title: string;
-};
+}
 
 function asNumber(value: Primitive): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
+  if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
     const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
+    if (Number.isFinite(parsed)) return parsed;
   }
   return undefined;
 }
 
 function asCategory(value: Primitive): string | undefined {
-  if (value === null || value === undefined) {
-    return undefined;
-  }
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
+  if (value === null || value === undefined) return undefined;
+  if (value instanceof Date) return value.toISOString();
   return String(value);
 }
 
 function asBoolean(value: Primitive): boolean {
-  if (typeof value === "boolean") {
-    return value;
-  }
+  if (typeof value === "boolean") return value;
   if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    return ["1", "true", "yes", "total"].includes(normalized);
+    return ["1", "true", "yes", "total"].includes(value.trim().toLowerCase());
   }
-  if (typeof value === "number") {
-    return value !== 0;
-  }
+  if (typeof value === "number") return value !== 0;
   return false;
 }
 
@@ -67,25 +56,16 @@ function formatNumber(value: number): string {
   }).format(value);
 }
 
-export function renderWaterfall(
-  rows: Row[],
-  options: WaterfallOptions,
-): SVGElement | HTMLElement {
-  validateColumns(rows, options.category, options.value, options.is_total);
-
+function buildSteps(rows: Row[], options: WaterfallOptions): WaterfallStep[] {
   let cumulative = 0;
-  const steps: WaterfallDatum[] = [];
+  const steps: WaterfallStep[] = [];
 
   for (const row of rows) {
     const category = asCategory(row[options.category]);
     const value = asNumber(row[options.value]);
-    if (!category || value === undefined) {
-      continue;
-    }
+    if (!category || value === undefined) continue;
 
-    const totalBar = options.is_total
-      ? asBoolean(row[options.is_total])
-      : false;
+    const totalBar = options.is_total ? asBoolean(row[options.is_total]) : false;
     const lower = totalBar ? 0 : cumulative;
     const upper = totalBar ? value : cumulative + value;
     cumulative = upper;
@@ -101,37 +81,96 @@ export function renderWaterfall(
     });
   }
 
+  return steps;
+}
+
+export function renderWaterfall(
+  rows: Row[],
+  options: WaterfallOptions,
+): HTMLElement {
+  validateColumns(rows, options.category, options.value, options.is_total);
+
+  const steps = buildSteps(rows, options);
   if (steps.length === 0) {
     throw new Error("Waterfall chart requires at least one numeric step.");
   }
 
-  const defaults = plotDefaults();
+  const { wrapper, canvas } = createChartMount();
+  const tokens = chartTokens();
+  const toneColor = {
+    positive: tokens.success,
+    negative: tokens.danger,
+    total: tokens.accent,
+  } as const;
 
-  return Plot.plot({
-    ...defaults,
-    marginLeft: 88,
-    x: { ...defaults.x, label: options.x_label ?? options.category },
-    y: {
-      ...defaults.y,
-      label: options.y_label ?? options.value,
-      tickFormat: "~s",
+  const data = steps.map((s) => [s.lower, s.upper] as [number, number]);
+  const colors = steps.map((s) => toneColor[s.tone]);
+  const titles = steps.map((s) => s.title);
+
+  const base = commonChartOptions();
+  // Synthetic zero-data datasets render legend swatches for the three tones without
+  // adding visible bars to the chart.
+  const legendDatasets = [
+    { label: "Positive", data: [], backgroundColor: tokens.success, borderColor: tokens.success },
+    { label: "Negative", data: [], backgroundColor: tokens.danger, borderColor: tokens.danger },
+    { label: "Total", data: [], backgroundColor: tokens.accent, borderColor: tokens.accent },
+  ];
+
+  const config: ChartConfiguration = {
+    type: "bar",
+    data: {
+      labels: steps.map((s) => s.category),
+      datasets: [
+        {
+          label: options.value,
+          data: data as unknown as number[],
+          backgroundColor: colors,
+          borderColor: colors,
+          minBarLength: 3,
+        },
+        ...legendDatasets,
+      ],
     },
-    color: {
-      type: "categorical",
-      domain: ["positive", "negative", "total"],
-      range: [POSITIVE, NEGATIVE, TOTAL],
-      legend: true,
+    options: {
+      ...base,
+      plugins: {
+        ...base.plugins,
+        legend: {
+          display: true,
+          labels: {
+            color: tokens.textPrimary,
+            // Hide the main dataset entry; only show the three tone swatches.
+            filter: (item: { datasetIndex?: number }) => (item.datasetIndex ?? 0) > 0,
+          },
+        },
+        tooltip: {
+          ...(base.plugins.tooltip as Record<string, unknown>),
+          callbacks: {
+            label: (ctx: { dataIndex: number }) => titles[ctx.dataIndex],
+          },
+        },
+      },
+      scales: {
+        x: {
+          ...(base.scales.x as Record<string, unknown>),
+          title: {
+            display: true,
+            text: options.x_label ?? options.category,
+            color: tokens.textPrimary,
+          },
+        },
+        y: {
+          ...(base.scales.y as Record<string, unknown>),
+          title: {
+            display: true,
+            text: options.y_label ?? options.value,
+            color: tokens.textPrimary,
+          },
+        },
+      },
     },
-    marks: [
-      Plot.ruleY([0]),
-      Plot.rectY(steps, {
-        x: "category",
-        y1: "lower",
-        y2: "upper",
-        fill: "tone",
-        inset: 0.12,
-        title: "title",
-      }),
-    ],
-  });
+  };
+
+  instantiateChart(canvas, config);
+  return wrapper;
 }

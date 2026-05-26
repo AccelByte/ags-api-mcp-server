@@ -159,10 +159,21 @@ export function renderHeatmap(
   grid.style.width = "100%";
   grid.style.tableLayout = "fixed";
 
+  // Reserve a fixed-width column for row labels so long values (e.g. URL paths) wrap
+  // *within* the label column instead of bleeding into the first data cell.
+  const colgroup = document.createElement("colgroup");
+  const labelCol = document.createElement("col");
+  labelCol.style.width = "14rem";
+  colgroup.appendChild(labelCol);
+  for (let i = 0; i < xLabels.length; i += 1) {
+    colgroup.appendChild(document.createElement("col"));
+  }
+  grid.appendChild(colgroup);
+
   const headerRow = document.createElement("tr");
   const corner = document.createElement("th");
   corner.textContent = options.y_label ?? options.y;
-  corner.style.padding = "0.5rem 0.75rem";
+  corner.style.padding = "0.5rem 0.75rem 0.5rem 0";
   corner.style.textAlign = "left";
   corner.style.color = TEXT_SECONDARY;
   headerRow.appendChild(corner);
@@ -182,11 +193,14 @@ export function renderHeatmap(
     const row = document.createElement("tr");
     const label = document.createElement("th");
     label.textContent = yLabel;
-    label.style.padding = "0.35rem 0.75rem 0.35rem 0";
+    label.style.padding = "0.35rem 0.9rem 0.35rem 0";
     label.style.textAlign = "left";
     label.style.fontWeight = "600";
     label.style.fontSize = "0.85rem";
     label.style.color = TEXT_PRIMARY;
+    label.style.overflowWrap = "anywhere";
+    label.style.wordBreak = "break-word";
+    label.style.verticalAlign = "middle";
     row.appendChild(label);
 
     for (const xLabel of xLabels) {

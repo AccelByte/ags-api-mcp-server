@@ -2,10 +2,9 @@
 // This is licensed software from AccelByte Inc, for limitations
 // and restrictions contact your company contract manager.
 
-import { search, table } from "@observablehq/inputs";
 import type { z } from "zod/v3";
 import { TableOutputSchema } from "../../shared/render-schemas.js";
-import { mountShell } from "./base.js";
+import { mountShell, renderHtmlTable } from "./base.js";
 import { toRows } from "./coerce.js";
 import { filterRows } from "./filter.js";
 import {
@@ -80,6 +79,25 @@ function buildSummary(
   return `${pageText} after filtering ${totalCount} source rows.`;
 }
 
+function matchesQuery(
+  row: Record<string, unknown>,
+  columns: string[],
+  needle: string,
+): boolean {
+  if (needle === "") return true;
+  for (const column of columns) {
+    const value = row[column];
+    const text =
+      value === null || value === undefined
+        ? ""
+        : value instanceof Date
+          ? value.toISOString()
+          : String(value);
+    if (text.toLowerCase().includes(needle)) return true;
+  }
+  return false;
+}
+
 export function renderTable(root: HTMLElement, payload: TablePayload): void {
   root.replaceChildren();
 
@@ -121,58 +139,36 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
   const toolbar = document.createElement("div");
   toolbar.className = "renderer-table-toolbar";
 
-  const searchControl = search(displayRows, {
-    columns,
-    placeholder: "Search rows",
-    required: true,
-  });
+  const searchInput = document.createElement("input");
+  searchInput.type = "search";
+  searchInput.placeholder = "Search rows";
+  searchInput.className = "renderer-search";
 
   const pager = document.createElement("div");
   pager.className = "renderer-pager";
   const previousButton = document.createElement("button");
   previousButton.type = "button";
   previousButton.textContent = "Previous";
-
   const nextButton = document.createElement("button");
   nextButton.type = "button";
   nextButton.textContent = "Next";
-
   const pageIndicator = document.createElement("span");
   pageIndicator.className = "renderer-pager-indicator";
   pager.append(previousButton, pageIndicator, nextButton);
-  toolbar.append(searchControl, pager);
+  toolbar.append(searchInput, pager);
   shell.appendChild(toolbar);
 
   const tableWrap = document.createElement("div");
   tableWrap.className = "renderer-table-wrap";
   shell.appendChild(tableWrap);
 
-  const decorateTable = (): void => {
-    const renderedTable = tableWrap.querySelector("table");
-    if (!renderedTable) {
-      return;
-    }
-    renderedTable.classList.add("renderer-table");
-    if (numericColumns.size === 0) {
-      return;
-    }
-    columns.forEach((column, index) => {
-      if (!numericColumns.has(column)) {
-        return;
-      }
-      const cellIndex = index + 1;
-      renderedTable
-        .querySelectorAll(
-          `thead th:nth-child(${cellIndex}), tbody td:nth-child(${cellIndex})`,
-        )
-        .forEach((cell) => cell.classList.add("is-numeric"));
-    });
-  };
-
   let currentPage = 0;
 
   const renderPage = (): void => {
-    const matchingRows = searchControl.value;
+    const needle = searchInput.value.trim().toLowerCase();
+    const matchingRows = needle
+      ? displayRows.filter((row) => matchesQuery(row, columns, needle))
+      : displayRows;
     const totalPages =
       matchingRows.length === 0 ? 1 : Math.ceil(matchingRows.length / pageSize);
     currentPage = Math.min(currentPage, totalPages - 1);
@@ -193,17 +189,8 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
     nextButton.disabled = currentPage >= totalPages - 1;
 
     tableWrap.replaceChildren(
-      table(pageRows, {
-        columns,
-        header: headers,
-        layout: columns.length >= 12 ? "auto" : "fixed",
-        required: false,
-        rows: Math.max(pageRows.length, 1),
-        select: false,
-        width: "100%",
-      }),
+      renderHtmlTable(pageRows, columns, headers, numericColumns),
     );
-    decorateTable();
   };
 
   previousButton.addEventListener("click", () => {
@@ -218,7 +205,7 @@ export function renderTable(root: HTMLElement, payload: TablePayload): void {
     renderPage();
   });
 
-  searchControl.addEventListener("input", () => {
+  searchInput.addEventListener("input", () => {
     currentPage = 0;
     renderPage();
   });

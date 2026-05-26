@@ -33,8 +33,6 @@ export function setupRenderBoxChart(
         .string()
         .optional()
         .describe("Optional column that splits the data into colored groups."),
-      facet_col: z.string().optional(),
-      facet_row: z.string().optional(),
       x_label: z.string().optional(),
       y_label: z.string().optional(),
     },
@@ -42,8 +40,6 @@ export function setupRenderBoxChart(
       x: input.x,
       y: input.y,
       color: input.color,
-      facet_col: input.facet_col,
-      facet_row: input.facet_row,
       x_label: input.x_label,
       y_label: input.y_label,
     }),

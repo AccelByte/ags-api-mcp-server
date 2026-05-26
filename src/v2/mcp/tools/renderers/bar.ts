@@ -37,8 +37,6 @@ export function setupRenderBarChart(
         .string()
         .optional()
         .describe("Column rendered as text label on each bar."),
-      facet_col: z.string().optional(),
-      facet_row: z.string().optional(),
       x_label: z.string().optional(),
       y_label: z.string().optional(),
       tooltip: z.array(z.string()).optional(),
@@ -50,8 +48,6 @@ export function setupRenderBarChart(
       bar_mode: input.bar_mode,
       orientation: input.orientation,
       label: input.label,
-      facet_col: input.facet_col,
-      facet_row: input.facet_row,
       x_label: input.x_label,
       y_label: input.y_label,
       tooltip: input.tooltip,

@@ -3,13 +3,15 @@ import { describe, test } from "node:test";
 
 import "../jsdom.js";
 import {
-  mountChart,
+  commonChartOptions,
+  createChartMount,
   mountShell,
   pickAxes,
   pickCategoryKey,
   pickColorKey,
   pickNumericKey,
-  plotDefaults,
+  resolveCssVar,
+  seriesPalette,
   seriesRange,
   validateColumns,
 } from "../../../../src/v2/renderer/views/base.js";
@@ -70,23 +72,12 @@ describe("renderer view helpers", () => {
   });
 });
 
-describe("mountChart / mountShell", () => {
+describe("mountShell", () => {
   function freshRoot(): HTMLElement {
     const root = document.createElement("main");
     document.body.appendChild(root);
     return root;
   }
-
-  test("mountChart returns an HTMLDivElement for legacy callers", () => {
-    const root = freshRoot();
-    const body = mountChart(root, "Title", "Description");
-
-    assert.ok(body instanceof HTMLElement);
-    assert.equal(body.tagName, "DIV");
-    const child = document.createElement("span");
-    assert.doesNotThrow(() => body.appendChild(child));
-    assert.equal(body.firstChild, child);
-  });
 
   test("mountShell returns { body, footer } as attachable elements", () => {
     const root = freshRoot();
@@ -124,8 +115,8 @@ describe("mountChart / mountShell", () => {
   });
 });
 
-describe("seriesRange / plotDefaults", () => {
-  test("seriesRange returns six --series-N CSS variable references", () => {
+describe("chart helpers", () => {
+  test("seriesRange returns six --series-N CSS variable references for SVG charts", () => {
     const range = seriesRange();
     assert.equal(range.length, 6);
     for (let index = 0; index < range.length; index++) {
@@ -133,29 +124,39 @@ describe("seriesRange / plotDefaults", () => {
     }
   });
 
-  test("plotDefaults returns expected margins, style, and color range", () => {
-    const defaults = plotDefaults();
-    assert.equal(defaults.marginLeft, 72);
-    assert.equal(defaults.marginRight, 24);
-    assert.equal(defaults.marginTop, 28);
-    assert.equal(defaults.marginBottom, 72);
-    assert.deepEqual(defaults.style, {
-      fontFamily: "var(--font-sans)",
-      fontSize: "12px",
-      color: "var(--color-text-primary)",
-    });
-    assert.equal(defaults.x.tickPadding, 8);
-    assert.equal(defaults.x.labelAnchor, "center");
-    assert.equal(defaults.x.labelArrow, "none");
-    assert.equal(defaults.x.labelOffset, 56);
-    assert.equal(defaults.y.tickPadding, 8);
-    assert.equal(defaults.y.grid, true);
-    assert.equal(defaults.y.gridOpacity, 0.35);
-    assert.equal(defaults.y.labelAnchor, "center");
-    assert.equal(defaults.y.labelArrow, "none");
-    assert.equal(defaults.y.labelOffset, 56);
-    assert.equal(defaults.fx.label, null);
-    assert.equal(defaults.fy.label, null);
-    assert.deepEqual(defaults.color.range, seriesRange());
+  test("seriesPalette returns six resolved (or fallback) colors for canvas charts", () => {
+    const palette = seriesPalette();
+    assert.equal(palette.length, 6);
+    for (const color of palette) {
+      assert.equal(typeof color, "string");
+      assert.notEqual(color, "");
+    }
+  });
+
+  test("resolveCssVar falls back to the original expression when the var is unresolvable in JSDOM", () => {
+    // JSDOM does not honor :root CSS variables defined in global.css, so resolveCssVar
+    // falls back to the var(...) expression. Concrete colors pass through unchanged.
+    assert.equal(resolveCssVar("var(--color-accent)"), "var(--color-accent)");
+    assert.equal(resolveCssVar("#0f766e"), "#0f766e");
+    assert.equal(resolveCssVar(undefined), "#000000");
+  });
+
+  test("createChartMount produces a sized wrapper containing a canvas", () => {
+    const { wrapper, canvas } = createChartMount(420);
+    assert.equal(wrapper.tagName, "DIV");
+    assert.equal(wrapper.style.height, "420px");
+    assert.equal(wrapper.style.position, "relative");
+    assert.equal(canvas.tagName, "CANVAS");
+    assert.equal(wrapper.firstChild, canvas);
+  });
+
+  test("commonChartOptions includes responsive sizing and tooltip configuration", () => {
+    const opts = commonChartOptions();
+    assert.equal(opts.responsive, true);
+    assert.equal(opts.maintainAspectRatio, false);
+    assert.ok(opts.plugins.legend);
+    assert.ok(opts.plugins.tooltip);
+    assert.ok(opts.scales.x);
+    assert.ok(opts.scales.y);
   });
 });

@@ -36,8 +36,6 @@ export function setupRenderScatterChart(
         .optional()
         .describe("Numeric column that controls point size."),
       trend_line: z.enum(["none", "linear"]).default("none"),
-      facet_col: z.string().optional(),
-      facet_row: z.string().optional(),
       x_label: z.string().optional(),
       y_label: z.string().optional(),
       tooltip: z.array(z.string()).optional(),
@@ -48,8 +46,6 @@ export function setupRenderScatterChart(
       color: input.color,
       size: input.size,
       trend_line: input.trend_line,
-      facet_col: input.facet_col,
-      facet_row: input.facet_row,
       x_label: input.x_label,
       y_label: input.y_label,
       tooltip: input.tooltip,

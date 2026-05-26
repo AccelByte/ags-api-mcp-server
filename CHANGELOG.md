@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- **Renderer charts switched from Observable Plot to Chart.js.** Faceting (`facet_col` / `facet_row`) is no longer supported on any chart.
+
 ## v2026.3.0 (2026-05-25)
 
 ### Fixed

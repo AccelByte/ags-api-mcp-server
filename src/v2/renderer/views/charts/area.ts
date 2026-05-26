@@ -2,72 +2,146 @@
 // This is licensed software from AccelByte Inc, for limitations
 // and restrictions contact your company contract manager.
 
-import * as Plot from "@observablehq/plot";
+import type { ChartConfiguration, ChartDataset } from "chart.js";
 import type { z } from "zod/v3";
 
 import { AreaChartOutputSchema } from "../../../shared/render-schemas.js";
 import {
-  facetConfig,
-  plotDefaults,
-  seriesRange,
-  tooltipChannels,
+  chartTokens,
+  colorWithAlpha,
+  commonChartOptions,
+  createChartMount,
+  instantiateChart,
+  seriesPalette,
   validateColumns,
+  xScaleType,
 } from "../base.js";
 import type { Row } from "../types.js";
 
 type AreaOptions = z.infer<typeof AreaChartOutputSchema>["options"];
 
-const ACCENT = "var(--color-accent)";
-const INFO = "var(--color-text-info)";
-const CURVE_MAP = {
-  linear: "linear",
-  smooth: "catmull-rom",
-  step: "step",
-} as const;
+type XValue = string | number | Date;
 
-export function renderArea(rows: Row[], options: AreaOptions): SVGElement | HTMLElement {
-  validateColumns(
-    rows,
-    options.x,
-    options.y,
-    options.color,
-    options.facet_col,
-    options.facet_row,
-  );
+function toXValue(value: unknown): XValue {
+  if (value instanceof Date) return value;
+  if (typeof value === "number") return value;
+  return String(value ?? "");
+}
 
-  const markFacets = facetConfig({
-    facet_col: options.facet_col,
-    facet_row: options.facet_row,
+function asNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+interface AreaPoint {
+  x: XValue;
+  y: number;
+}
+
+interface AreaDataset {
+  label: string;
+  data: AreaPoint[];
+}
+
+function pivotByColor(
+  rows: Row[],
+  xKey: string,
+  yKey: string,
+  colorKey: string | undefined,
+): AreaDataset[] {
+  if (!colorKey) {
+    const data: AreaPoint[] = [];
+    for (const row of rows) {
+      const y = asNumber(row[yKey]);
+      if (y === undefined) continue;
+      data.push({ x: toXValue(row[xKey]), y });
+    }
+    return [{ label: yKey, data }];
+  }
+  const groups = new Map<string, AreaPoint[]>();
+  for (const row of rows) {
+    const y = asNumber(row[yKey]);
+    if (y === undefined) continue;
+    const label = String(row[colorKey] ?? "");
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label)!.push({ x: toXValue(row[xKey]), y });
+  }
+  return Array.from(groups, ([label, data]) => ({ label, data }));
+}
+
+export function renderArea(rows: Row[], options: AreaOptions): HTMLElement {
+  validateColumns(rows, options.x, options.y, options.color);
+
+  const { wrapper, canvas } = createChartMount();
+  const tokens = chartTokens();
+  const palette = seriesPalette();
+  const datasets = pivotByColor(rows, options.x, options.y, options.color);
+
+  const stepped = options.curve === "step";
+  const tension = options.curve === "smooth" ? 0.4 : 0;
+  const stacked = options.stack_mode === "stacked" || options.stack_mode === "normalized";
+  const normalized = options.stack_mode === "normalized";
+  const fillAlpha = options.stack_mode === "overlap" ? 0.34 : options.color ? 0.46 : 0.6;
+
+  const styled = datasets.map((ds, i) => {
+    const color = options.color ? palette[i % palette.length] : tokens.accent;
+    return {
+      ...ds,
+      borderColor: options.color ? color : tokens.info,
+      backgroundColor: colorWithAlpha(color, fillAlpha),
+      pointRadius: 0,
+      fill: true,
+      tension,
+      stepped,
+    };
   });
-  const defaults = plotDefaults();
-  const curve = CURVE_MAP[options.curve];
 
-  const area = Plot.areaY(rows, {
-    x: options.x,
-    y: options.y,
-    fill: options.color ?? ACCENT,
-    z: options.color,
-    stroke: options.color ?? INFO,
-    fillOpacity:
-      options.stack_mode === "overlap"
-        ? 0.34
-        : options.color
-          ? 0.46
-          : 0.6,
-    strokeOpacity: 0.92,
-    curve,
-    offset: options.stack_mode === "normalized" ? "normalize" : undefined,
-    ...markFacets,
-    ...tooltipChannels(options.tooltip),
-  });
+  const base = commonChartOptions();
+  const xType = xScaleType(rows, options.x);
+  // Chart.js' typings require `Point.x: number`, but the runtime accepts strings/Dates
+  // when paired with a category/time scale. Narrow the cast to just the datasets.
+  const config: ChartConfiguration<"line"> = {
+    type: "line",
+    data: { datasets: styled as unknown as ChartDataset<"line">[] },
+    options: {
+      ...base,
+      plugins: {
+        ...base.plugins,
+        legend: {
+          display: Boolean(options.color),
+          labels: { color: tokens.textPrimary },
+        },
+      },
+      scales: {
+        x: {
+          ...(base.scales.x as Record<string, unknown>),
+          type: xType,
+          stacked,
+          title: {
+            display: true,
+            text: options.x_label ?? options.x,
+            color: tokens.textPrimary,
+          },
+        },
+        y: {
+          ...(base.scales.y as Record<string, unknown>),
+          stacked,
+          beginAtZero: true,
+          ...(normalized ? { max: 1 } : {}),
+          title: {
+            display: true,
+            text: options.y_label ?? options.y,
+            color: tokens.textPrimary,
+          },
+        },
+      },
+    },
+  };
 
-  return Plot.plot({
-    ...defaults,
-    x: { ...defaults.x, label: options.x_label ?? options.x },
-    y: { ...defaults.y, label: options.y_label ?? options.y },
-    color: options.color
-      ? { range: seriesRange(), legend: true }
-      : defaults.color,
-    marks: [area, Plot.ruleY([0])],
-  });
+  instantiateChart(canvas, config as ChartConfiguration);
+  return wrapper;
 }
