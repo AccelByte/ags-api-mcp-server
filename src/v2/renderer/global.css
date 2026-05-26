@@ -23,30 +23,32 @@
   --text-2xl: clamp(1.55rem, 1.35rem + 0.8vw, 1.85rem);
   --text-3xl: clamp(2rem, 1.7rem + 1.2vw, 2.6rem);
 
-  /* Radii */
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
+  /* Radii — AccelByte brand: slight 4, moderate 8 (cards), pronounced 12, pill */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-pill: 999px;
 
-  /* Elevation */
-  --shadow-1: 0 4px 12px rgba(15, 23, 42, 0.06);
-  --shadow-2: 0 18px 42px rgba(15, 23, 42, 0.12);
-  --shadow-3: 0 28px 64px rgba(15, 23, 42, 0.18);
+  /* Elevation — AccelByte brand: 10% black in light mode. Dark mode uses heavier
+     opacity since 10% black is invisible on dark surfaces. */
+  --shadow-1: light-dark(0px 1px 4px rgba(0, 0, 0, 0.10), 0px 1px 4px rgba(0, 0, 0, 0.35));
+  --shadow-2: light-dark(0px 8px 16px rgba(0, 0, 0, 0.10), 0px 8px 16px rgba(0, 0, 0, 0.35));
+  --shadow-3: light-dark(0px 12px 24px rgba(0, 0, 0, 0.10), 0px 12px 24px rgba(0, 0, 0, 0.40));
 
-  /* Semantic colors */
-  --color-success: light-dark(#15803d, #4ade80);
-  --color-warning: light-dark(#b45309, #fbbf24);
-  --color-danger: light-dark(#b91c1c, #f87171);
-  --color-neutral-subtle: light-dark(#e5e7eb, #2a323d);
+  /* Semantic colors — AccelByte brand */
+  --color-success: light-dark(#007c85, #80bec2);
+  --color-warning: light-dark(#ff9f1c, #ffcf8e);
+  --color-danger: light-dark(#931621, #c98a90);
+  --color-neutral-subtle: light-dark(#e1e4e9, #1f2433);
 
-  /* Series palette */
-  --series-1: #0f766e;
-  --series-2: #0e7490;
-  --series-3: #be185d;
-  --series-4: #ca8a04;
-  --series-5: #6d28d9;
-  --series-6: #ea580c;
+  /* Series palette — AccelByte brand hues at level 100 (light) / level 50 (dark)
+     for legibility on porcelain vs vulcan backgrounds. */
+  --series-1: light-dark(#0b6cff, #85b6ff); /* Blue */
+  --series-2: light-dark(#007c85, #80bec2); /* Teal */
+  --series-3: light-dark(#ff9f1c, #ffcf8e); /* Orange */
+  --series-4: light-dark(#931621, #c98a90); /* Red */
+  --series-5: light-dark(#053d57, #829eab); /* Teal Blue */
+  --series-6: light-dark(#042455, #8292aa); /* Navy */
 
   /* Motion */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -66,15 +68,18 @@
 
   --border-radius-md: var(--radius-md);
   --border-width-regular: 1px;
-  --color-bg: light-dark(#f7f6f2, #16181c);
-  --color-panel: light-dark(rgba(255, 255, 255, 0.92), rgba(27, 31, 38, 0.92));
-  --color-panel-muted: light-dark(#ede8dd, #222833);
-  --color-border: light-dark(rgba(29, 34, 43, 0.12), rgba(255, 255, 255, 0.12));
-  --color-text-primary: light-dark(#1f2933, #f3f4f6);
-  --color-text-secondary: light-dark(#52606d, #aab4c3);
-  --color-accent: light-dark(#0f766e, #5eead4);
-  --color-text-info: light-dark(#155e75, #67e8f9);
-  --color-text-on-accent: light-dark(#ffffff, #052e2b);
+
+  /* Surfaces — light: porcelain/white/mercury; dark: vulcan + navy panel for brand depth */
+  --color-bg: light-dark(#f5f6f8, #15181d);
+  --color-panel: light-dark(#ffffff, #1f2433);
+  --color-panel-muted: light-dark(#fafafc, #2a3045);
+  --color-border: light-dark(#e1e4e9, rgba(255, 255, 255, 0.12));
+  --color-text-primary: light-dark(#15181d, #f5f6f8);
+  --color-text-secondary: light-dark(#707274, #b8b8ba);
+  /* AccelByte Blue is THE brand accent — base in light, level-50 tint in dark for contrast */
+  --color-accent: light-dark(#0b6cff, #85b6ff);
+  --color-text-info: light-dark(#042455, #85b6ff);
+  --color-text-on-accent: #ffffff;
 }
 
 * {
@@ -84,10 +89,7 @@
 html,
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(14, 116, 144, 0.12), transparent 28%),
-    var(--color-bg);
+  background: var(--color-bg);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
 }
