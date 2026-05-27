@@ -266,6 +266,22 @@ export const MetricOutputSchema = strictObject({
   }),
 });
 
+export const MeterOutputSchema = strictObject({
+  chart_type: z.literal("meter"),
+  ...CommonEnvelopeFields,
+  options: strictObject({
+    value: z.string(),
+    max: z.string().optional(),
+    label: z.string().optional(),
+    color: z.string().optional(),
+    unit: z.string().optional(),
+    // "percent" is intentionally absent: percentage mode is auto-displayed in the
+    // label (e.g. "75%") whenever max is omitted, so an Intl percent format would
+    // double-encode whole-number percentage inputs (42 → "4,200%").
+    format: z.enum(["number", "compact", "integer"]).optional(),
+  }),
+});
+
 export const RenderOutputSchema = z.discriminatedUnion("chart_type", [
   BarChartOutputSchema,
   LineChartOutputSchema,
@@ -282,5 +298,6 @@ export const RenderOutputSchema = z.discriminatedUnion("chart_type", [
   StateTimelineChartOutputSchema,
   TableOutputSchema,
   MetricOutputSchema,
+  MeterOutputSchema,
 ]);
 export type RenderOutput = z.infer<typeof RenderOutputSchema>;

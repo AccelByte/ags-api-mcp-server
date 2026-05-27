@@ -17,6 +17,7 @@ import { setupRenderGaugeChart } from "./gauge.js";
 import { setupRenderHeatmapChart } from "./heatmap.js";
 import { setupRenderHistogramChart } from "./histogram.js";
 import { setupRenderLineChart } from "./line.js";
+import { setupRenderMeter } from "./meter.js";
 import { setupRenderMetric } from "./metric.js";
 import { setupRenderPieChart } from "./pie.js";
 import { setupRenderScatterChart } from "./scatter.js";
@@ -25,7 +26,7 @@ import { setupRenderTable } from "./table.js";
 import { setupRenderWaterfallChart } from "./waterfall.js";
 
 /**
- * Single composition function. Every entry point gets the same 15 tools.
+ * Single composition function. Every entry point gets the same 16 tools.
  * No entry-point-specific registration.
  */
 export function setupRenderTools(
@@ -52,6 +53,7 @@ export function setupRenderTools(
   setupRenderStateTimelineChart(server, registry);
   setupRenderTable(server, registry);
   setupRenderMetric(server, registry);
+  setupRenderMeter(server, registry);
 }
 
 export default setupRenderTools;

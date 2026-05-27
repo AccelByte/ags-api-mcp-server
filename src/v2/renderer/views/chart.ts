@@ -15,11 +15,17 @@ import { renderGauge } from "./charts/gauge.js";
 import { renderHeatmap } from "./charts/heatmap.js";
 import { renderHistogram } from "./charts/histogram.js";
 import { renderLine } from "./charts/line.js";
+import { renderMeter } from "./charts/meter.js";
 import { renderPie } from "./charts/pie.js";
 import { renderScatter } from "./charts/scatter.js";
 import { renderStateTimeline } from "./charts/state-timeline.js";
 import { renderWaterfall } from "./charts/waterfall.js";
 
+// Table and metric have their own top-level routing branches in app-shell.ts and are excluded here.
+// Other DOM-only renderers (gauge, meter) intentionally stay in this dispatch — they share the same
+// shell/foldout chrome as the canvas charts, so they live alongside chart_type cases below rather
+// than as separate app-shell branches. Don't add them to the exclusion union without also adding
+// matching early-return branches in app-shell.ts (and the assertNever default below will then break).
 type ChartPayload = Exclude<
   RenderOutput,
   { chart_type: "table" } | { chart_type: "metric" }
@@ -87,6 +93,9 @@ export function renderChart(root: HTMLElement, payload: ChartPayload): void {
       break;
     case "gauge":
       view = renderGauge(rows, payload.options);
+      break;
+    case "meter":
+      view = renderMeter(rows, payload.options);
       break;
     case "state_timeline":
       view = renderStateTimeline(rows, payload.options);

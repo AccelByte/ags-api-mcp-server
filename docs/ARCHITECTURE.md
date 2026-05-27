@@ -88,7 +88,7 @@ The renderer source lives under `src/v2/renderer/**`, while `tsconfig.renderer.j
 
 ### Render Tools
 
-All 15 render tools share the same input model: a data source (`provider="facade"` with `query_id` + `namespace`, or `provider="direct"` with inline `data_columns` + `data_rows`), optional `title` / `description` / `column_hints` / `filters`, and tool-specific `options`. Every render tool returns strict structured content keyed by `chart_type`.
+All 16 render tools share the same input model: a data source (`provider="facade"` with `query_id` + `namespace`, or `provider="direct"` with inline `data_columns` + `data_rows`), optional `title` / `description` / `column_hints` / `filters`, and tool-specific `options`. Every render tool returns strict structured content keyed by `chart_type`.
 
 | Tool | `chart_type` | Required options | Optional options |
 |------|--------------|------------------|------------------|
@@ -107,6 +107,7 @@ All 15 render tools share the same input model: a data source (`provider="facade
 | `render_state_timeline_chart` | `state_timeline` | `entity`, `start`, `end`, `state` | — |
 | `render_table` | `table` | — | `columns_order`, `page_size` |
 | `render_metric` | `metric` | `value` | `compare`, `label`, `unit`, `format` |
+| `render_meter` | `meter` | `value` | `max`, `label`, `color`, `unit`, `format` |
 
 For write-side API calls (POST/PUT/PATCH/DELETE through `run-apis`), the tool uses MCP elicitation to request user approval before execution.
 

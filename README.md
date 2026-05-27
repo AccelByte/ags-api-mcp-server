@@ -205,11 +205,11 @@ Execute an API request. Write operations (POST/PUT/PATCH/DELETE) prompt for cons
 
 ## Analytics & Visualization
 
-The server exposes 15 render tools for turning tabular data into charts, tables, and metrics inside MCP hosts that support app resources:
+The server exposes 16 render tools for turning tabular data into charts, tables, and metrics inside MCP hosts that support app resources:
 
 - `render_bar_chart`, `render_line_chart`, `render_area_chart`, `render_scatter_chart`, `render_histogram_chart`, `render_box_chart`, `render_heatmap_chart`
 - `render_pie_chart`, `render_donut_chart`, `render_waterfall_chart`, `render_funnel_chart`, `render_gauge_chart`, `render_state_timeline_chart`
-- `render_table`, `render_metric`
+- `render_table`, `render_metric`, `render_meter`
 
 All render tools require a `provider`:
 

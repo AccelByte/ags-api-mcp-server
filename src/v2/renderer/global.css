@@ -778,3 +778,51 @@ body {
 .funnel-stage--vertical:nth-child(even) .funnel-bar-fill {
   background: var(--color-text-info);
 }
+
+.meter-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.meter-row {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.meter-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.meter-label {
+  color: var(--color-text-secondary);
+}
+
+.meter-value {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.meter-track {
+  height: var(--space-6);
+  border-radius: var(--radius-pill);
+  background: var(--color-panel-muted);
+  border: 1px solid var(--color-border);
+  /* overflow: hidden clips .meter-fill to the track's pill shape — no border-radius needed on .meter-fill. */
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meter-fill {
+    transition: none;
+  }
+}

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **New `render_meter` tool.** Renders one or more horizontal meters (progress / fill bars), one meter per row — designed for usage limits but general-purpose. `value` names the current-value column; optional `max` gives a per-row maximum (fill = `value/max`), and when omitted `value` is treated as a 0–100 percentage. Over-limit meters clamp the bar to 100% and recolor to the danger token. Optional `label`, `color` (per-meter override; defaults to the brand series palette), and `unit` columns are supported — `unit` is per-meter (shown once after the max value) so meters can carry different units. Optional `format` (`number`/`compact`/`integer`/`percent`) formats displayed values via `Intl.NumberFormat`. SVG/DOM-rendered, like the other non–Chart.js views. See `docs/ARCHITECTURE.md#render-tools`.
+
 ## v2026.3.1 (2026-05-26)
 
 ### Changed

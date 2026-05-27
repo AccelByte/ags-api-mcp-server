@@ -19,7 +19,7 @@ import type {
   RenderColumnHint,
   RenderStats,
 } from "../../shared/render-schemas.js";
-import { getRowSetMeta, type Row } from "./types.js";
+import { getRowSetMeta, type Primitive, type Row } from "./types.js";
 
 let chartJsRegistered = false;
 function ensureChartJsRegistered(): void {
@@ -595,6 +595,23 @@ export function xScaleType(
   if (rows.some((row) => row[xKey] instanceof Date)) return "time";
   if (rows.some((row) => typeof row[xKey] === "number")) return "linear";
   return "category";
+}
+
+export function asNumber(value: Primitive | undefined): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
+export function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 export function validateColumns(rows: Row[], ...keys: Array<string | undefined>): void {

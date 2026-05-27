@@ -5,8 +5,8 @@
 import type { z } from "zod/v3";
 
 import { GaugeChartOutputSchema } from "../../../shared/render-schemas.js";
-import { validateColumns } from "../base.js";
-import type { Primitive, Row } from "../types.js";
+import { asNumber, clamp, validateColumns } from "../base.js";
+import type { Row } from "../types.js";
 
 type GaugeOptions = z.infer<typeof GaugeChartOutputSchema>["options"];
 
@@ -31,23 +31,6 @@ function svgElement<K extends keyof SVGElementTagNameMap>(
   name: K,
 ): SVGElementTagNameMap[K] {
   return document.createElementNS(SVG_NS, name);
-}
-
-function asNumber(value: Primitive): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return undefined;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
 }
 
 function polar(radius: number, angleDegrees: number): { x: number; y: number } {
