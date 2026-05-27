@@ -28,7 +28,9 @@ import { renderWaterfall } from "./charts/waterfall.js";
 // matching early-return branches in app-shell.ts (and the assertNever default below will then break).
 type ChartPayload = Exclude<
   RenderOutput,
-  { chart_type: "table" } | { chart_type: "metric" }
+  | { chart_type: "table" }
+  | { chart_type: "metric" }
+  | { chart_type: "text_editor" }
 >;
 
 function assertNever(value: never): never {

@@ -7,6 +7,7 @@ import {
   applyDocumentTheme,
   applyHostFonts,
   applyHostStyleVariables,
+  type McpUiDisplayMode,
   type McpUiHostContext,
   type McpUiToolInputNotification,
   type McpUiToolResultNotification,
@@ -15,6 +16,11 @@ import { BUNDLE_VERSION, RenderOutputSchema } from "../shared/render-schemas.js"
 import { renderChart } from "./views/chart.js";
 import { renderMetric } from "./views/metric.js";
 import { renderTable } from "./views/table.js";
+import {
+  type EditorHostBridge,
+  refreshTextEditorMode,
+  renderTextEditor,
+} from "./views/text-editor.js";
 
 export interface RendererHostStyleAppliers {
   applyTheme(theme: McpUiHostContext["theme"]): void;
@@ -145,9 +151,15 @@ function extractErrorText(result: RendererToolResultLike): string {
   return firstText?.text ?? "Could not render this result.";
 }
 
+export interface EditorHost {
+  bridge: EditorHostBridge;
+  displayMode: McpUiDisplayMode | undefined;
+}
+
 export function renderToolResult(
   result: RendererToolResultLike,
   root?: HTMLElement,
+  editorHost?: EditorHost,
 ): void {
   const element = appRoot(root);
 
@@ -157,6 +169,15 @@ export function renderToolResult(
   }
 
   const parsed = RenderOutputSchema.parse(result.structuredContent);
+
+  if (parsed.chart_type === "text_editor") {
+    if (!editorHost) {
+      showError("This editor requires an interactive host.", element);
+      return;
+    }
+    renderTextEditor(element, parsed, editorHost.bridge, editorHost.displayMode);
+    return;
+  }
 
   if (parsed.chart_type === "table") {
     renderTable(element, parsed);
@@ -185,8 +206,13 @@ export async function bootstrapRenderer(
     showError(error instanceof Error ? error.message : String(error), root);
   };
 
+  const editorBridge = app as unknown as EditorHostBridge;
+
   app.onhostcontextchanged = (context) => {
     applyHostContext(context, styleAppliers);
+    // `context` is a partial (changed fields only); read the merged mode so an
+    // unrelated update (theme/size) can't reset the editor to preview.
+    refreshTextEditorMode(app.getHostContext()?.displayMode);
   };
 
   app.ontoolinput = () => {
@@ -195,7 +221,10 @@ export async function bootstrapRenderer(
 
   app.ontoolresult = (result) => {
     try {
-      renderToolResult(result, root);
+      renderToolResult(result, root, {
+        bridge: editorBridge,
+        displayMode: app.getHostContext()?.displayMode,
+      });
     } catch (error) {
       showError(
         error instanceof Error

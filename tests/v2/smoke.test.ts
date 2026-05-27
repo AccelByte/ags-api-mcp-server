@@ -39,6 +39,8 @@ const RENDER_TOOL_NAMES = [
   "render_state_timeline_chart",
   "render_table",
   "render_metric",
+  "render_meter",
+  "render_text_editor",
 ] as const;
 const CORE_TOOL_NAMES = [
   "search-apis",

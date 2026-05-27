@@ -23,10 +23,11 @@ import { setupRenderPieChart } from "./pie.js";
 import { setupRenderScatterChart } from "./scatter.js";
 import { setupRenderStateTimelineChart } from "./state-timeline.js";
 import { setupRenderTable } from "./table.js";
+import { setupRenderTextEditor } from "./text-editor.js";
 import { setupRenderWaterfallChart } from "./waterfall.js";
 
 /**
- * Single composition function. Every entry point gets the same 16 tools.
+ * Single composition function. Every entry point gets the same 17 tools.
  * No entry-point-specific registration.
  */
 export function setupRenderTools(
@@ -54,6 +55,7 @@ export function setupRenderTools(
   setupRenderTable(server, registry);
   setupRenderMetric(server, registry);
   setupRenderMeter(server, registry);
+  setupRenderTextEditor(server);
 }
 
 export default setupRenderTools;

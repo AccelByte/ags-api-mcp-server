@@ -4,7 +4,7 @@
 
 import { z } from "zod/v3";
 
-export const BUNDLE_VERSION = "1.0.0";
+export const BUNDLE_VERSION = "1.1.0";
 
 export function strictObject<T extends z.ZodRawShape>(
   shape: T,
@@ -282,6 +282,17 @@ export const MeterOutputSchema = strictObject({
   }),
 });
 
+/** Editable document view (the first input tool — value originates in the webview). */
+export const TextEditorOutputSchema = strictObject({
+  chart_type: z.literal("text_editor"),
+  title: z.string().optional(),
+  content: z.string(),
+  language: z
+    .enum(["markdown", "json", "yaml", "javascript", "text"])
+    .optional(),
+  filename: z.string().optional(),
+});
+
 export const RenderOutputSchema = z.discriminatedUnion("chart_type", [
   BarChartOutputSchema,
   LineChartOutputSchema,
@@ -299,5 +310,6 @@ export const RenderOutputSchema = z.discriminatedUnion("chart_type", [
   TableOutputSchema,
   MetricOutputSchema,
   MeterOutputSchema,
+  TextEditorOutputSchema,
 ]);
 export type RenderOutput = z.infer<typeof RenderOutputSchema>;

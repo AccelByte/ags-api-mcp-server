@@ -826,3 +826,121 @@ body {
     transition: none;
   }
 }
+
+/* ── Text editor (render_text_editor) ───────────────────────────────── */
+/* Reuses .renderer-shell / .renderer-header / .renderer-chart-body so it
+   matches the chart tools; only editor-specific pieces are styled here. */
+
+.text-editor-tools {
+  flex-wrap: wrap;
+}
+
+/* Shared control sizing so the dropdown and icon buttons line up exactly. */
+.text-editor-language,
+.text-editor-icon {
+  box-sizing: border-box;
+  height: 2rem;
+  border: var(--border-width-regular) solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  background: var(--color-panel-muted);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition:
+    background var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out);
+}
+
+.text-editor-language {
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: 0 var(--space-3);
+}
+
+.text-editor-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  padding: 0;
+  color: var(--color-text-secondary);
+}
+
+.text-editor-icon:hover {
+  background: var(--color-panel);
+  color: var(--color-text-primary);
+}
+
+.text-editor-icon svg {
+  display: block;
+}
+
+/* Tighten the body gap vs. the chart default and lay out the split. */
+.text-editor-body {
+  gap: var(--space-3);
+}
+
+.text-editor-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.text-editor-pane,
+.text-editor-preview {
+  height: clamp(320px, 68vh, 760px);
+  overflow: hidden;
+  border: var(--border-width-regular) solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  background: var(--color-panel);
+}
+
+.text-editor-pane .cm-editor,
+.text-editor-preview .cm-editor {
+  height: 100%;
+  background: transparent;
+}
+
+.text-editor-markdown {
+  height: 100%;
+  overflow: auto;
+  padding: var(--space-5);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+}
+
+.text-editor-markdown > :first-child {
+  margin-top: 0;
+}
+
+.text-editor-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.text-editor-markdown pre {
+  padding: var(--space-3);
+  border-radius: var(--border-radius-md);
+  background: var(--color-panel-muted);
+  overflow: auto;
+}
+
+.text-editor-markdown code {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.text-editor-status {
+  margin: 0;
+  min-height: 1.25em;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.text-editor-status[data-state="error"] {
+  color: var(--color-danger);
+}
+
+@media (max-width: 720px) {
+  .text-editor-split {
+    grid-template-columns: 1fr;
+  }
+}
