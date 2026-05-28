@@ -11,6 +11,7 @@ import setupApiTools from "./tools/api.js";
 import { getOrCreateOpenApiTools } from "./tools/openapi-tools-factory.js";
 import setupAuthTools from "./tools/auth.js";
 import setupWorkflows from "./prompts/workflows.js";
+import setupPlaybooks from "./prompts/playbooks.js";
 import setupRenderTools from "./tools/renderers/index.js";
 
 /**
@@ -55,6 +56,7 @@ async function createServer(
   );
   setupAuthTools(server);
   await setupWorkflows(server);
+  await setupPlaybooks(server);
 
   if (effectiveConfig.mcp.enableRenderTools) {
     setupRenderTools(server, openApiTools);

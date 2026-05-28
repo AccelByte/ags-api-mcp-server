@@ -195,7 +195,7 @@ export function createFacadeProvider(openApiTools: OpenApiTools): Provider {
         .string()
         .optional()
         .describe(
-          'Athena Facade query id (required when provider="facade"). Prefer obtaining it by calling run-apis against POST /afs/v1/admin/namespaces/{namespace}/queries with wait_ms=0, then polling GET /afs/v1/admin/namespaces/{namespace}/queries/{id} until status="succeeded". If POST returns 200 with inline rows on the fast path, render those rows via provider="direct" instead of reusing the returned query_id.',
+          'Athena Facade query id (required when provider="facade"). Prefer obtaining it by calling run-apis against POST /afs/v1/admin/namespaces/{namespace}/queries with wait_ms=0, then polling GET /afs/v1/admin/namespaces/{namespace}/queries/{id} until status="SUCCEEDED". If POST returns 200 with inline rows on the fast path, render those rows via provider="direct" instead of reusing the returned query_id.',
         ),
       namespace: z
         .string()
@@ -263,7 +263,7 @@ export function createFacadeProvider(openApiTools: OpenApiTools): Provider {
             case "queued":
               throw new FacadeError(
                 "NOT_READY",
-                `Query ${body.query_id} is still ${body.status}${body.instruction ? `: ${body.instruction}` : ""}. Poll GET /afs/v1/admin/namespaces/{namespace}/queries/{id} via run-apis until status="succeeded" before rendering.`,
+                `Query ${body.query_id} is still ${body.status}${body.instruction ? `: ${body.instruction}` : ""}. Poll GET /afs/v1/admin/namespaces/{namespace}/queries/{id} via run-apis until status="SUCCEEDED" before rendering.`,
               );
             case "cancelled":
               throw new FacadeError(
