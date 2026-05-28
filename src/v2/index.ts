@@ -13,6 +13,7 @@ import registerOAuthRoutes, {
 import { resolveAgsHost } from "./auth/host-resolver.js";
 import { prewarmJwksCache } from "./auth/middleware.js";
 import createServer from "./mcp/server.js";
+import { name, version } from "./version.js";
 
 const app: Express = createExpress();
 
@@ -21,7 +22,7 @@ if (config.hosted.enabled) {
 }
 
 const mcpServerFactory: McpServerFactory = async (context) =>
-  createServer("ags-api-mcp-server", "2026.3.1", config, context);
+  createServer(name, version, config, context);
 
 if (config.mcp.enableAuth) {
   registerOAuthRoutes(app, config.mcp.serverUrl, config.openapi.serverUrl, {
@@ -48,6 +49,7 @@ registerMcpRoutes(app, mcpServerFactory, {
   // shared-auth-server topology in the first place.
   allowParentDomainIssuer:
     config.hosted.enabled && config.hosted.allowParentDomainIssuer,
+  serverInfo: { name, version },
 });
 
 // Root informational endpoint
@@ -55,8 +57,8 @@ app.get("/", (req, res) => {
   const openapiServerUrl = req.ags?.baseUrl || config.openapi.serverUrl;
 
   res.json({
-    name: "ags-api-mcp-server",
-    version: "2026.3.0",
+    name,
+    version,
     description: "AccelByte Gaming Services API MCP Server",
     mode: config.hosted.enabled ? "hosted" : "standalone",
     endpoints: {

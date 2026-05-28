@@ -69,6 +69,14 @@ interface RegisterMcpRoutesOptions {
    * mode passes the pre-check but still 401s in the middleware.
    */
   allowParentDomainIssuer?: boolean;
+
+  /**
+   * If provided, GET on the MCP path returns this {name, version} payload
+   * instead of 405. Lets unauthenticated clients (and operators behind
+   * ingresses that only forward /mcp*) probe the server identity without
+   * completing the MCP `initialize` handshake.
+   */
+  serverInfo?: { name: string; version: string };
 }
 
 /**
@@ -94,6 +102,7 @@ function registerMcpRoutes(
     mcpServerUrl,
     hostedMode = false,
     allowParentDomainIssuer = false,
+    serverInfo,
   } = options;
 
   // Co-located guard: hosted mode requires mcpServerUrl. Without this, the
@@ -202,6 +211,16 @@ function registerMcpRoutes(
     }
 
     app.get(routePattern, async (_: Request, res: Response) => {
+      // Streamable HTTP transport reserves GET for opening server→client SSE
+      // streams in stateful mode. This server runs stateless
+      // (sessionIdGenerator: undefined), so the SDK doesn't accept GET, and
+      // returning serverInfo here is safe today. If we ever flip to stateful
+      // sessions, branch on `Accept: text/event-stream` and hand those
+      // requests to the transport instead of replying with JSON.
+      if (serverInfo) {
+        res.json(serverInfo);
+        return;
+      }
       res
         .status(405)
         .json(jsonRPCError(ErrorCode.InvalidRequest, "Method not allowed"));
