@@ -19,7 +19,7 @@
   "paths": {
     "/afs/v1/admin/namespaces/{namespace}/context": {
       "get": {
-        "description": "Returns Markdown by default; pass format=json for a JSON-wrapped response.",
+        "description": "Returns the merged analytics context document. The response interleaves the embedded base context with every user-authored context the tenant has created (via `POST /contexts`), sorted by `(order ASC, created_at ASC)`. The base context participates in the sort at `order = 0` with a sentinel `created_at` predating any user-authored content, so user contexts with negative `order` merge before the base and positive `order` after it. Returns Markdown by default; pass `format=json` for a JSON-wrapped response with an `X-Context-Version` ETag header.",
         "operationId": "AdminGetContext",
         "parameters": [
           {
@@ -90,12 +90,428 @@
         ]
       }
     },
+    "/afs/v1/admin/namespaces/{namespace}/contexts": {
+      "get": {
+        "description": "Lists tenant-owned contexts. `body` is omitted from list responses to keep payloads small.",
+        "operationId": "AdminListContexts",
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "default": 0,
+            "description": "Pagination offset (default 0).",
+            "in": "query",
+            "name": "offset",
+            "type": "integer"
+          },
+          {
+            "default": 20,
+            "description": "Page size (default 20, max 100).",
+            "in": "query",
+            "maximum": 100,
+            "name": "limit",
+            "type": "integer"
+          },
+          {
+            "description": "Filter by kind.",
+            "enum": [
+              "ags_extension",
+              "custom_table"
+            ],
+            "in": "query",
+            "name": "kind",
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of contexts.",
+            "schema": {
+              "$ref": "#/definitions/handler.contextListResponse"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List user-authored analytics contexts",
+        "tags": [
+          "contexts"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "Creates a new user-authored analytics context for the tenant. `order` defaults to `100` when omitted. Calls `mergeCache.Invalidate` so the next `GET /context` returns the updated merge.",
+        "operationId": "AdminCreateContext",
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Context creation request.",
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/handler.contextCreateBody"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "201": {
+            "description": "Created context.",
+            "schema": {
+              "$ref": "#/definitions/handler.contextResponse"
+            }
+          },
+          "400": {
+            "description": "Validation error (INVALID_KIND, INVALID_TABLE_REFS, INVALID_ORDER, or bad JSON).",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "409": {
+            "description": "CONTEXT_NAME_TAKEN or CONTEXT_COUNT_EXCEEDED.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "413": {
+            "description": "CONTEXT_BODY_TOO_LARGE.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create a user-authored analytics context",
+        "tags": [
+          "contexts"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [UPDATE]"
+            ]
+          }
+        ]
+      }
+    },
+    "/afs/v1/admin/namespaces/{namespace}/contexts/{id}": {
+      "delete": {
+        "description": "Deletes a context. Idempotent — deleting an unknown ID returns `204`. Calls `mergeCache.Invalidate` so the next `GET /context` returns the updated merge.",
+        "operationId": "AdminDeleteContext",
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Context ID (KSUID).",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted (or already absent)."
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete a user-authored analytics context",
+        "tags": [
+          "contexts"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [UPDATE]"
+            ]
+          }
+        ]
+      },
+      "get": {
+        "description": "Returns the full context row including `body` and `order`. Returns `404 CONTEXT_NOT_FOUND` for any ID that doesn&#39;t exist in this tenant&#39;s set.",
+        "operationId": "AdminGetContextByID",
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Context ID (KSUID).",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Full context row.",
+            "schema": {
+              "$ref": "#/definitions/handler.contextResponse"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "404": {
+            "description": "CONTEXT_NOT_FOUND.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get a single user-authored analytics context",
+        "tags": [
+          "contexts"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
+      },
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "Updates `body`, `order`, and/or `table_refs` of an existing context. `name` and `kind` are immutable. Requires `If-Match: &lt;prior updated_at RFC3339&gt;` for optimistic concurrency. Calls `mergeCache.Invalidate` so the next `GET /context` returns the updated merge.",
+        "operationId": "AdminUpdateContext",
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Context ID (KSUID).",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Must match the `updated_at` RFC 3339 value of the last known version.",
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Context update request.",
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/handler.contextUpdateBody"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated context row.",
+            "schema": {
+              "$ref": "#/definitions/handler.contextResponse"
+            }
+          },
+          "400": {
+            "description": "Validation error or IF_MATCH_REQUIRED.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "404": {
+            "description": "CONTEXT_NOT_FOUND.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "412": {
+            "description": "IF_MATCH_FAILED (concurrent update detected).",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "413": {
+            "description": "CONTEXT_BODY_TOO_LARGE.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Update a user-authored analytics context",
+        "tags": [
+          "contexts"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [UPDATE]"
+            ]
+          }
+        ]
+      }
+    },
     "/afs/v1/admin/namespaces/{namespace}/queries": {
       "post": {
         "consumes": [
           "application/json"
         ],
-        "description": "Returns 202 with query_id, or 200 with rows inline if the query terminates within the fast-path window.",
+        "description": "Returns 202 with query_id, or 200 with rows inline if the query terminates within the fast-path window.\nThe `database` field is optional; when omitted, the facade uses the first entry of the configured ALLOWED_DATABASES env var.",
         "operationId": "AdminSubmitQuery",
         "parameters": [
           {
@@ -157,6 +573,12 @@
           },
           "413": {
             "description": "SQL body exceeds the configured MAX_SQL_BYTES limit.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "429": {
+            "description": "Quota exceeded for the current billing period.",
             "schema": {
               "$ref": "#/definitions/handler.errorBody"
             }
@@ -333,6 +755,220 @@
         "summary": "Fetch query status and (if terminal) result rows",
         "tags": [
           "queries"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
+      }
+    },
+    "/afs/v1/admin/namespaces/{namespace}/quota/monthly-limit": {
+      "get": {
+        "description": "Returns the current monthly_limit_usd for the calling tenant. null means unlimited.",
+        "operationId": "AdminGetQuotaMonthlyLimit",
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Current monthly cap. monthly_limit_usd is null when unlimited.",
+            "schema": {
+              "$ref": "#/definitions/handler.monthlyLimitResponse"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "500": {
+            "description": "Unexpected error.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get the tenant's self-imposed monthly quota cap",
+        "tags": [
+          "quota"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
+      },
+      "put": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "Sets monthly_limit_usd for the calling tenant. null removes the cap (unlimited).",
+        "operationId": "AdminPutQuotaMonthlyLimit",
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Monthly limit request. monthly_limit_usd must be null or a non-negative finite number.",
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/handler.monthlyLimitPutBody"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated monthly cap.",
+            "schema": {
+              "$ref": "#/definitions/handler.monthlyLimitResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request (malformed body or INVALID_LIMIT: value is negative or non-finite).",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "500": {
+            "description": "Unexpected error.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Set the tenant's self-imposed monthly quota cap",
+        "tags": [
+          "quota"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
+      }
+    },
+    "/afs/v1/admin/namespaces/{namespace}/quota/usage": {
+      "get": {
+        "description": "Returns current monthly and lifetime used_usd, limits (null = unlimited), and a linear projected run-rate.\nNote: used_usd reflects pre-execution estimates; actuals land after Phase D reconciliation.",
+        "operationId": "AdminGetQuotaUsage",
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Current usage snapshot.",
+            "schema": {
+              "$ref": "#/definitions/handler.usageResponse"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "503": {
+            "description": "DDB read temporarily unavailable.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get the tenant's current quota usage",
+        "tags": [
+          "quota"
         ],
         "x-errorCodes": {},
         "x-security": [
@@ -700,11 +1336,188 @@
       },
       "type": "object"
     },
+    "handler.contextCreateBody": {
+      "description": "Request body for creating a new user-authored analytics context.",
+      "properties": {
+        "body": {
+          "description": "Markdown body of this context section.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Context kind. `custom_table` for tenant-specific table schemas; `ags_extension` for additive overlays on AGS event tables.",
+          "enum": [
+            "ags_extension",
+            "custom_table"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "Unique name within the tenant. Pattern: ^[a-z][a-z0-9_]{0,63}$.",
+          "type": "string"
+        },
+        "order": {
+          "default": 100,
+          "description": "Signed 32-bit integer controlling where this context merges relative to the base context in `GET /context`. The base context is conceptually at `order = 0` with a sentinel `created_at` predating any user-authored content. Lower values merge earlier; ties are broken by `created_at` ascending. Use **negative** values (e.g. `-10`) for context that should precede the base — useful for narrative framing, schema-wide caveats, or anything the LLM should read before the AGS event schema. Use **positive** values (e.g. `10`, `100`) for context that should follow the base — typical for additive overlays on specific tables or custom-telemetry schema descriptions. A user-authored context at `order = 0` merges immediately **after** the base because the base's sentinel `created_at` wins the tie-break. Defaults to `100` when omitted on `POST`.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "table_refs": {
+          "description": "For `ags_extension`: required list of `<database>.<table>` references this context covers. For `custom_table`: optional, uninterpreted.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "body",
+        "kind",
+        "name"
+      ],
+      "type": "object"
+    },
+    "handler.contextListItem": {
+      "description": "Context row in list responses. `body` is omitted to keep payloads small.",
+      "properties": {
+        "authored_by": {
+          "type": "string"
+        },
+        "context_id": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "ags_extension",
+            "custom_table"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "order": {
+          "description": "Signed 32-bit integer controlling merge position in `GET /context`.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "table_refs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "updated_at": {
+          "type": "string"
+        },
+        "updated_by": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "handler.contextListResponse": {
+      "description": "Paginated list of tenant-owned contexts.",
+      "properties": {
+        "data": {
+          "items": {
+            "$ref": "#/definitions/handler.contextListItem"
+          },
+          "type": "array"
+        },
+        "total": {
+          "description": "Total number of contexts for this tenant (across all pages).",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "handler.contextResponse": {
+      "description": "Full context row returned on POST (create), GET (single), and PUT (update).",
+      "properties": {
+        "authored_by": {
+          "description": "JWT `sub` of the creator.",
+          "type": "string"
+        },
+        "body": {
+          "description": "Markdown body of this context section.",
+          "type": "string"
+        },
+        "context_id": {
+          "description": "Opaque KSUID assigned on creation.",
+          "type": "string"
+        },
+        "created_at": {
+          "description": "RFC 3339 UTC timestamp.",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "ags_extension",
+            "custom_table"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "order": {
+          "description": "Signed 32-bit integer controlling merge position in `GET /context`. See `contextCreateBody.order` for full semantics.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "table_refs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "updated_at": {
+          "description": "RFC 3339 UTC timestamp.",
+          "type": "string"
+        },
+        "updated_by": {
+          "description": "JWT `sub` of the last editor.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "handler.contextUpdateBody": {
+      "description": "Request body for updating an existing user-authored analytics context. `name` and `kind` are immutable.",
+      "properties": {
+        "body": {
+          "description": "Replacement Markdown body.",
+          "type": "string"
+        },
+        "order": {
+          "description": "Signed 32-bit integer controlling where this context merges relative to the base context in `GET /context`. The base context is conceptually at `order = 0` with a sentinel `created_at` predating any user-authored content. Lower values merge earlier; ties are broken by `created_at` ascending. Use **negative** values (e.g. `-10`) for context that should precede the base. Use **positive** values (e.g. `10`, `100`) for context after the base. A user-authored context at `order = 0` merges immediately **after** the base.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "table_refs": {
+          "description": "Replacement `table_refs` list. See `contextCreateBody.table_refs` for semantics.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "body"
+      ],
+      "type": "object"
+    },
     "handler.errorBody": {
       "properties": {
         "error": {
           "properties": {
             "code": {
+              "type": "string"
+            },
+            "dimension": {
               "type": "string"
             },
             "message": {
@@ -769,6 +1582,25 @@
       },
       "type": "object"
     },
+    "handler.monthlyLimitPutBody": {
+      "properties": {
+        "monthly_limit_usd": {
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "handler.monthlyLimitResponse": {
+      "properties": {
+        "monthly_limit_usd": {
+          "type": "number"
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "handler.queryErrorBody": {
       "properties": {
         "code": {
@@ -807,11 +1639,50 @@
         }
       },
       "type": "object"
+    },
+    "handler.usageLifetimeBody": {
+      "properties": {
+        "limit_usd": {
+          "type": "number"
+        },
+        "used_usd": {
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "handler.usageMonthlyBody": {
+      "properties": {
+        "limit_usd": {
+          "type": "number"
+        },
+        "period": {
+          "type": "string"
+        },
+        "projected_run_rate_usd": {
+          "type": "number"
+        },
+        "used_usd": {
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "handler.usageResponse": {
+      "properties": {
+        "lifetime": {
+          "$ref": "#/definitions/handler.usageLifetimeBody"
+        },
+        "monthly": {
+          "$ref": "#/definitions/handler.usageMonthlyBody"
+        }
+      },
+      "type": "object"
     }
   },
   "x-version": {
-    "buildDate": "2026-05-13T07:12:10Z",
-    "gitHash": "139ac23",
+    "buildDate": "2026-05-29T00:42:13Z",
+    "gitHash": "562d5b4",
     "name": "athena-facade-api",
     "version": "0.4.0",
     "version-roles-seeding": "1.2.130"
