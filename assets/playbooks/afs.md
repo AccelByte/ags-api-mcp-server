@@ -69,10 +69,16 @@ When the user asks how much budget is left, or you want to sanity-check before r
 
 ### 5. Submit with `POST /afs/v1/admin/namespaces/{namespace}/queries`
 
-Pass a small `wait_ms` (e.g. a few seconds) to take advantage of the fast path:
+Body fields: `sql` (the query text), optional `database`, optional `max_rows`, and `wait_ms` (milliseconds).
 
-- **If the response is `200` with `columns` and `rows` inline,** the query finished synchronously. Skip step 6 and render the inline rows directly.
-- **Otherwise,** you get a `query_id` and need to poll.
+`wait_ms` controls the fast path, and the choice has a fidelity cost worth understanding:
+
+- **Small result you're confident reproducing** (a headline number, a handful of rows): pass a small `wait_ms` (e.g. a few seconds). If the response is `200` with `columns` and `rows` inline, the query finished synchronously — skip step 6 and render those inline rows via `provider="direct"`.
+- **Substantial result set destined for a table or chart:** pass `wait_ms=0`, skip the fast path on purpose, and poll (step 6). This guarantees you hold a pollable `query_id` so the renderer can fetch rows from source via `provider="facade"`. See the provider note in step 7 for why this matters.
+
+Either way, if you don't get inline rows you get a `query_id` and need to poll.
+
+> **Don't try to have it both ways.** A `query_id` returned alongside fast-path inline rows may **404** if you later `GET` it — fast-path results aren't guaranteed to be pollable. So once you've taken the fast path, render the inline rows with `direct`; don't hand that id to `facade`. If you need source-fetched rows, decide *before* submitting and use `wait_ms=0` (re-running a finished query costs latency and re-scans bytes).
 
 ### 6. Poll with `GET /afs/v1/admin/namespaces/{namespace}/queries/{id}`
 
@@ -104,7 +110,12 @@ Pick the render tool that fits the *shape* of the answer, not just "results are 
 | State changes of an entity over time | `render_state_timeline_chart` |
 | Two-dimensional density (e.g. hour × day) | `render_heatmap_chart` |
 
-**A note on `provider`:** use `provider="direct"` when you already hold the rows inline (the fast path in step 5), and `provider="facade"` to let the renderer re-fetch results by `query_id` from the Athena Facade (the polled path in step 6).
+**A note on `provider` — this is a fidelity decision, not just plumbing.** `provider="facade"` takes a `query_id` and re-fetches rows server-side from the Athena Facade, so the rendered bytes come straight from source. `provider="direct"` takes `data_columns`/`data_rows` that **you** supply — meaning the result set is routed through your context and reproduced as tool arguments, and the renderer trusts them verbatim. Reproducing tabular data by hand is error-prone (dropped rows, reordered values, coerced numbers, truncated strings), and nothing downstream catches a mismatch.
+
+So:
+
+- Use `provider="direct"` only for **small results you're confident reproducing exactly** — the fast-path case in step 5.
+- Use `provider="facade"` for **anything substantial** — larger row counts, anything the user will scrutinize as a table or chart. Get a pollable `query_id` (submit with `wait_ms=0`, poll in step 6) so the renderer pulls from source rather than from your reproduction.
 
 ### 8. Summarize and offer follow-up threads
 
