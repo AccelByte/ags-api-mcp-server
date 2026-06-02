@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## v2026.3.3 (2026-06-02)
+
+### Added
+- **AFS Analytics Context playbook.** New `assets/playbooks/afs-context.md` for authoring/editing the analytics context catalog via `render_text_editor` — covers merge order (`order` relative to the embedded base), optimistic concurrency (`If-Match`), field constraints (`name` pattern, `kind` enum, `table_refs`, `order`), and `CONTEXT_*`/backend error handling. `afs.md` gains a spend-budget section (read the quota and show it with `render_meter`), the `namespacez` partition-predicate requirement, and a cross-reference to the context playbook.
+
+### Changed
+- **`render_text_editor` round-trips edits back to the model.** As an input tool its value originates in the webview, so user edits now travel back through two stateless channels: silent auto-sync (debounced ~1.5s push into the model's context via `ui/update-model-context`, read back through the host's widget context — `read_widget_context` on Claude Desktop, surfaced automatically elsewhere) and an explicit **Send to chat** button (`ui/message`). Pending edits flush on fullscreen-exit/teardown and on `pagehide`/`visibilitychange` so the last keystrokes aren't lost. The server stays stateless — nothing is stored. See `docs/ARCHITECTURE.md#render-tools`.
+- **Render tool descriptions are now domain-agnostic.** The generic `render_*` tools no longer hard-code AFS/Athena specifics — dropped "Athena Facade", "query_id+namespace", "ideal for usage limits", and the context-API example; `provider="facade"` is described generically as re-fetching server-side results by reference. Provider enum names and the AFS-specific facade provider implementation are unchanged (prose only); AFS specifics now live solely in the playbooks.
+- **`afs.json` OpenAPI spec refreshed** from `development_main`, adding the contexts and quota operations.
+
+### Fixed
+- **Docker image builds natively instead of under QEMU.** The builder stage is pinned to `$BUILDPLATFORM` so `pnpm run build` runs on the native platform; emulated builds crashed esbuild (vite) with "The service was stopped" on `render-schemas.ts`. Build output and production deps are pure JS, so artifacts remain valid for the target-platform runtime stage.
+- **AFS playbook correctness.** Context update is `PUT` (`AdminUpdateContext`), corrected from `PATCH`; the pre-submit checklist now requires the `namespacez` partition filter (omitting it returns `400 MISSING_PARTITION_PREDICATE`, and the column spelling is distinct from the URL `{namespace}`); `afs.md` now states the `athena-facade-poc` spec identifier up front so `run-apis` calls don't guess it from the URL; added a "when a call fails unexpectedly" note steering to `describe-apis`/`search-apis` before assuming a backend bug.
+
 ## v2026.3.2 (2026-05-29)
 
 ### Added
