@@ -217,6 +217,15 @@ function registerMcpRoutes(
       // returning serverInfo here is safe today. If we ever flip to stateful
       // sessions, branch on `Accept: text/event-stream` and hand those
       // requests to the transport instead of replying with JSON.
+      //
+      // Security trade-off (deliberate): serverInfo is returned UNauthenticated
+      // on both GET /mcp and GET /mcp/:namespace, disclosing the server name
+      // and version (and that a :namespace path param exists). This is
+      // intentional to support unauthenticated ingress health checks and
+      // operator probing. The disclosed data is low-sensitivity (name +
+      // version, already shipped in the public image); if a deployment's threat
+      // model objects to version fingerprinting, gate this at the ingress layer
+      // (internal CIDR / known-secret query param) rather than here.
       if (serverInfo) {
         res.json(serverInfo);
         return;

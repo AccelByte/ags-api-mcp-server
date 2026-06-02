@@ -316,6 +316,7 @@ describe("MCP server smoke tests", () => {
       "resource://workflows/schema",
       "resource://workflows/technical-specification",
       "resource://workflows",
+      "resource://playbooks/afs",
       RENDERER_RESOURCE_URI,
     ];
     for (const uri of expectedResources) {
@@ -414,6 +415,10 @@ describe("MCP server smoke tests", () => {
     assert.ok(
       promptNames.includes("run-workflow"),
       `Missing prompt: run-workflow. Got: ${promptNames}`,
+    );
+    assert.ok(
+      promptNames.includes("afs"),
+      `Missing prompt: afs. Got: ${promptNames}`,
     );
   });
 

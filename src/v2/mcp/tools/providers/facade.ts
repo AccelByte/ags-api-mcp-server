@@ -116,6 +116,13 @@ function parseFacadeQueryResponse(data: unknown): FacadeQueryResponse {
     );
   }
 
+  // The facade API returns status in UPPERCASE (SUCCEEDED, RUNNING, …). We
+  // normalize to lowercase as the single internal representation used by the
+  // type, the switch in resolve(), and the FacadeError messages here.
+  // Agent-facing strings (the Zod `query_id` description and the NOT_READY
+  // message) deliberately use the UPPERCASE form because they instruct the
+  // agent to poll the raw GET endpoint directly, where it sees the API's
+  // native casing — that is a different surface from this internal value.
   const rawStatus = typeof data.status === "string" ? data.status : undefined;
   const status = rawStatus?.toLowerCase();
   if (

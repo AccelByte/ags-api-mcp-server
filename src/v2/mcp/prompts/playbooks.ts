@@ -26,12 +26,18 @@
  */
 
 import { readFile, readdir } from "fs/promises";
-import { join } from "path";
+import { join, dirname, resolve } from "path";
+import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 import log from "../../logger.js";
 
-const PLAYBOOK_DIR = "dist/assets/playbooks";
+// Resolve relative to this module so the path is CWD-independent (consistent
+// with version.ts). The build copies `assets/` into `dist/`, and both `start`
+// and `dev` run the compiled output, so from
+// dist/v2/mcp/prompts/playbooks.js this lands on dist/assets/playbooks.
+const here = dirname(fileURLToPath(import.meta.url));
+const PLAYBOOK_DIR = resolve(here, "../../../assets/playbooks");
 
 interface Playbook {
   /** Stable filename id, used as the prompt name and resource URI segment. */
@@ -44,7 +50,6 @@ interface Playbook {
   body: string;
 }
 
-let cachedDir: string | null = null;
 let cachedPlaybooks: Map<string, Playbook> | null = null;
 
 /**
@@ -52,7 +57,10 @@ let cachedPlaybooks: Map<string, Playbook> | null = null;
  * Intentionally light-weight — no full YAML parser; the only field we read
  * is `title`, and we accept either bare strings or `"…"`/`'…'` quoting.
  */
-function parseFrontmatter(content: string): { title?: string; body: string } {
+export function parseFrontmatter(content: string): {
+  title?: string;
+  body: string;
+} {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
   if (!match) {
     return { body: content };
@@ -65,21 +73,23 @@ function parseFrontmatter(content: string): { title?: string; body: string } {
     return { body };
   }
   const raw = titleLine.replace(/^\s*title\s*:\s*/, "").trim();
-  const title = raw.replace(/^["'](.*)["']$/, "$1").trim();
+  // Backreference enforces matched quotes so mismatched delimiters
+  // (e.g. `"foo'`) are left intact rather than silently stripped.
+  const title = raw.replace(/^(["'])(.*)\1$/, "$2").trim();
   return { title: title || undefined, body };
 }
 
-function firstHeading(markdown: string): string | undefined {
+export function firstHeading(markdown: string): string | undefined {
   const match = markdown.match(/^\s*#\s+(.+?)\s*$/m);
   return match?.[1]?.trim() || undefined;
 }
 
-function buildDisplayTitle(topic: string): string {
+export function buildDisplayTitle(topic: string): string {
   // Avoid "Run … Playbook Playbook" if the topic already ends in "Playbook".
   return /playbook$/i.test(topic) ? `Run ${topic}` : `Run ${topic} Playbook`;
 }
 
-function describePlaybook(id: string, content: string): Playbook {
+export function describePlaybook(id: string, content: string): Playbook {
   const { title: frontmatterTitle, body } = parseFrontmatter(content);
   const heading = firstHeading(body);
   const headingTopic = heading?.replace(/\s+Playbook\s*$/i, "");
@@ -92,19 +102,22 @@ function describePlaybook(id: string, content: string): Playbook {
   };
 }
 
-async function getOrLoadPlaybooks(): Promise<Map<string, Playbook>> {
-  if (cachedPlaybooks && cachedDir === PLAYBOOK_DIR) {
-    return cachedPlaybooks;
-  }
-
+/**
+ * Read and describe every `*.md` file in `dir`. A missing or unreadable
+ * directory is logged and yields an empty map rather than throwing, so the
+ * server still starts (with no playbooks) instead of crashing.
+ */
+export async function loadPlaybooks(
+  dir: string,
+): Promise<Map<string, Playbook>> {
   const loaded = new Map<string, Playbook>();
   try {
-    const entries = await readdir(PLAYBOOK_DIR);
+    const entries = await readdir(dir);
     const markdownFiles = entries.filter((f) => f.endsWith(".md"));
     await Promise.all(
       markdownFiles.map(async (file) => {
         const id = file.slice(0, -".md".length);
-        const content = await readFile(join(PLAYBOOK_DIR, file), "utf-8");
+        const content = await readFile(join(dir, file), "utf-8");
         loaded.set(id, describePlaybook(id, content));
       }),
     );
@@ -121,10 +134,15 @@ async function getOrLoadPlaybooks(): Promise<Map<string, Playbook>> {
   } catch (error) {
     log.error({ error }, "Failed to load playbooks");
   }
-
-  cachedPlaybooks = loaded;
-  cachedDir = PLAYBOOK_DIR;
   return loaded;
+}
+
+async function getOrLoadPlaybooks(): Promise<Map<string, Playbook>> {
+  if (cachedPlaybooks !== null) {
+    return cachedPlaybooks;
+  }
+  cachedPlaybooks = await loadPlaybooks(PLAYBOOK_DIR);
+  return cachedPlaybooks;
 }
 
 async function setupPlaybooks(mcpServer: McpServer): Promise<void> {
