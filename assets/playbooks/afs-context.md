@@ -30,7 +30,7 @@ Context bodies are free-form prose (typically Markdown). **Never hand-assemble t
 - **Claude Desktop:** call the `read_widget_context` tool (pass the editor tool's name) to get the latest content.
 - **Other hosts:** the synced content is surfaced to you automatically — just use the most recent version.
 
-The `content` you passed into `render_text_editor` is only a *starting* value — **never treat it as the user's final text.** Always read the latest widget context before building a request. If nothing has synced yet (the user hasn't edited), ask them to make their edits — don't proceed with your draft. (The editor also has a **Send to chat** button that posts the document to the conversation as a message; if the user uses it, that posted text is the body.)
+Your `content` argument is only a *starting* value — always build the write from the latest synced widget context, never from your own draft. If nothing has synced yet (the user hasn't edited), ask them to edit before proceeding. (The editor's **Send to chat** button posts the document to the conversation; if the user uses it, that posted text is the body.)
 
 ### Create flow
 
@@ -44,7 +44,26 @@ The `content` you passed into `render_text_editor` is only a *starting* value �
 
 1. First pull the current document: `run-apis` → `GET /afs/v1/admin/namespaces/{namespace}/contexts/{id}` (the list endpoint omits `body`, so fetch the single row). Keep its `updated_at` — you need it for the `If-Match` header.
 2. Seed `render_text_editor` with the fetched `body` so the user edits from the real current text, not a guess.
-3. Same as the create flow from here: read the latest widget context for the edited body, confirm conversationally, then `run-apis` → `PATCH .../contexts/{id}` with `If-Match: <prior updated_at>`. Remember `name` and `kind` are immutable — only `body`, `order`, and `table_refs` can change.
+3. Same as the create flow from here: read the latest widget context for the edited body, confirm conversationally, then `run-apis` → `PUT .../contexts/{id}` with `If-Match: <prior updated_at>`. Remember `name` and `kind` are immutable — only `body`, `order`, and `table_refs` can change.
+
+## Field constraints
+
+Validate these before you `POST` — the API rejects each with a `400` rather than coercing, and getting them wrong costs a round-trip:
+
+- **`name`** — must match `^[a-z][a-z0-9_]{0,63}$`: starts with a lowercase letter, then lowercase letters / digits / underscores, max 64 chars. **No hyphens, no spaces, no uppercase.** Set at create and immutable after.
+- **`kind`** — exactly `custom_table` or `ags_extension`, also immutable after create:
+  - **`custom_table`** — a free-standing document (glossary, conventions, business definitions) not bound to any table. This is the **default choice** when there's no specific table to attach to; `table_refs` is optional.
+  - **`ags_extension`** — annotates specific AGS-managed tables, and therefore **requires at least one `table_refs` entry**.
+- **`table_refs`** — each entry must be `<database>.<table>`, and the database must be one the namespace allows. Required (≥1) for `ags_extension`; omit for `custom_table`.
+- **`order`** — a 32-bit signed integer (default `100`); see [How contexts merge](#how-contexts-merge) for what the value controls.
+
+## When a call fails unexpectedly
+
+This playbook can drift from the live spec. If a `run-apis` call fails in a way that looks structural — `operation not found`, a method mismatch, or an unexpected `400` on parameters — verify against the spec *before* assuming a backend bug:
+
+- **Run `describe-apis` first.** It confirms the operation's exact method, path params, and request shape — the fastest way to tell a client-side mistake from a real backend error.
+- **Use `search-apis` with `spec=athena-facade-poc`** to discover the correct operation (method, path, `apiId`) if the playbook and spec have diverged — trust the spec over the playbook.
+- **If `describe-apis` confirms your parameters were correct and the call still fails** (e.g. a `500`), treat it as a genuine backend issue: surface the error message and the `trace_id` to the user rather than retrying blindly.
 
 ## Operations
 
@@ -58,16 +77,16 @@ Returns the full row: `context_id`, `name`, `kind`, `body`, `order`, `table_refs
 
 ### Create — `POST /afs/v1/admin/namespaces/{namespace}/contexts`
 
-Body: `name`, `kind`, `body`, `table_refs`, optional `order` (defaults to `100`). On success the next `GET .../context` reflects the merge. Surface these errors plainly rather than retrying blindly:
+Body: `name`, `kind`, `body`, `table_refs`, optional `order` — see [Field constraints](#field-constraints) for the rules on each. On success the next `GET .../context` reflects the merge. Surface these errors plainly rather than retrying blindly:
 
-- `CONTEXT_NAME_TAKEN` — pick a different name.
+- `CONTEXT_NAME_TAKEN` — that name is already used; pick a different one. (A malformed name fails earlier as `BAD_REQUEST` — see Field constraints.)
 - `CONTEXT_COUNT_EXCEEDED` — the tenant is at its context limit; suggest deleting or consolidating.
 - `CONTEXT_BODY_TOO_LARGE` — trim the body.
 - Validation: `INVALID_KIND`, `INVALID_TABLE_REFS`, `INVALID_ORDER`.
 
-### Update — `PATCH /afs/v1/admin/namespaces/{namespace}/contexts/{id}`
+### Update — `PUT /afs/v1/admin/namespaces/{namespace}/contexts/{id}`
 
-You can change `body`, `order`, and `table_refs`. **`name` and `kind` are immutable** — don't offer to edit them. Updates use **optimistic concurrency**: send `If-Match: <the row's prior updated_at, RFC3339>`. So fetch the row first (or reuse its `updated_at`), and if the `If-Match` is rejected, re-fetch and let the user reconcile rather than overwriting blindly.
+Use **`PUT`** (`apiId: athena-facade-poc:PUT:/afs/v1/admin/namespaces/{namespace}/contexts/{id}`, operation `AdminUpdateContext`). You can change `body`, `order`, and `table_refs`. **`name` and `kind` are immutable** — don't offer to edit them. Updates use **optimistic concurrency**: send `If-Match: <the row's prior updated_at, RFC3339>`. So fetch the row first (or reuse its `updated_at`), and if the `If-Match` is rejected, re-fetch and let the user reconcile rather than overwriting blindly.
 
 ### Delete — `DELETE /afs/v1/admin/namespaces/{namespace}/contexts/{id}`
 

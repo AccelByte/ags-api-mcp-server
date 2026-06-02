@@ -28,6 +28,10 @@ Think of it as ordering at a restaurant: one diner ordering off the menu is a di
 
 This playbook covers **read-only `SELECT` queries** against event log tables. The Athena Facade service enforces this at the API layer — non-`SELECT` statements (DDL, writes, table creation) are rejected on submission. Scope your intent accordingly: this is for analytics reads, not data manipulation.
 
+## Spec identifier
+
+Every endpoint below lives in the **`athena-facade-poc`** spec. Pass `spec="athena-facade-poc"` to `run-apis` (or use the full `apiId`, formatted `athena-facade-poc:METHOD:/path`, that `search-apis` returns) — don't guess the spec name from the URL or the AGS service it fronts.
+
 ## Steps
 
 ### 1. Always start with `GET /afs/v1/admin/namespaces/{namespace}/context`
@@ -48,6 +52,7 @@ For each candidate table, get column-level metadata. Stop when you have enough t
 
 Athena bills per byte scanned, and bad queries get expensive fast. Before calling `POST /queries`:
 
+- **Tenant filter (`namespacez`):** every query against the analytics database must constrain the `namespacez` column to the caller's tenant — e.g. `WHERE namespacez = '<namespace>'`. The literal has to equal the caller's *studio* (the part before the first `-` in the namespace, so `studioalpha-game-a` → `studioalpha`) or a full `<studio>-<game>` value under it. Omit it and submission is rejected with `400 MISSING_PARTITION_PREDICATE`. Two gotchas: the column is spelled `namespacez` (with a **z**), and this is a *row filter inside the SQL* — separate from, and required in addition to, the `{namespace}` in the URL path.
 - **Time bound:** include a partition predicate (typically a date/time range). If the user didn't give one, **ask** — don't assume "all time."
 - **Explicit columns:** project the columns you need, not `SELECT *`.
 - **`LIMIT`:** use it during exploration. Widen only after you've seen the shape of the results.
@@ -99,7 +104,7 @@ Pick the render tool that fits the *shape* of the answer, not just "results are 
 | State changes of an entity over time | `render_state_timeline_chart` |
 | Two-dimensional density (e.g. hour × day) | `render_heatmap_chart` |
 
-**A note on `provider`:** render tools accept `provider="facade"` (re-fetch results by `query_id` from the Athena Facade) or `provider="direct"` (render rows you already have inline). This playbook produces both — fast-path responses from step 5 give you inline rows; polled responses from step 6 typically use `query_id`. Use `direct` when you already hold the rows, `facade` when you're handing off the `query_id` and letting the renderer fetch.
+**A note on `provider`:** use `provider="direct"` when you already hold the rows inline (the fast path in step 5), and `provider="facade"` to let the renderer re-fetch results by `query_id` from the Athena Facade (the polled path in step 6).
 
 ### 8. Summarize and offer follow-up threads
 
