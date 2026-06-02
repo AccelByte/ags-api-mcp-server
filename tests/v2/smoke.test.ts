@@ -265,7 +265,7 @@ describe("MCP server smoke tests", () => {
         name: "search-apis",
         arguments: {
           spec: "afs",
-          limit: 10,
+          limit: 20,
         },
       },
       21,

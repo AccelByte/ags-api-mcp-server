@@ -33,10 +33,11 @@ function suggestFilename(language: Language, title?: string): string {
  * Opens an editable document in the webview (the first input render tool).
  *
  * Unlike the chart tools, this is not provider-backed: its value originates in
- * the webview. The user edits the content and, when ready, either adds it to the
- * model's context (ui/update-model-context) or saves it to a file
- * (ui/download-file) — both carry the bytes verbatim. The server stays stateless;
- * nothing is stored here.
+ * the webview. As the user edits, the webview continuously syncs the current
+ * document into the model's context (ui/update-model-context, debounced); the
+ * user can also save it to a file (ui/download-file). The server stays
+ * stateless — nothing is stored here; the live content lives in the host's
+ * widget context, which the model reads back on demand.
  */
 export function setupRenderTextEditor(server: McpServer): void {
   registerAppTool(
@@ -46,11 +47,15 @@ export function setupRenderTextEditor(server: McpServer): void {
       title: "Render Text Editor",
       description:
         "Open an editable text document in the webview with syntax highlighting and a language picker. " +
-        "Fullscreen shows the editor; inline shows a preview (rendered markdown, or highlighted code). " +
+        "Inline shows a read-only preview; the user must open fullscreen to edit. " +
         "Use this to let the user author or revise free text, JSON, YAML, Markdown, or JavaScript — for " +
-        "example custom context to send to an API. The user can add the edited content to your context or " +
-        "save it as a file. When you later need the edited content (e.g. to build a request body), read it " +
-        "from the saved file or the added context rather than reconstructing it from memory.",
+        "example custom context to send to an API. As the user edits, the current document is continuously " +
+        "synced into your context; to fetch it, read the widget/app context (in Claude Desktop, the " +
+        "read_widget_context tool; other hosts surface it automatically). IMPORTANT: do not reconstruct the " +
+        "edited content from memory and do not reuse the initial text you passed in — always read the latest " +
+        "widget context to get what the user actually has. If you need it and nothing has synced yet, ask the " +
+        "user to make their edits. The editor also has a 'Send to chat' button that posts the document to the " +
+        "conversation as a message, and the user can save it as a file.",
       inputSchema: {
         content: z
           .string()
@@ -90,9 +95,12 @@ export function setupRenderTextEditor(server: McpServer): void {
           {
             type: "text" as const,
             text:
-              `Opened a ${language} editor for the user. They can edit it, add it to your context, ` +
-              `or save it as "${filename}". When you need the edited content, read it from that file ` +
-              `or the added context — do not reconstruct it from memory.`,
+              `Opened a ${language} editor for the user (preview inline; they open fullscreen to edit). ` +
+              `Their edits sync to your context automatically as they type. To use the result, read the ` +
+              `widget/app context (Claude Desktop: read_widget_context; other hosts surface it for you) — ` +
+              `do not reuse this initial text or reconstruct from memory. They can also save it as "${filename}", ` +
+              `or use the editor's "Send to chat" button to post the document as a message. If nothing has ` +
+              `synced yet, ask them to make their edits.`,
           },
         ],
         structuredContent: view,

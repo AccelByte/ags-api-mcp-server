@@ -21,14 +21,30 @@ The catalog returned by `GET .../context` interleaves the embedded **base contex
 
 `order` is how the user controls precedence. Lower wins earlier placement. Mention this when they're deciding where new guidance should sit relative to the built-in catalog.
 
-## Authoring & editing: use `render_text_editor`
+## Authoring with `render_text_editor`
 
-Context bodies are free-form prose (typically Markdown). **Don't hand-assemble the body in a request from memory** — open it in the editor and let the user own the text:
+Context bodies are free-form prose (typically Markdown). **Never hand-assemble the body from memory** — open `render_text_editor` and let the user own the text. The editor opens as a read-only inline preview; the user clicks **fullscreen** to edit.
 
-- **Authoring a new context:** call `render_text_editor` with a starter `content` (a template or your draft), `language="markdown"`, and a `title`. The user revises in the webview and either adds the result to your context or saves it to a file.
-- **Editing an existing context:** first `GET .../contexts/{id}` to fetch the current `body`, seed `render_text_editor` with it, and let the user edit from there.
+**Getting the edited text back.** As the user edits, the editor continuously syncs the current document into your context. To read it, pull the **widget/app context**:
 
-When you later build the create/update request body, **read the edited content back** from the saved file or the added context — don't reconstruct it.
+- **Claude Desktop:** call the `read_widget_context` tool (pass the editor tool's name) to get the latest content.
+- **Other hosts:** the synced content is surfaced to you automatically — just use the most recent version.
+
+The `content` you passed into `render_text_editor` is only a *starting* value — **never treat it as the user's final text.** Always read the latest widget context before building a request. If nothing has synced yet (the user hasn't edited), ask them to make their edits — don't proceed with your draft. (The editor also has a **Send to chat** button that posts the document to the conversation as a message; if the user uses it, that posted text is the body.)
+
+### Create flow
+
+1. Call `render_text_editor` with `language="markdown"`, a `title`, and `content` set to either a blank starter or a template/draft to get the user going.
+2. The user opens fullscreen and edits; their text syncs to your context automatically.
+3. **Read the latest widget context** to get the final body (see above) — don't reuse your starter text.
+4. **Confirm conversationally** before writing: summarize what you're about to create (name, kind, where it sits in `order`) and ask the user to go ahead. Keep it to one check — the write itself also triggers a host consent prompt, so don't nag twice.
+5. On agreement, call `run-apis` for `POST /afs/v1/admin/namespaces/{namespace}/contexts` with that body and the metadata. Approve the consent prompt that the POST raises.
+
+### Update flow
+
+1. First pull the current document: `run-apis` → `GET /afs/v1/admin/namespaces/{namespace}/contexts/{id}` (the list endpoint omits `body`, so fetch the single row). Keep its `updated_at` — you need it for the `If-Match` header.
+2. Seed `render_text_editor` with the fetched `body` so the user edits from the real current text, not a guess.
+3. Same as the create flow from here: read the latest widget context for the edited body, confirm conversationally, then `run-apis` → `PATCH .../contexts/{id}` with `If-Match: <prior updated_at>`. Remember `name` and `kind` are immutable — only `body`, `order`, and `table_refs` can change.
 
 ## Operations
 

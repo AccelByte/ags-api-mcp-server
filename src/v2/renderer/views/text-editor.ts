@@ -7,7 +7,9 @@ import type {
   McpUiDownloadFileRequest,
   McpUiHostCapabilities,
   McpUiHostContext,
+  McpUiMessageRequest,
   McpUiRequestDisplayModeRequest,
+  McpUiUpdateModelContextRequest,
 } from "@modelcontextprotocol/ext-apps";
 import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView, basicSetup } from "codemirror";
@@ -37,6 +39,12 @@ export interface EditorHostBridge {
   downloadFile?(
     params: McpUiDownloadFileRequest["params"],
   ): Promise<{ isError?: boolean }>;
+  sendMessage?(
+    params: McpUiMessageRequest["params"],
+  ): Promise<{ isError?: boolean }>;
+  updateModelContext?(
+    params: McpUiUpdateModelContextRequest["params"],
+  ): Promise<unknown>;
   requestDisplayMode?(
     params: McpUiRequestDisplayModeRequest["params"],
   ): Promise<{ mode: McpUiDisplayMode }>;
@@ -62,6 +70,8 @@ const LANGUAGE_LABELS: Record<Language, string> = {
 const ICONS = {
   copy: '<path fill="none" stroke="currentColor" stroke-width="1.5" d="M5.5 5.5V3.25A.75.75 0 0 1 6.25 2.5h6.5a.75.75 0 0 1 .75.75v6.5a.75.75 0 0 1-.75.75H10.5"/><rect x="2.5" y="5.5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>',
   save: '<path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M8 2.5v7.5m0 0L5 7m3 3 3-3M3 11.5v1A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5v-1"/>',
+  addContext:
+    '<path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.25A1.75 1.75 0 0 1 4.25 2.5h7.5a1.75 1.75 0 0 1 1.75 1.75v5A1.75 1.75 0 0 1 11.75 11H6l-3 2.5V11H4.25A1.75 1.75 0 0 1 2.5 9.25z"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M8 4.75v3.5M6.25 6h3.5"/>',
   expand:
     '<path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M9.5 2.5H13.5V6.5M13.5 2.5 9 7M6.5 13.5H2.5V9.5M2.5 13.5 7 9"/>',
   compress:
@@ -106,6 +116,13 @@ let session: EditorSession | null = null;
 let previewRaf = 0;
 const languageCompartment = new Compartment();
 
+/**
+ * Debounce window for syncing the live document into the model's context.
+ * Matches the cadence excalidraw uses for the same updateModelContext channel.
+ */
+const SYNC_DEBOUNCE_MS = 1500;
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
+
 /** Render a fresh tool result — resets the session from the payload. */
 export function renderTextEditor(
   root: HTMLElement,
@@ -146,6 +163,126 @@ export function refreshTextEditorMode(
   return true;
 }
 
+/** Whether the host can receive the editor's content as model context. */
+function canSyncToContext(bridge: EditorHostBridge): boolean {
+  const caps = bridge.getHostCapabilities?.();
+  return (
+    caps?.updateModelContext !== undefined &&
+    bridge.updateModelContext !== undefined
+  );
+}
+
+/**
+ * Push the current document into the model's context (`ui/update-model-context`)
+ * so the model can read it back (e.g. Claude Desktop's read_widget_context, or
+ * automatically on hosts that surface it). The host treats each call as the
+ * widget's *current* context — latest wins — so there is deliberately NO dedup:
+ * a dedup here previously conflated "the call didn't throw" with "delivered" and
+ * silently blocked re-syncs.
+ */
+async function pushToContext(): Promise<
+  "synced" | "empty" | "unsupported" | "error"
+> {
+  const session_ = session;
+  if (!session_) {
+    return "error";
+  }
+  if (!canSyncToContext(session_.bridge)) {
+    return "unsupported";
+  }
+  const doc = session_.doc;
+  if (doc.trim() === "") {
+    return "empty";
+  }
+  try {
+    await session_.bridge.updateModelContext!({
+      content: [{ type: "text", text: doc }],
+    });
+    return "synced";
+  } catch {
+    return "error";
+  }
+}
+
+/** Whether the host can receive a posted message from the editor. */
+function canSendMessage(bridge: EditorHostBridge): boolean {
+  const caps = bridge.getHostCapabilities?.();
+  return caps?.message !== undefined && bridge.sendMessage !== undefined;
+}
+
+/**
+ * Post the current document to the conversation as a visible user message
+ * (`ui/message`) — the explicit "Send to chat" action. Distinct from the silent
+ * auto-sync above: this one the user sees land in the chat and it prompts the
+ * model to act on it.
+ */
+async function sendDocAsMessage(): Promise<
+  "sent" | "empty" | "unsupported" | "error"
+> {
+  const session_ = session;
+  if (!session_) {
+    return "error";
+  }
+  if (!canSendMessage(session_.bridge)) {
+    return "unsupported";
+  }
+  const doc = session_.doc;
+  if (doc.trim() === "") {
+    return "empty";
+  }
+  try {
+    const result = await session_.bridge.sendMessage!({
+      role: "user",
+      content: [{ type: "text", text: doc }],
+    });
+    return result?.isError ? "error" : "sent";
+  } catch {
+    return "error";
+  }
+}
+
+/** Debounced auto-sync: fires after the user pauses typing. */
+function scheduleSync(): void {
+  if (syncTimer) {
+    clearTimeout(syncTimer);
+  }
+  syncTimer = setTimeout(() => {
+    syncTimer = null;
+    void pushToContext().then((outcome) => {
+      if (outcome === "synced") {
+        setStatus("Synced to chat ✓");
+      } else if (outcome === "error") {
+        setStatus("Sync failed — will retry on your next edit.", true);
+      }
+    });
+  }, SYNC_DEBOUNCE_MS);
+}
+
+/**
+ * Flush any pending debounced sync immediately (fire-and-forget). Called before
+ * the editor is torn down (mode change, navigation) so the last edits aren't
+ * lost with the live editor instance.
+ */
+function flushSync(): void {
+  if (!syncTimer) {
+    return;
+  }
+  clearTimeout(syncTimer);
+  syncTimer = null;
+  void pushToContext();
+}
+
+// The host may tear down or hide the widget without a mode-change notification;
+// flush pending edits on those signals too. Registered once at module load.
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", flushSync);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      flushSync();
+    }
+  });
+}
+
 async function copyToClipboard(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard?.writeText) {
@@ -179,6 +316,8 @@ function teardownViews(): void {
   }
   if (session.editorView) {
     session.doc = session.editorView.state.doc.toString();
+    // Push any pending edits before we lose the live editor (e.g. mode change).
+    flushSync();
     session.editorView.destroy();
     session.editorView = null;
   }
@@ -307,6 +446,28 @@ function buildActions(): HTMLElement[] {
       );
     }),
   );
+
+  // Edits auto-sync silently into the model's context (debounced) as the user
+  // types. "Send to chat" is the explicit, visible action: it posts the current
+  // document to the conversation as a message (ui/message), which the user sees
+  // land and which prompts the model to act on it.
+  if (canSendMessage(session_.bridge)) {
+    actions.push(
+      iconButton("Send to chat", ICONS.addContext, async () => {
+        const outcome = await sendDocAsMessage();
+        setStatus(
+          outcome === "sent"
+            ? "Sent to chat."
+            : outcome === "empty"
+              ? "Nothing to send — the editor is empty."
+              : outcome === "unsupported"
+                ? "This host can't receive messages from the editor."
+                : "Couldn't send — the host rejected it.",
+          outcome !== "sent",
+        );
+      }),
+    );
+  }
 
   if (caps?.downloadFile !== undefined) {
     actions.push(
@@ -492,6 +653,10 @@ function buildSplit(): HTMLElement {
           if (update.docChanged && session) {
             session.doc = update.state.doc.toString();
             schedulePreviewRefresh();
+            if (canSyncToContext(session.bridge)) {
+              setStatus("Syncing…");
+              scheduleSync();
+            }
           }
         }),
       ],
