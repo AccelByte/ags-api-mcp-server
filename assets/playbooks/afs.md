@@ -34,6 +34,8 @@ This playbook covers **read-only `SELECT` queries** against event log tables. Th
 
 The context document is the catalog for this namespace's event tables: what tables exist, naming conventions, partition columns, common joins. Without it you will hallucinate table or column names. Don't skip it even if you think you remember the schema from a previous turn — it's namespace-specific.
 
+The response is the *merged* catalog: the embedded base context plus any tenant-authored context documents, interleaved by `order`. To add or edit those tenant documents — not just read them — use the **Analytics Context** playbook instead; this playbook only consumes the merged result.
+
 ### 2. Find candidate tables with `GET /afs/v1/admin/namespaces/{namespace}/tables`
 
 Search/filter to identify which tables the user's question maps to. Narrow to **2–3 most likely candidates** — don't fan out further unless the first pass clearly doesn't fit.
@@ -50,6 +52,15 @@ Athena bills per byte scanned, and bad queries get expensive fast. Before callin
 - **Explicit columns:** project the columns you need, not `SELECT *`.
 - **`LIMIT`:** use it during exploration. Widen only after you've seen the shape of the results.
 - **Other missing inputs:** if the user's question lacks a clear entity scope (player, region, etc.) or metric definition, ask before submitting.
+
+#### Checking the spend budget
+
+When the user asks how much budget is left, or you want to sanity-check before running something potentially large, read the quota — don't guess:
+
+- `GET /afs/v1/admin/namespaces/{namespace}/quota/usage` returns a snapshot: `monthly` (`used_usd`, `limit_usd`, `projected_run_rate_usd`, `period`) and `lifetime` (`used_usd`, `limit_usd`). A `limit_usd` of `null` means unlimited. Note `used_usd` reflects pre-execution *estimates*; actuals reconcile later.
+- `GET /afs/v1/admin/namespaces/{namespace}/quota/monthly-limit` returns just the cap; `PUT` sets it (`monthly_limit_usd`, `null` to remove the cap). Only set the cap when the user explicitly asks to.
+
+**Render the budget with `render_meter`** — it's built for usage-against-limit. Map `value` → `used_usd` and `max` → `limit_usd`; over-limit meters auto-recolor to the danger token. Skip the meter (or omit `max`) when the limit is `null`/unlimited — there's nothing to fill against. A single headline figure ("$/$ used this month") can also go to `render_metric`.
 
 ### 5. Submit with `POST /afs/v1/admin/namespaces/{namespace}/queries`
 
