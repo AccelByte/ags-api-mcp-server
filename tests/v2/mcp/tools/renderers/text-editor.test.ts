@@ -75,7 +75,7 @@ describe("setupRenderTextEditor", () => {
     assert.match(String(breadcrumb?.text), /custom-context\.json/);
   });
 
-  test("defaults to markdown and a context filename when language/title are omitted", async () => {
+  test("defaults to markdown and a document filename when language/title are omitted", async () => {
     const captured = {} as CapturedTool;
     setupRenderTextEditor(createCapturingServer(captured) as never);
 
@@ -86,7 +86,7 @@ describe("setupRenderTextEditor", () => {
 
     const parsed = TextEditorOutputSchema.parse(result.structuredContent);
     assert.equal(parsed.language, "markdown");
-    assert.equal(parsed.filename, "context.md");
+    assert.equal(parsed.filename, "document.md");
   });
 
   test("output schema is strict and discriminated on chart_type", async () => {

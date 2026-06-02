@@ -20,7 +20,7 @@ export function setupRenderMetric(
     title: "Render Metric",
     description:
       "Render a query result as a single metric value. value names the primary numeric or textual column to display. " +
-      'Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "metric",
     outputSchema: MetricOutputSchema,

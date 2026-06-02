@@ -20,7 +20,7 @@ export function setupRenderHistogramChart(
     title: "Render Histogram Chart",
     description:
       "Render a query result as a histogram. column is the numeric field being bucketed into bins. " +
-      'Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "histogram",
     outputSchema: HistogramChartOutputSchema,

@@ -20,7 +20,7 @@ export function setupRenderBarChart(
     title: "Render Bar Chart",
     description:
       "Render a query result as a bar chart. x is the category axis, y is the numeric value, color is an optional column that splits into colored series. " +
-      'Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "bar",
     outputSchema: BarChartOutputSchema,

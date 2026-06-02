@@ -23,7 +23,7 @@ export function setupRenderGaugeChart(
     title: "Render Gauge Chart",
     description:
       "Render a query result as a gauge chart. value names the numeric measure and max defines the upper bound. " +
-      'Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "gauge",
     outputSchema: GaugeChartOutputSchema,

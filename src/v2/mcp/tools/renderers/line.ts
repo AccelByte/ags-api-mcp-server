@@ -20,7 +20,7 @@ export function setupRenderLineChart(
     title: "Render Line Chart",
     description:
       "Render a query result as a line chart. x is the horizontal axis, y is the numeric measure, color is an optional series split. " +
-      'Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "line",
     outputSchema: LineChartOutputSchema,

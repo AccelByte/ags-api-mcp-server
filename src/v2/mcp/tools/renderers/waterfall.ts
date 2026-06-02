@@ -20,7 +20,7 @@ export function setupRenderWaterfallChart(
     title: "Render Waterfall Chart",
     description:
       "Render a query result as a waterfall chart. category defines each step and value provides the delta amount. " +
-      'Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "waterfall",
     outputSchema: WaterfallChartOutputSchema,

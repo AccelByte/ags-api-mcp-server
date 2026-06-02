@@ -20,7 +20,7 @@ export function setupRenderScatterChart(
     title: "Render Scatter Chart",
     description:
       "Render a query result as a scatter chart. x and y are numeric axes, color and size optionally encode additional dimensions. " +
-      'Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "scatter",
     outputSchema: ScatterChartOutputSchema,

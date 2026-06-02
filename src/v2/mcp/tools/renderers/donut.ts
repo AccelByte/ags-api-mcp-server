@@ -20,7 +20,7 @@ export function setupRenderDonutChart(
     title: "Render Donut Chart",
     description:
       "Render a query result as a donut chart. category names the slices and value sets the slice size. " +
-      'Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "donut",
     outputSchema: DonutChartOutputSchema,

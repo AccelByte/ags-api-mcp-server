@@ -19,10 +19,10 @@ export function setupRenderMeter(
     name: "render_meter",
     title: "Render Meter",
     description:
-      "Render a query result as one or more horizontal meters (progress / fill bars), one meter per row — ideal for usage limits. " +
+      "Render a query result as one or more horizontal meters (progress / fill bars), one meter per row — each showing a value against a maximum. " +
       "value names the current-value column; max names an optional per-row maximum (fill = value/max). When max is omitted, value is treated as a 0–100 percentage. " +
       "Meters whose fill exceeds 100% are automatically clamped to full-width and recolored to the danger token (red); supplying a color column suppresses this automatic recolor. " +
-      'Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "meter",
     outputSchema: MeterOutputSchema,

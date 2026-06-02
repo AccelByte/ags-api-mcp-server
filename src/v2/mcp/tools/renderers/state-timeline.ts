@@ -20,7 +20,7 @@ export function setupRenderStateTimelineChart(
     title: "Render State Timeline Chart",
     description:
       "Render a query result as a state timeline. entity identifies the subject, start and end define the interval, and state names the categorical state. " +
-      'Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "state_timeline",
     outputSchema: StateTimelineChartOutputSchema,

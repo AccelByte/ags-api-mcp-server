@@ -19,7 +19,7 @@ export function setupRenderTable(
     name: "render_table",
     title: "Render Table",
     description:
-      'Render a query result as a paginated table. Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Render a query result as a paginated table. Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "table",
     outputSchema: TableOutputSchema,

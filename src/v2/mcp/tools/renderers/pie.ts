@@ -20,7 +20,7 @@ export function setupRenderPieChart(
     title: "Render Pie Chart",
     description:
       "Render a query result as a pie chart. category names the slices and value sets the slice size. " +
-      'Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "pie",
     outputSchema: PieChartOutputSchema,

@@ -20,7 +20,7 @@ export function setupRenderHeatmapChart(
     title: "Render Heatmap Chart",
     description:
       "Render a query result as a heatmap. x and y define the grid axes, and value controls cell intensity. " +
-      'Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "heatmap",
     outputSchema: HeatmapChartOutputSchema,

@@ -20,7 +20,7 @@ export function setupRenderFunnelChart(
     title: "Render Funnel Chart",
     description:
       "Render a query result as a funnel chart. stage labels each funnel step and value sets the step size. " +
-      'Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "funnel",
     outputSchema: FunnelChartOutputSchema,

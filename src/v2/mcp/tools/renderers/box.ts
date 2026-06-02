@@ -20,7 +20,7 @@ export function setupRenderBoxChart(
     title: "Render Box Chart",
     description:
       "Render a query result as a box chart. x groups the distribution and y is the numeric measure summarized into quartiles. " +
-      'Use provider="facade" with query_id+namespace for Athena Facade results (fidelity-preserving). ' +
+      'Use provider="facade" to render server-side results by reference (fidelity-preserving). ' +
       'Use provider="direct" only for small inline datasets.',
     chartType: "box",
     outputSchema: BoxChartOutputSchema,

@@ -25,7 +25,7 @@ export function sharedRenderFields(
     provider: z
       .string()
       .describe(
-        'Data source discriminator. Built-ins: "facade" (Athena Facade — pass query_id+namespace), "direct" (inline — pass data_columns+data_rows).',
+        'Data source discriminator. Built-ins: "facade" (re-fetch server-side results by reference) and "direct" (inline — pass data_columns+data_rows). Provider-specific parameters are documented on their own fields.',
       ),
     ...registry.mergedSchemaFields(),
     max_rows: z

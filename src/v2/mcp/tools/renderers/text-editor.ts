@@ -22,10 +22,10 @@ const EXTENSIONS: Record<Language, string> = {
 
 function suggestFilename(language: Language, title?: string): string {
   const base =
-    (title ?? "context")
+    (title ?? "document")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "context";
+      .replace(/^-+|-+$/g, "") || "document";
   return `${base}.${EXTENSIONS[language]}`;
 }
 
@@ -49,7 +49,7 @@ export function setupRenderTextEditor(server: McpServer): void {
         "Open an editable text document in the webview with syntax highlighting and a language picker. " +
         "Inline shows a read-only preview; the user must open fullscreen to edit. " +
         "Use this to let the user author or revise free text, JSON, YAML, Markdown, or JavaScript — for " +
-        "example custom context to send to an API. As the user edits, the current document is continuously " +
+        "example a request body, config, or document to send to an API. As the user edits, the current document is continuously " +
         "synced into your context; to fetch it, read the widget/app context (in Claude Desktop, the " +
         "read_widget_context tool; other hosts surface it automatically). IMPORTANT: do not reconstruct the " +
         "edited content from memory and do not reuse the initial text you passed in — always read the latest " +
