@@ -1,5 +1,11 @@
 # Build stage
-FROM node:24-alpine AS builder
+#
+# Pin the builder to the native build platform ($BUILDPLATFORM) so the build
+# never runs under QEMU emulation. esbuild (invoked by `vite build`) spawns a
+# native helper process that crashes under QEMU with "The service was stopped".
+# The build output (dist/) and all production deps are pure JS, so artifacts are
+# platform-independent and safe to use in the target-platform runtime stage.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS builder
 WORKDIR /app
 
 # Enable the repo-pinned pnpm version via packageManager in package.json.
