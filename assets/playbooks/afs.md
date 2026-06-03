@@ -60,12 +60,47 @@ Athena bills per byte scanned, and bad queries get expensive fast. Before callin
 
 #### Checking the spend budget
 
-When the user asks how much budget is left, or you want to sanity-check before running something potentially large, read the quota — don't guess:
+When the user asks how much budget is left, or you want to sanity-check before running something potentially large, read the quota snapshot:
 
-- `GET /afs/v1/admin/namespaces/{namespace}/quota/usage` returns a snapshot: `monthly` (`used_usd`, `limit_usd`, `projected_run_rate_usd`, `period`) and `lifetime` (`used_usd`, `limit_usd`). A `limit_usd` of `null` means unlimited. Note `used_usd` reflects pre-execution *estimates*; actuals reconcile later.
-- `GET /afs/v1/admin/namespaces/{namespace}/quota/monthly-limit` returns just the cap; `PUT` sets it (`monthly_limit_usd`, `null` to remove the cap). Only set the cap when the user explicitly asks to.
+- `GET /afs/v1/admin/namespaces/{namespace}/quota/usage` → `monthly` (`used_usd`, `limit_usd`, `projected_run_rate_usd`, `period`) and `lifetime` (`used_usd`, `limit_usd`)
 
-**Render the budget with `render_meter`** — it's built for usage-against-limit. Map `value` → `used_usd` and `max` → `limit_usd`; over-limit meters auto-recolor to the danger token. Skip the meter (or omit `max`) when the limit is `null`/unlimited — there's nothing to fill against. A single headline figure ("$/$ used this month") can also go to `render_metric`.
+This one call is enough. A `limit_usd` of `null` means unlimited for that dimension — so the snapshot already tells you whether each cap is set; there's no separate lookup to do. `used_usd` reflects pre-execution *estimates*; actuals reconcile later. Every USD figure is a full-precision float — round to 2 decimals wherever you display it (e.g. `8.503217` → `$8.50`).
+
+**Rendering rules:**
+
+Use `render_meter` only for dimensions that have a real numeric limit (`limit_usd > 0`). Use `render_metric` for uncapped dimensions. Never pass `null` as a `max` column value — the renderer rejects it.
+
+These widgets render with `provider="direct"` — the quota endpoint returns plain JSON, not a pollable `query_id`, so you supply the rows yourself (round USD to 2 decimals first).
+
+To flag over-budget visually, **omit the `color` column** on the meter: when `used_usd` exceeds `limit_usd` the renderer auto-clamps the bar to full width and recolors it to the danger token (red). Passing a `color` suppresses that highlight.
+
+When `projected_run_rate_usd` is 0 (fresh period, no usage yet), drop the `· projected: …` suffix rather than rendering `$0.00`.
+
+Determine which widgets to render based on this matrix:
+
+| Monthly cap | Lifetime cap | Widgets |
+|---|---|---|
+| null | set | `render_meter` (lifetime only) + `render_metric` (monthly) |
+| set | set | `render_meter` (both rows) — no metric needed |
+| null | null | `render_metric` (monthly) + `render_metric` (lifetime) |
+| set | null | `render_meter` (monthly only) + `render_metric` (lifetime) |
+
+**`render_meter` label conventions:**
+
+- Monthly row (capped): `Monthly – {period} (USD) · projected: ${projected_run_rate_usd}` e.g. `Monthly – 2026-06 (USD) · projected: $8.50`
+- Lifetime row (capped): `Lifetime (USD)`
+- `title`: `Athena Quota`
+
+**`render_metric` label conventions:**
+
+- Monthly (uncapped):
+  - `title`: `Monthly Spend`
+  - `label`: `{period} (USD)` e.g. `2026-06 (USD)`
+  - `description`: `Estimated · actuals reconcile later · projected: ${projected_run_rate_usd}`
+- Lifetime (uncapped):
+  - `title`: `Lifetime Spend`
+  - `label`: `Lifetime (USD)`
+  - `description`: `No lifetime cap set`
 
 ### 5. Submit with `POST /afs/v1/admin/namespaces/{namespace}/queries`
 
