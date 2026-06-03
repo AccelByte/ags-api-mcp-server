@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v2026.3.4 (2026-06-03)
+
+### Changed
+- **AFS spend-budget rendering rules expanded.** The budget check now reads `quota/usage` alone (it already reports `null`-vs-set caps for both the monthly and lifetime dimensions, so the separate `quota/monthly-limit` GET was redundant), and `afs.md` gains a cap matrix plus `render_meter`/`render_metric` label conventions. Added guidance on 2-decimal USD rounding, the `direct` provider (quota returns plain JSON, not a pollable `query_id`), over-limit visualization (omit `color` so the meter auto-recolors to the danger token), and zero-projection handling. The cap-mutation (`PUT`) reference was removed.
+- **AFS query submission and provider guidance clarified.** `afs.md` now states the `POST /queries` body fields (`sql`, `database`, `max_rows`, `wait_ms`) up front, and reframes the `direct`/`facade` provider choice as a data-fidelity decision: `direct` routes the result set through the model and is reproduced verbatim (reserve for small results), while `facade` is source-fetched by `query_id` (prefer for substantial sets). Notes that fast-path `query_id`s may `404` when polled, so the provider path must be chosen before submitting.
+
 ## v2026.3.3 (2026-06-02)
 
 ### Added
