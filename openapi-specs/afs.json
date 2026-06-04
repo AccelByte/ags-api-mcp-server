@@ -19,7 +19,7 @@
   "paths": {
     "/afs/v1/admin/namespaces/{namespace}/context": {
       "get": {
-        "description": "Returns the merged analytics context document. The response interleaves the embedded base context with every user-authored context the tenant has created (via `POST /contexts`), sorted by `(order ASC, created_at ASC)`. The base context participates in the sort at `order = 0` with a sentinel `created_at` predating any user-authored content, so user contexts with negative `order` merge before the base and positive `order` after it. Returns Markdown by default; pass `format=json` for a JSON-wrapped response with an `X-Context-Version` ETag header.",
+        "description": "Returns the merged analytics context document. The response interleaves the embedded base context with every user-authored context the tenant has created (via POST /contexts), sorted by (order ASC, created_at ASC). The base context participates in the sort at order=0 with a sentinel created_at predating any user-authored content, so user contexts with negative order merge before the base and positive order after it. Returns Markdown by default; pass format=json for a JSON-wrapped response with an X-Context-Version ETag header.",
         "operationId": "AdminGetContext",
         "parameters": [
           {
@@ -92,7 +92,7 @@
     },
     "/afs/v1/admin/namespaces/{namespace}/contexts": {
       "get": {
-        "description": "Lists tenant-owned contexts. `body` is omitted from list responses to keep payloads small.",
+        "description": "Lists tenant-owned contexts, sorted by (order, created_at). body is omitted from list responses to keep payloads small.",
         "operationId": "AdminListContexts",
         "parameters": [
           {
@@ -133,7 +133,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Paginated list of contexts.",
+            "description": "Context list.",
             "schema": {
               "$ref": "#/definitions/handler.contextListResponse"
             }
@@ -178,7 +178,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "Creates a new user-authored analytics context for the tenant. `order` defaults to `100` when omitted. Calls `mergeCache.Invalidate` so the next `GET /context` returns the updated merge.",
+        "description": "Creates a new user-authored analytics context for the tenant. order defaults to 100 when omitted. The change takes effect on the next GET /context.",
         "operationId": "AdminCreateContext",
         "parameters": [
           {
@@ -209,7 +209,7 @@
             }
           },
           "400": {
-            "description": "Validation error (INVALID_KIND, INVALID_TABLE_REFS, INVALID_ORDER, or bad JSON).",
+            "description": "Validation error.",
             "schema": {
               "$ref": "#/definitions/handler.errorBody"
             }
@@ -257,7 +257,7 @@
           },
           {
             "userPermissions": [
-              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [UPDATE]"
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
             ]
           }
         ]
@@ -265,7 +265,7 @@
     },
     "/afs/v1/admin/namespaces/{namespace}/contexts/{id}": {
       "delete": {
-        "description": "Deletes a context. Idempotent — deleting an unknown ID returns `204`. Calls `mergeCache.Invalidate` so the next `GET /context` returns the updated merge.",
+        "description": "Deletes a context. Idempotent — deleting an unknown ID returns 204. The change takes effect on the next GET /context.",
         "operationId": "AdminDeleteContext",
         "parameters": [
           {
@@ -276,7 +276,7 @@
             "type": "string"
           },
           {
-            "description": "Context ID (KSUID).",
+            "description": "Context ID.",
             "in": "path",
             "name": "id",
             "required": true,
@@ -288,7 +288,7 @@
         ],
         "responses": {
           "204": {
-            "description": "Deleted (or already absent)."
+            "description": "Deleted (or ID did not exist)."
           },
           "401": {
             "description": "Missing or invalid AB IAM JWT.",
@@ -321,13 +321,13 @@
           },
           {
             "userPermissions": [
-              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [UPDATE]"
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
             ]
           }
         ]
       },
       "get": {
-        "description": "Returns the full context row including `body` and `order`. Returns `404 CONTEXT_NOT_FOUND` for any ID that doesn&#39;t exist in this tenant&#39;s set.",
+        "description": "Returns the full context row including body and order. Returns 404 CONTEXT_NOT_FOUND for any ID that doesn&#39;t exist in this tenant&#39;s set.",
         "operationId": "AdminGetContextByID",
         "parameters": [
           {
@@ -338,7 +338,7 @@
             "type": "string"
           },
           {
-            "description": "Context ID (KSUID).",
+            "description": "Context ID.",
             "in": "path",
             "name": "id",
             "required": true,
@@ -350,7 +350,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Full context row.",
+            "description": "Context detail.",
             "schema": {
               "$ref": "#/definitions/handler.contextResponse"
             }
@@ -379,7 +379,7 @@
             "bearerAuth": []
           }
         ],
-        "summary": "Get a single user-authored analytics context",
+        "summary": "Get a user-authored analytics context",
         "tags": [
           "contexts"
         ],
@@ -401,7 +401,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "Updates `body`, `order`, and/or `table_refs` of an existing context. `name` and `kind` are immutable. Requires `If-Match: &lt;prior updated_at RFC3339&gt;` for optimistic concurrency. Calls `mergeCache.Invalidate` so the next `GET /context` returns the updated merge.",
+        "description": "Updates body, order, and/or table_refs of an existing context. name and kind are immutable. Requires If-Match with the prior updated_at (RFC3339) for optimistic concurrency. The change takes effect on the next GET /context.",
         "operationId": "AdminUpdateContext",
         "parameters": [
           {
@@ -412,14 +412,14 @@
             "type": "string"
           },
           {
-            "description": "Context ID (KSUID).",
+            "description": "Context ID.",
             "in": "path",
             "name": "id",
             "required": true,
             "type": "string"
           },
           {
-            "description": "Must match the `updated_at` RFC 3339 value of the last known version.",
+            "description": "Current updated_at value (RFC3339) for optimistic concurrency.",
             "in": "header",
             "name": "If-Match",
             "required": true,
@@ -440,7 +440,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Updated context row.",
+            "description": "Updated context.",
             "schema": {
               "$ref": "#/definitions/handler.contextResponse"
             }
@@ -470,13 +470,7 @@
             }
           },
           "412": {
-            "description": "IF_MATCH_FAILED (concurrent update detected).",
-            "schema": {
-              "$ref": "#/definitions/handler.errorBody"
-            }
-          },
-          "413": {
-            "description": "CONTEXT_BODY_TOO_LARGE.",
+            "description": "IF_MATCH_FAILED: If-Match does not match current updated_at.",
             "schema": {
               "$ref": "#/definitions/handler.errorBody"
             }
@@ -500,7 +494,7 @@
           },
           {
             "userPermissions": [
-              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [UPDATE]"
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
             ]
           }
         ]
@@ -511,7 +505,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "Returns 202 with query_id, or 200 with rows inline if the query terminates within the fast-path window.\nThe `database` field is optional; when omitted, the facade uses the first entry of the configured ALLOWED_DATABASES env var.",
+        "description": "Returns 202 with query_id, or 200 with rows inline if the query terminates within the fast-path window.\nThe `database` field is optional; when omitted, the facade uses the configured default database.",
         "operationId": "AdminSubmitQuery",
         "parameters": [
           {
@@ -997,10 +991,9 @@
             "type": "string"
           },
           {
-            "description": "Allowed database name.",
+            "description": "Allowed database name. Defaults to the configured default database when omitted.",
             "in": "query",
             "name": "database",
-            "required": true,
             "type": "string"
           },
           {
@@ -1033,7 +1026,7 @@
             }
           },
           "400": {
-            "description": "Bad request (missing database, invalid pagination, disallowed database).",
+            "description": "Bad request (invalid pagination, disallowed database).",
             "schema": {
               "$ref": "#/definitions/handler.errorBody"
             }
@@ -1337,7 +1330,6 @@
       "type": "object"
     },
     "handler.contextCreateBody": {
-      "description": "Request body for creating a new user-authored analytics context.",
       "properties": {
         "body": {
           "description": "Markdown body of this context section.",
@@ -1362,22 +1354,21 @@
           "type": "integer"
         },
         "table_refs": {
-          "description": "For `ags_extension`: required list of `<database>.<table>` references this context covers. For `custom_table`: optional, uninterpreted.",
+          "description": "For `ags_extension`: required list of `<database>.<table>` references this context covers. For `custom_table`: optional.",
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "uniqueItems": false
         }
       },
       "required": [
-        "body",
         "kind",
         "name"
       ],
       "type": "object"
     },
     "handler.contextListItem": {
-      "description": "Context row in list responses. `body` is omitted to keep payloads small.",
       "properties": {
         "authored_by": {
           "type": "string"
@@ -1407,7 +1398,8 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "uniqueItems": false
         },
         "updated_at": {
           "type": "string"
@@ -1419,13 +1411,13 @@
       "type": "object"
     },
     "handler.contextListResponse": {
-      "description": "Paginated list of tenant-owned contexts.",
       "properties": {
         "data": {
           "items": {
             "$ref": "#/definitions/handler.contextListItem"
           },
-          "type": "array"
+          "type": "array",
+          "uniqueItems": false
         },
         "total": {
           "description": "Total number of contexts for this tenant (across all pages).",
@@ -1435,7 +1427,6 @@
       "type": "object"
     },
     "handler.contextResponse": {
-      "description": "Full context row returned on POST (create), GET (single), and PUT (update).",
       "properties": {
         "authored_by": {
           "description": "JWT `sub` of the creator.",
@@ -1472,7 +1463,8 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "uniqueItems": false
         },
         "updated_at": {
           "description": "RFC 3339 UTC timestamp.",
@@ -1486,14 +1478,13 @@
       "type": "object"
     },
     "handler.contextUpdateBody": {
-      "description": "Request body for updating an existing user-authored analytics context. `name` and `kind` are immutable.",
       "properties": {
         "body": {
           "description": "Replacement Markdown body.",
           "type": "string"
         },
         "order": {
-          "description": "Signed 32-bit integer controlling where this context merges relative to the base context in `GET /context`. The base context is conceptually at `order = 0` with a sentinel `created_at` predating any user-authored content. Lower values merge earlier; ties are broken by `created_at` ascending. Use **negative** values (e.g. `-10`) for context that should precede the base. Use **positive** values (e.g. `10`, `100`) for context after the base. A user-authored context at `order = 0` merges immediately **after** the base.",
+          "description": "Signed 32-bit integer controlling merge position in `GET /context`. See `contextCreateBody.order` for full semantics.",
           "format": "int32",
           "type": "integer"
         },
@@ -1502,12 +1493,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "uniqueItems": false
         }
       },
-      "required": [
-        "body"
-      ],
       "type": "object"
     },
     "handler.errorBody": {
@@ -1681,8 +1670,8 @@
     }
   },
   "x-version": {
-    "buildDate": "2026-05-29T00:42:13Z",
-    "gitHash": "562d5b4",
+    "buildDate": "2026-06-04T02:16:33Z",
+    "gitHash": "c1146ae",
     "name": "athena-facade-api",
     "version": "0.4.0",
     "version-roles-seeding": "1.2.130"
