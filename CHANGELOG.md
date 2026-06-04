@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v2026.3.5 (2026-06-04)
+
+### Changed
+- **AFS playbook gains table-discovery and SQL hints.** `afs.md` now documents the `/tables` filter interface (`query` substring match, `offset`/`limit` paging) and steers the model to probe the table family the context names rather than guessing event names. Adds a sibling-table caution (check success/failure and direct vs. third-party/platform splits, and `UNION` when a metric like DAU spans them, to avoid silently undercounting platform logins), a timestamp-casting nudge (reach for `from_iso8601_timestamp()` when a `CAST(... AS DATE)` errors on ISO-8601 string columns), the average-over-window vs. average-over-active-days ambiguity for metrics like DAU, and a note that `get_token_info` resolves the caller's namespace as a default while still deferring to an explicit sub-namespace.
+- **`afs.json` OpenAPI spec refreshed** from athena-facade-api `0.4.0` (build `c1146ae`). The `/tables` `database` query param is now optional — the facade backfills the configured default when omitted, so `run-apis` no longer blocks valid calls that leave it off. Context update/delete permission scopes relaxed from `QUERY [UPDATE]` to `QUERY [READ]`, and `body` dropped from the required fields on context create/update.
+
 ## v2026.3.4 (2026-06-03)
 
 ### Changed
