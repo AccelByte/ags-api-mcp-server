@@ -34,6 +34,8 @@ Every endpoint below lives in the **`athena-facade-poc`** spec. Pass `spec="athe
 
 ## Steps
 
+Every endpoint takes a `{namespace}` path param. When the user hasn't named one, `get_token_info` gives you the caller's own namespace from the token — a sensible default. If they've asked about a specific sub-namespace, use that instead.
+
 ### 1. Always start with `GET /afs/v1/admin/namespaces/{namespace}/context`
 
 The context document is the catalog for this namespace's event tables: what tables exist, naming conventions, partition columns, common joins. Without it you will hallucinate table or column names. Don't skip it even if you think you remember the schema from a previous turn — it's namespace-specific.
@@ -43,6 +45,10 @@ The response is the *merged* catalog: the embedded base context plus any tenant-
 ### 2. Find candidate tables with `GET /afs/v1/admin/namespaces/{namespace}/tables`
 
 Search/filter to identify which tables the user's question maps to. Narrow to **2–3 most likely candidates** — don't fan out further unless the first pass clearly doesn't fit.
+
+Filter with the **`query`** parameter (a substring match on the table name) and page with **`offset`** / **`limit`**. One substring probe beats guessing exact table names serially — physical table names often don't match the logical event names in the context doc, so when the context names a table family (e.g. `userauthentication`), probe with *that* rather than the event's English name (`login`, `oauth`).
+
+When you find the table for an event, check for **sibling tables** that hold the same metric split a different way — success vs. failure, direct vs. third-party/platform. Decide whether the user's metric needs a `UNION` across them *before* querying: a "logins" or "DAU" count drawn only from the direct-login table silently undercounts platform (Steam/PSN/Epic) logins.
 
 ### 3. Fetch schema with `GET /afs/v1/admin/namespaces/{namespace}/tables/{database}/{table}`
 
@@ -56,7 +62,8 @@ Athena bills per byte scanned, and bad queries get expensive fast. Before callin
 - **Time bound:** include a partition predicate (typically a date/time range). If the user didn't give one, **ask** — don't assume "all time."
 - **Explicit columns:** project the columns you need, not `SELECT *`.
 - **`LIMIT`:** use it during exploration. Widen only after you've seen the shape of the results.
-- **Other missing inputs:** if the user's question lacks a clear entity scope (player, region, etc.) or metric definition, ask before submitting.
+- **Mind the column types.** Event `timestamp` columns are often ISO-8601 *strings*, not SQL dates — so if a `CAST(... AS DATE)` or date comparison errors, reach for `from_iso8601_timestamp()` rather than assuming a bad column. Check the schema from step 3 when in doubt.
+- **Other missing inputs:** if the user's question lacks a clear entity scope (player, region, etc.) or metric definition, ask before submitting. Watch for averages in particular — "average DAU over 30 days" can mean *over 30 calendar days* or *over the days with activity*, and they differ a lot when the window has gaps. Clarify, or show both and label them.
 
 #### Checking the spend budget
 
