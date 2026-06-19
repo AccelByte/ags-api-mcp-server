@@ -26,6 +26,61 @@ interface DefineRenderToolOptions<TSchema extends AnyZodObject> {
   mapInputToOptions(input: ToolInput): Record<string, unknown>;
 }
 
+/**
+ * A render tool's payload-building parts, keyed by tool name. Populated as each
+ * `setupRender*` runs `defineRenderTool`, so the dashboard can rebuild any
+ * pinned chart from its stored `render_tool` + `render_options` (on open and on
+ * refresh) without bespoke per-chart code.
+ */
+export interface RenderToolEntry {
+  chartType: string;
+  outputSchema: AnyZodObject;
+}
+
+const renderToolRegistry = new Map<string, RenderToolEntry>();
+
+/** All registered render tool names (for tests / coverage assertions). */
+export function listRenderToolNames(): string[] {
+  return Array.from(renderToolRegistry.keys());
+}
+
+/** Row data + execution metadata used to rebuild a render payload. */
+export interface RenderPayloadData {
+  columns: { name: string; type: string }[];
+  rows: string[][];
+  stats?: { data_scanned_bytes?: number; engine_execution_time_ms?: number };
+  sql?: string;
+}
+
+/**
+ * Rebuild a validated RenderOutput for a pinned query from its stored
+ * `render_tool` + opaque `render_options` and freshly-resolved rows. Reuses the
+ * tool's own `outputSchema.parse(...)`, so a hostile/invalid `render_options`
+ * throws here (caught per-card by the caller) rather than rendering.
+ */
+export function buildPinRenderOutput(
+  renderTool: string,
+  renderOptions: Record<string, unknown>,
+  data: RenderPayloadData,
+  extras: { title?: string; dataSource?: string } = {},
+): Record<string, unknown> {
+  const entry = renderToolRegistry.get(renderTool);
+  if (!entry) {
+    throw new Error(`Unknown render tool: "${renderTool}".`);
+  }
+  return entry.outputSchema.parse({
+    chart_type: entry.chartType,
+    title: extras.title,
+    data: { columns: data.columns, rows: data.rows },
+    // Live (facade) pins resolve rows by query_id; static pins carry them inline
+    // and render as "direct" (symmetric with the `direct` render provider).
+    data_source: extras.dataSource ?? "facade",
+    stats: data.stats,
+    sql: data.sql,
+    options: renderOptions,
+  }) as Record<string, unknown>;
+}
+
 export function defineRenderTool<TSchema extends AnyZodObject>({
   server,
   registry,
@@ -37,6 +92,10 @@ export function defineRenderTool<TSchema extends AnyZodObject>({
   outputSchema,
   mapInputToOptions,
 }: DefineRenderToolOptions<TSchema>): void {
+  // Record the build parts so the dashboard can rebuild this chart from a
+  // stored pin (open + refresh) via the same outputSchema.parse path.
+  renderToolRegistry.set(name, { chartType, outputSchema });
+
   registerAppTool(
     server,
     name,

@@ -59,7 +59,7 @@ async function createServer(
   await setupPlaybooks(server);
 
   if (effectiveConfig.mcp.enableRenderTools) {
-    setupRenderTools(server, openApiTools);
+    setupRenderTools(server, openApiTools, requestContext?.namespace);
     await registerRendererResource(server);
   }
 

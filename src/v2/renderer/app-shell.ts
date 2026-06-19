@@ -12,8 +12,18 @@ import {
   type McpUiToolInputNotification,
   type McpUiToolResultNotification,
 } from "@modelcontextprotocol/ext-apps";
-import { BUNDLE_VERSION, RenderOutputSchema } from "../shared/render-schemas.js";
+import {
+  BUNDLE_VERSION,
+  RenderOutputSchema,
+} from "../shared/render-schemas.js";
 import { renderChart } from "./views/chart.js";
+import {
+  clearDashboardMode,
+  type DashboardHostBridge,
+  maybeAddPinAffordance,
+  refreshDashboardMode,
+  renderDashboard,
+} from "./views/dashboard.js";
 import { renderMetric } from "./views/metric.js";
 import { renderTable } from "./views/table.js";
 import {
@@ -24,8 +34,12 @@ import {
 
 export interface RendererHostStyleAppliers {
   applyTheme(theme: McpUiHostContext["theme"]): void;
-  applyStyleVariables(variables: NonNullable<McpUiHostContext["styles"]>["variables"]): void;
-  applyFonts(fonts: NonNullable<NonNullable<McpUiHostContext["styles"]>["css"]>["fonts"]): void;
+  applyStyleVariables(
+    variables: NonNullable<McpUiHostContext["styles"]>["variables"],
+  ): void;
+  applyFonts(
+    fonts: NonNullable<NonNullable<McpUiHostContext["styles"]>["css"]>["fonts"],
+  ): void;
 }
 
 export interface RendererToolResultLike {
@@ -156,10 +170,16 @@ export interface EditorHost {
   displayMode: McpUiDisplayMode | undefined;
 }
 
+export interface DashboardHost {
+  bridge: DashboardHostBridge;
+  displayMode: McpUiDisplayMode | undefined;
+}
+
 export function renderToolResult(
   result: RendererToolResultLike,
   root?: HTMLElement,
   editorHost?: EditorHost,
+  dashboardHost?: DashboardHost,
 ): void {
   const element = appRoot(root);
 
@@ -170,33 +190,64 @@ export function renderToolResult(
 
   const parsed = RenderOutputSchema.parse(result.structuredContent);
 
+  if (parsed.chart_type === "dashboard") {
+    if (!dashboardHost) {
+      showError("The dashboard requires an interactive host.", element);
+      return;
+    }
+    renderDashboard(
+      element,
+      parsed,
+      dashboardHost.bridge,
+      dashboardHost.displayMode,
+    );
+    return;
+  }
+
+  // Any non-dashboard result tears down dashboard-specific document styling so
+  // a reused webview doesn't keep the fixed-height/no-padding layout.
+  clearDashboardMode();
+
   if (parsed.chart_type === "text_editor") {
     if (!editorHost) {
       showError("This editor requires an interactive host.", element);
       return;
     }
-    renderTextEditor(element, parsed, editorHost.bridge, editorHost.displayMode);
+    renderTextEditor(
+      element,
+      parsed,
+      editorHost.bridge,
+      editorHost.displayMode,
+    );
     return;
   }
 
   if (parsed.chart_type === "table") {
     renderTable(element, parsed);
+    maybeAddPinAffordance(element, parsed, dashboardHost?.bridge);
     return;
   }
 
   if (parsed.chart_type === "metric") {
     renderMetric(element, parsed);
+    maybeAddPinAffordance(element, parsed, dashboardHost?.bridge);
     return;
   }
 
   renderChart(element, parsed);
+  maybeAddPinAffordance(element, parsed, dashboardHost?.bridge);
 }
 
 export async function bootstrapRenderer(
-  app: RendererAppLike = new App({
-    name: "AGS Renderer",
-    version: BUNDLE_VERSION,
-  }),
+  app: RendererAppLike = new App(
+    {
+      name: "AGS Renderer",
+      version: BUNDLE_VERSION,
+    },
+    // Declare the display modes the renderer supports so hosts expose the
+    // inline ⇄ fullscreen toggle the text-editor and dashboard rely on.
+    { availableDisplayModes: ["inline", "fullscreen"] },
+  ),
   options: BootstrapRendererOptions = {},
 ): Promise<RendererAppLike> {
   const root = appRoot(options.root);
@@ -207,12 +258,15 @@ export async function bootstrapRenderer(
   };
 
   const editorBridge = app as unknown as EditorHostBridge;
+  const dashboardBridge = app as unknown as DashboardHostBridge;
 
   app.onhostcontextchanged = (context) => {
     applyHostContext(context, styleAppliers);
     // `context` is a partial (changed fields only); read the merged mode so an
-    // unrelated update (theme/size) can't reset the editor to preview.
-    refreshTextEditorMode(app.getHostContext()?.displayMode);
+    // unrelated update (theme/size) can't reset the editor/dashboard layout.
+    const mode = app.getHostContext()?.displayMode;
+    refreshTextEditorMode(mode);
+    refreshDashboardMode(mode);
   };
 
   app.ontoolinput = () => {
@@ -221,10 +275,18 @@ export async function bootstrapRenderer(
 
   app.ontoolresult = (result) => {
     try {
-      renderToolResult(result, root, {
-        bridge: editorBridge,
-        displayMode: app.getHostContext()?.displayMode,
-      });
+      renderToolResult(
+        result,
+        root,
+        {
+          bridge: editorBridge,
+          displayMode: app.getHostContext()?.displayMode,
+        },
+        {
+          bridge: dashboardBridge,
+          displayMode: app.getHostContext()?.displayMode,
+        },
+      );
     } catch (error) {
       showError(
         error instanceof Error

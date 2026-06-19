@@ -29,7 +29,7 @@ function createCapturingServer(capturedTools: CapturedTool[]) {
 }
 
 describe("setupRenderTools", () => {
-  test("registers exactly 16 tools on each server instance without shared provider state", () => {
+  test("registers exactly 24 tools on each server instance without shared provider state", () => {
     const firstServerTools: CapturedTool[] = [];
     const secondServerTools: CapturedTool[] = [];
     const openApiToolsStub = {} as OpenApiTools;
@@ -60,10 +60,19 @@ describe("setupRenderTools", () => {
       "render_table",
       "render_metric",
       "render_meter",
+      "render_text_editor",
+      // Dashboard home surface (open_dashboard is model-facing; the rest app-only).
+      "open_dashboard",
+      "load_dashboard",
+      "get_quota_usage",
+      "pin_query",
+      "unpin_query",
+      "refresh_pinned_query",
+      "refresh_all_pinned",
     ];
 
-    assert.equal(firstServerTools.length, 16);
-    assert.equal(secondServerTools.length, 16);
+    assert.equal(firstServerTools.length, 24);
+    assert.equal(secondServerTools.length, 24);
     assert.deepEqual(
       firstServerTools.map((tool) => tool.name),
       expectedToolNames,

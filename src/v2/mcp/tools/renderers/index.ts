@@ -11,6 +11,7 @@ import { createProviderRegistry } from "../providers/registry.js";
 import { setupRenderAreaChart } from "./area.js";
 import { setupRenderBarChart } from "./bar.js";
 import { setupRenderBoxChart } from "./box.js";
+import { setupDashboardTools } from "./dashboard.js";
 import { setupRenderDonutChart } from "./donut.js";
 import { setupRenderFunnelChart } from "./funnel.js";
 import { setupRenderGaugeChart } from "./gauge.js";
@@ -27,12 +28,16 @@ import { setupRenderTextEditor } from "./text-editor.js";
 import { setupRenderWaterfallChart } from "./waterfall.js";
 
 /**
- * Single composition function. Every entry point gets the same 17 tools.
- * No entry-point-specific registration.
+ * Single composition function. Every entry point gets the same render tools
+ * plus the dashboard tool set. No entry-point-specific registration.
+ *
+ * @param defaultNamespace - namespace from the per-request context (hosted
+ *   mode), used as the default for the dashboard's namespace-scoped tools.
  */
 export function setupRenderTools(
   server: McpServer,
   openApiTools: OpenApiTools,
+  defaultNamespace?: string,
 ): void {
   const registry = createProviderRegistry([
     createFacadeProvider(openApiTools),
@@ -56,6 +61,10 @@ export function setupRenderTools(
   setupRenderMetric(server, registry);
   setupRenderMeter(server, registry);
   setupRenderTextEditor(server);
+
+  // Dashboard home surface: open_dashboard (model-facing) + app-only
+  // load/pin/unpin/refresh/usage tools, all bound to the same renderer resource.
+  setupDashboardTools(server, openApiTools, defaultNamespace);
 }
 
 export default setupRenderTools;

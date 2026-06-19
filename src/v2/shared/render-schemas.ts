@@ -4,7 +4,13 @@
 
 import { z } from "zod/v3";
 
-export const BUNDLE_VERSION = "1.1.0";
+// Bumped to 1.4.0 for the `notice` field on the load_dashboard payload (degraded
+// pin-store load) + the tightened 1–12 `span` constraint. 1.3.0 added static-pin
+// inline data (data_columns/data_rows) + per-pin `span`; 1.2.0 added
+// chart_type:"dashboard" + pinned-query metadata. The app-shell asserts
+// host-advertised version == bundle version, so any change to a render payload
+// schema MUST bump this.
+export const BUNDLE_VERSION = "1.4.0";
 
 export function strictObject<T extends z.ZodRawShape>(
   shape: T,
@@ -282,6 +288,198 @@ export const MeterOutputSchema = strictObject({
   }),
 });
 
+// ---------- Dashboard (home surface: usage header + pinned-query grid) ----------
+
+/**
+ * The render tools a pin may carry. Mirrors the `render_tool` enum the downstream
+ * pinned-queries facade resource accepts and stores verbatim. Excludes
+ * `render_text_editor` — only data visualizations are pinnable.
+ */
+export const PIN_RENDER_TOOLS = [
+  "render_bar_chart",
+  "render_line_chart",
+  "render_area_chart",
+  "render_scatter_chart",
+  "render_histogram_chart",
+  "render_box_chart",
+  "render_heatmap_chart",
+  "render_pie_chart",
+  "render_donut_chart",
+  "render_waterfall_chart",
+  "render_funnel_chart",
+  "render_gauge_chart",
+  "render_state_timeline_chart",
+  "render_table",
+  "render_metric",
+  "render_meter",
+] as const;
+
+export const PinRenderToolSchema = z.enum(PIN_RENDER_TOOLS);
+export type PinRenderTool = z.infer<typeof PinRenderToolSchema>;
+
+/**
+ * A pin is **static** when it carries its rows inline (a chat-described snapshot)
+ * rather than resolving them from the facade via a `query_id`. Shared by the
+ * server tools and the webview bundle so the rule can't drift between them.
+ *
+ * Empty arrays are truthy, so we require a non-empty `data_columns`: a live pin
+ * that happens to carry empty inline arrays must NOT be misread as a snapshot and
+ * short-circuited away from its facade resolve/refresh.
+ */
+export function isStaticPin(pin: {
+  data_columns?: unknown;
+  data_rows?: unknown;
+}): boolean {
+  return (
+    Array.isArray(pin.data_columns) &&
+    pin.data_columns.length > 0 &&
+    Array.isArray(pin.data_rows)
+  );
+}
+
+/**
+ * Resolve a layout span to the fullscreen 12-col grid. Only an explicit 1–12 is
+ * honored; anything wider clamps to 12, and anything invalid (absent, ≤0, NaN,
+ * garbage) falls back to the default 4 rather than an unreadable 1-col sliver.
+ * Shared by the server tools and the webview bundle to keep layout identical.
+ */
+export function clampSpan(span: number | undefined): number {
+  if (typeof span !== "number" || !Number.isFinite(span) || span < 1) {
+    return 4;
+  }
+  return Math.min(12, Math.floor(span));
+}
+
+/**
+ * One quota dimension (monthly or lifetime). `limit_usd: null` ⇒ unlimited.
+ * Non-strict on purpose: this mirrors an upstream AFS response we don't control
+ * (the spec sets no `additionalProperties:false`), so a field added there is
+ * stripped rather than throwing and silently blanking the whole usage header.
+ */
+export const QuotaDimensionSchema = z.object({
+  used_usd: z.number().optional(),
+  limit_usd: z.number().nullable().optional(),
+  projected_run_rate_usd: z.number().optional(),
+  period: z.string().optional(),
+});
+export type QuotaDimension = z.infer<typeof QuotaDimensionSchema>;
+
+/** Snapshot mirroring `GET .../quota/usage` (afs.json `handler.usageResponse`). Non-strict (see above). */
+export const QuotaUsageSchema = z.object({
+  monthly: QuotaDimensionSchema.optional(),
+  lifetime: QuotaDimensionSchema.optional(),
+});
+export type QuotaUsage = z.infer<typeof QuotaUsageSchema>;
+
+/**
+ * Pin metadata carried in the dashboard payload. **No rows** — the row body is
+ * fetched per pin via `load_dashboard`, keeping the persisted result small and
+ * query data out of the transcript. `render_options` is an opaque object
+ * validated per-card at render time (poison-pill isolation).
+ */
+export const PinnedQueryMetaSchema = strictObject({
+  pin_id: z.string(),
+  title: z.string(),
+  sql: z.string().optional(),
+  query_id: z.string().nullable().optional(),
+  render_tool: PinRenderToolSchema,
+  render_options: z.record(z.string(), z.unknown()).default({}),
+  refreshed_at: z.string().nullable().optional(),
+  position: z.number().int().optional(),
+  updated_at: z.string().optional(),
+  /** SQL uses a relative/moving window (current_date - N, now(), …) — re-scans on every refresh. */
+  moving_window: z.boolean().optional(),
+  /** The pin's cached result is unavailable (expired id / never run) — show "click Refresh". */
+  stale: z.boolean().optional(),
+  /**
+   * Static pin: rows described inline in chat (a snapshot). Their presence marks
+   * the pin as static (no facade, never refreshed) — there is no `provider` flag.
+   * Reuses `ProviderColumnSchema` (symmetric with the `direct` render provider).
+   */
+  data_columns: z.array(ProviderColumnSchema).optional(),
+  data_rows: z.array(z.array(z.string())).optional(),
+  /**
+   * Layout width on the fullscreen 12-col grid. The 1–12 range is expressed here;
+   * permissive on purpose — out-of-range/garbage never throws, it falls back to 4
+   * (`clampSpan` is the matching pre-normalizer for untyped inputs).
+   */
+  span: z.number().int().min(1).max(12).default(4).catch(4),
+});
+export type PinnedQueryMeta = z.infer<typeof PinnedQueryMetaSchema>;
+
+/**
+ * `open_dashboard` structuredContent — a member of the render union so the
+ * app-shell dispatches it. **Metadata only**: pins + usage header, never rows.
+ */
+export const DashboardOutputSchema = strictObject({
+  chart_type: z.literal("dashboard"),
+  title: z.string().optional(),
+  namespace: z.string().optional(),
+  usage: QuotaUsageSchema.optional(),
+  pins: z.array(PinnedQueryMetaSchema).default([]),
+});
+export type DashboardOutput = z.infer<typeof DashboardOutputSchema>;
+
+/**
+ * One resolved card in the `load_dashboard` payload: pin metadata plus its
+ * resolved body. `render_output` is an opaque RenderOutput (re-validated by the
+ * bundle against `RenderOutputSchema` inside a per-card try/catch — defense in
+ * depth). `stale`/`error` are mutually exclusive with `render_output` (enforced
+ * by the superRefine below).
+ */
+export const PinnedQueryCardSchema = strictObject({
+  pin_id: z.string(),
+  title: z.string(),
+  render_tool: PinRenderToolSchema,
+  render_options: z.record(z.string(), z.unknown()).default({}),
+  sql: z.string().optional(),
+  query_id: z.string().nullable().optional(),
+  refreshed_at: z.string().nullable().optional(),
+  position: z.number().int().optional(),
+  moving_window: z.boolean().optional(),
+  render_output: z.record(z.string(), z.unknown()).optional(),
+  stale: z.boolean().optional(),
+  error: z.string().optional(),
+  /** Static pin: the original inline rows ride along so a focus-reload round-trips them. */
+  data_columns: z.array(ProviderColumnSchema).optional(),
+  data_rows: z.array(z.array(z.string())).optional(),
+  /** Layout width on the fullscreen 12-col grid (1–12); permissive, clamped in code. */
+  span: z.number().int().min(1).max(12).default(4).catch(4),
+}).superRefine((card, ctx) => {
+  // A card resolves to exactly one outcome: a rendered body, a stale marker, or
+  // an error. Enforce the documented exclusivity so an illegal "render_output +
+  // error" card can't slip through (the view branches on which one is present).
+  const present = [card.render_output, card.stale, card.error].filter(
+    (v) => v !== undefined && v !== false,
+  ).length;
+  if (present > 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "A pinned-query card may set at most one of render_output, stale, or error.",
+    });
+  }
+});
+export type PinnedQueryCard = z.infer<typeof PinnedQueryCardSchema>;
+
+/**
+ * `load_dashboard` structuredContent — the widget's data + self-rehydrate
+ * payload (app-only). Carries resolved card bodies (rows) + usage. Never
+ * persisted in conversation history.
+ */
+export const DashboardDataSchema = strictObject({
+  namespace: z.string().optional(),
+  usage: QuotaUsageSchema.optional(),
+  pins: z.array(PinnedQueryCardSchema).default([]),
+  /**
+   * Non-fatal degradation message (e.g. the pin store returned a server error so
+   * the board fell back to model-held pins). The widget surfaces it as a reconnect
+   * hint instead of blanking — distinct from an isError result.
+   */
+  notice: z.string().optional(),
+});
+export type DashboardData = z.infer<typeof DashboardDataSchema>;
+
 /** Editable document view (the first input tool — value originates in the webview). */
 export const TextEditorOutputSchema = strictObject({
   chart_type: z.literal("text_editor"),
@@ -311,5 +509,6 @@ export const RenderOutputSchema = z.discriminatedUnion("chart_type", [
   MetricOutputSchema,
   MeterOutputSchema,
   TextEditorOutputSchema,
+  DashboardOutputSchema,
 ]);
 export type RenderOutput = z.infer<typeof RenderOutputSchema>;
