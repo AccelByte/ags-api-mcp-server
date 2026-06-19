@@ -132,6 +132,32 @@ The 16 provider-backed render tools share the same input model: a data source (`
 
 For write-side API calls (POST/PUT/PATCH/DELETE through `run-apis`), the tool uses MCP elicitation to request user approval before execution.
 
+#### Dashboard (home surface)
+
+The renderer resource has **two modes, one bundle**: the default single-result mode (each tool call `replaceChildren`) and a **dashboard** mode (`chart_type:"dashboard"`) that accumulates pinned queries. The app-shell dispatches the dashboard branch before the chart fallthrough; the dashboard view (`src/v2/renderer/views/dashboard.ts`) owns a usage header plus a pinned-query grid and rebuilds each card body with the same `renderChart`/`renderTable`/`renderMetric` views.
+
+| Tool | Visibility | Purpose |
+|------|------------|---------|
+| `open_dashboard` | model-facing | Returns a **metadata-only** `dashboard` payload (pins + `quota/usage`, **no rows**) bound to the renderer resource. Small and safe to persist in chat history. |
+| `load_dashboard` | app-only | The widget's self-load: resolves each pin's **cached** rows via the existing `GET .../queries/{id}` path and the usage header, returning full `RenderOutput`s. Rows reach the widget here, never the transcript. |
+| `get_quota_usage` | app-only | Proxies `GET .../quota/usage` for the header. |
+| `pin_query` / `unpin_query` | app-only | Create/delete a pin in the downstream `.../pinned-queries` store. |
+| `refresh_pinned_query` / `refresh_all_pinned` | app-only | Force a SQL re-run (the only billing path); refresh-all is budget-gated and stops on `429`. |
+
+A pin stores **SQL (source of truth) + last `query_id` (cache pointer) + render spec (`render_tool` + opaque `render_options`)** — never rows. Card bodies are rebuilt from the stored `render_tool` via a registry in `renderers/define.ts` (`buildPinRenderOutput`), so any of the 16 charts re-renders with no bespoke code.
+
+**Live vs. static pins.** A pin's source is inferred per pin (no `provider` field): a **live** pin carries a `query_id` and resolves rows from the facade (refreshable, durable downstream); a **static** pin carries inline `data_columns`/`data_rows` — those rows *are* the data (a snapshot, built via `buildPinRenderOutput(..., dataSource:"direct")`, capped at `MAX_ROWS_DEFAULT`). Static pins are **transient** (model-held, never persisted, never billed): `resolvePinCard` builds them without touching the facade, the refresh tools return them unchanged, and the view shows a "Snapshot" badge with no Refresh. The inline rows ride along on both `PinnedQueryMeta` and `PinnedQueryCard` so a self-load/focus reload round-trips them instead of dropping to stale.
+
+**Layout.** Each pin has an optional `span` (integer 1–12, clamped; default 4) placing it on a fixed **12-column** grid in fullscreen; cards are a fixed height (`--dashboard-card-height`) with the body scrolling inside. Compact/inline and containers narrower than 720px collapse to a single column (spans ignored). `span` is layout-only.
+
+Lifecycle invariants:
+- **Open never re-runs SQL.** `load_dashboard` resolves cached results only; an expired/absent `query_id` yields a *stale* card ("click Refresh"), so a dashboard of moving-window queries can't bill on every open (denial-of-wallet defense).
+- **Refresh is the only re-run path** and is always an explicit user click.
+- **Restart survival without trusting replay:** the widget self-calls `load_dashboard` on mount and on `visibilitychange`, reconstructing from the stateless server even if the host evicted the original result (context compaction). Sizing reads `hostContext.containerDimensions.height` (fixed body, scroll inside — never report content height); display modes are read from the merged `getHostContext()`.
+- **Abuse resistance:** all card text is set via `textContent` (never `innerHTML`); `render_options` is re-validated against the chart schema in both the server and the bundle, and each card renders inside its own `try/catch` so a hostile pin shows an inline error instead of executing or blanking the grid.
+
+Pin persistence lives downstream in athena-facade-api (`.../pinned-queries`); the MCP server stays a stateless proxy (`src/v2/mcp/tools/providers/pinned-queries.ts`). Until that resource ships, `open_dashboard`/`load_dashboard`/`get_quota_usage` work against existing endpoints (model-held pins), and the save/refresh tools degrade with a clear `PINNED_QUERIES_UNAVAILABLE` error.
+
 ### AFS Spec Integration
 
 The Athena Facade spec is loaded like any other OpenAPI spec and exposed through `search-apis`, `describe-apis`, and `run-apis`. The relevant operations:
