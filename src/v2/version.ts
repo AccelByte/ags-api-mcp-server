@@ -16,5 +16,5 @@ const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
   version: string;
 };
 
-export const name: string = pkg.name;
-export const version: string = pkg.version;
+export const { name } = pkg;
+export const { version } = pkg;
