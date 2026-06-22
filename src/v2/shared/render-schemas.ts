@@ -68,6 +68,14 @@ export const RenderStatsSchema = strictObject({
 });
 export type RenderStats = z.infer<typeof RenderStatsSchema>;
 
+/**
+ * The `data_source` sentinel marking an inline snapshot (never billed, never
+ * refreshable). Equals the `direct` provider's name; the renderer keys
+ * refreshability off this exact value, so it's one shared constant rather than a
+ * literal duplicated across the server payload and the bundle.
+ */
+export const DIRECT_DATA_SOURCE = "direct";
+
 const CommonEnvelopeFields = {
   title: z.string().optional(),
   description: z.string().optional(),
