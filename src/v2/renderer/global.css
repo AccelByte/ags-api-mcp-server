@@ -1448,28 +1448,8 @@ body {
   font-size: var(--text-sm);
 }
 
-/* "Pin" button injected into a single-result header (keeps a chart on the dashboard). */
-.renderer-pin-btn {
-  appearance: none;
-  border: var(--border-width-regular) solid var(--color-border);
-  background: var(--color-panel);
-  color: var(--color-text-primary);
-  font: inherit;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  padding: 0.3rem 0.7rem;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  transition:
-    background var(--dur-1) var(--ease-out),
-    border-color var(--dur-1) var(--ease-out);
-}
-
-.renderer-pin-btn:hover:not(:disabled) {
-  background: var(--color-panel-muted);
-  border-color: var(--color-accent);
-}
-
+/* "Pin" button injected into a single-result header — an icon button; its base
+   style comes from .renderer-dashboard-iconbtn. */
 .renderer-pin-btn:disabled {
   cursor: default;
   opacity: 0.8;

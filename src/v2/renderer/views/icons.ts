@@ -57,6 +57,9 @@ export const ICONS = {
       "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
       "M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14",
     ]),
+  pin: (): SVGElement =>
+    strokeIcon(["M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"]),
+  check: (): SVGElement => strokeIcon(["M20 6L9 17l-5-5"]),
   kebab: (): SVGElement => {
     const svg = document.createElementNS(SVG_NS, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");

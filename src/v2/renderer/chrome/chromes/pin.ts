@@ -2,6 +2,7 @@
 // This is licensed software from AccelByte Inc, for limitations
 // and restrictions contact your company contract manager.
 
+import { ICONS } from "../../views/icons.js";
 import { defineChrome } from "../types.js";
 
 /** Exactly what the pin forwards into `pin_query` — the contract, made explicit. */
@@ -45,11 +46,13 @@ export const pinChrome = defineChrome<PinSlice>({
     };
   },
   render: () => {
+    // Icon button, consistent with the dashboard's refresh/remove affordances.
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "renderer-pin-btn";
-    button.textContent = "Pin";
-    button.title = "Keep this chart on the dashboard";
+    button.className = "renderer-dashboard-iconbtn renderer-pin-btn";
+    button.title = "Pin";
+    button.setAttribute("aria-label", "Pin");
+    button.appendChild(ICONS.pin());
     return button;
   },
   intent: (slice) => ({

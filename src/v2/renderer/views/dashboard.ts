@@ -190,22 +190,29 @@ export function maybeAddPinAffordance(
     return;
   }
   const title = slice.title;
-  // The chrome renders the bare `.renderer-pin-btn`; we know it's a button.
+  // The chrome renders an icon button; status rides on the title/aria-label
+  // (tooltip) and the icon, so we never clobber the SVG with textContent.
   const button = entry.chrome.render(slice) as HTMLButtonElement;
+  const setStatus = (label: string): void => {
+    button.title = label;
+    button.setAttribute("aria-label", label);
+  };
   button.addEventListener("click", () => {
     button.disabled = true;
-    button.textContent = "Pinning…";
+    setStatus("Pinning…");
     void action(intent.payload)
       .then((result) => {
-        const code = resultCode(result);
         if (result.isError) {
-          button.textContent =
+          const code = resultCode(result);
+          setStatus(
             code === "PINNED_QUERIES_UNAVAILABLE"
               ? "Pinning not enabled yet"
-              : "Pin failed";
+              : "Pin failed",
+          );
           return;
         }
-        button.textContent = "Pinned ✓";
+        button.replaceChildren(ICONS.check());
+        setStatus("Pinned");
         void bridge.updateModelContext?.({
           content: [
             {
@@ -218,7 +225,7 @@ export function maybeAddPinAffordance(
       .catch((error) => {
         console.warn("Pin request failed", error);
         button.disabled = false;
-        button.textContent = "Pin";
+        setStatus("Pin");
       });
   });
   actions.prepend(button);

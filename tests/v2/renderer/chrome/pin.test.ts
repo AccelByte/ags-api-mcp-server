@@ -65,13 +65,13 @@ describe("pin chrome — eligibility truth table", () => {
 });
 
 describe("pin chrome — presentation + intent", () => {
-  test("renders the legacy .renderer-pin-btn", () => {
+  test("renders an icon button labelled Pin", () => {
     const slice = selectPin({});
     assert.notEqual(slice, null);
     const button = pinChrome.render(slice as PinSlice);
-    assert.equal(button.className, "renderer-pin-btn");
-    assert.equal(button.textContent, "Pin");
-    assert.equal(button.getAttribute("title"), "Keep this chart on the dashboard");
+    assert.match(button.className, /renderer-dashboard-iconbtn/);
+    assert.equal(button.getAttribute("aria-label"), "Pin");
+    assert.ok(button.querySelector("svg"), "expected an inline icon");
   });
 
   test("intent forwards exactly {title, sql, render_tool, render_options}", () => {
