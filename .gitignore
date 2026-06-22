@@ -114,6 +114,7 @@ dist
 .vscode/
 .idea/
 .amazonq/
+.claude/
 *.swp
 *.swo
 *~
