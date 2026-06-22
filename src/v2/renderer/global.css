@@ -1097,6 +1097,10 @@ body {
   /* Fullscreen: a fixed 12-col grid; each card spans 1–12 (set inline by the
      view). Compact and narrow containers collapse to a single column below. */
   grid-template-columns: repeat(12, minmax(0, 1fr));
+  /* Pack rows at the top. The grid is `flex: 1 1 auto`, so it's much taller than
+     a few rows of fixed-height cards; the default `align-content: stretch` would
+     spread those rows apart, leaving a large empty band between them. */
+  align-content: start;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5) var(--space-6);
 }
