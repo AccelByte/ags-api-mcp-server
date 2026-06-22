@@ -158,6 +158,56 @@ Lifecycle invariants:
 
 Pin persistence lives downstream in athena-facade-api (`.../pinned-queries`); the MCP server stays a stateless proxy (`src/v2/mcp/tools/providers/pinned-queries.ts`). Until that resource ships, `open_dashboard`/`load_dashboard`/`get_quota_usage` work against existing endpoints (model-held pins), and the save/refresh tools degrade with a clear `PINNED_QUERIES_UNAVAILABLE` error.
 
+### Chrome System (UI Affordances)
+
+The renderer's buttons, badges, and footer notes — Pin, Refresh, Remove, the spend header, the "source: inline" and scanned-bytes notes — are not hand-wired per view. They are **chrome**: small declarative affordances resolved from one catalog and placed by data-driven eligibility, so the standalone result view and the dashboard (header + cards) stay consistent and adding an affordance is a one-file change. The system is **client-owned** and lives entirely in the webview bundle (`src/v2/renderer/chrome/**`): the server emits only pure context (provider data, stats, capabilities, `data_source`) as JSON on the render output, and the bundle owns the registry, the resolver (placement), and the binder (behavior). Nothing here touches the stateless server contract.
+
+#### Context model
+
+`buildChromeContext()` (`chrome/context.ts`) assembles a `ChromeContext` for the surface being rendered, split into four namespaces so unrelated concerns can't bleed together (`shared/chrome-context.ts`):
+
+- **`core`** — a **sealed** `CoreCtx` (`container`, `renderType`, `permissions`, optional `pin`): the only general-purpose context every chrome may read. It is held shut by a compile-time witness (`Record<keyof CoreCtx, true>`) plus a runtime allowlist and a guardrail test, so growing it is a deliberate, reviewed change rather than a casual diff.
+- **`provider`** — a discriminated `ContextFragment` union: `facade` (`canRefresh: true`, carries `sql`/`stats`) or `direct` (`canRefresh: false`, an inline snapshot). Refreshability is a consequence of the discriminant, not an independent flag; a new provider adds a union member, never a field on `core`.
+- **`render`** — the on-screen payload a chrome forwards when it acts (title, opaque `options`, `renderTool`).
+- **`surface`** — live state of the surrounding surface (interactive/fullscreen, pin count, usage snapshot, namespace) read for eligibility.
+
+#### The chrome contract
+
+Each chrome is declared once via `defineChrome<Slice>` (`chrome/types.ts`):
+
+- **`select(ctx) → Slice | null`** fuses "does this apply here?" with "do I have my data?" — `null` means not shown; a non-null slice is exactly what `render`/`intent` read. Eligibility therefore can't drift out of sync with the data a chrome needs.
+- **`render(slice) → HTMLElement`** is pure presentation.
+- **`intent?(slice) → Intent`** emits one of a closed `IntentType` union (`pin` \| `remove` \| `refresh-all` \| `reload`); a chrome never calls a server tool itself. Presentational chrome (footer notes) omits it.
+- **`effect?(slice, host) → Dispose`** is lifecycle/event behavior (e.g. the focus-reload subscription), driven through the binder via an `EffectHost` and torn down by the surface's `MountScope`.
+- **`region`** (`header-start` \| `header-end` \| `overflow` \| `footer-start` \| `footer-end`), **`scope`** (`item` \| `container`), and **`priority`** govern placement.
+
+#### Pipeline: registry → resolve → frame / binder
+
+`CHROMES` (`chrome/registry.ts`) is **the** single catalog; every surface resolves from it and no surface keeps its own hardcoded list. `resolve(CHROMES, ctx)` (`chrome/resolve.ts`) is the single placement/presence choke point: it runs each chrome's `select`, groups the survivors by region in a fixed `REGION_ORDER`, and is the seam where a future persisted reorder/hide layer would apply (a documented no-op today). The frame (`chrome/frame.ts`) mounts the resolved chrome into the surface's DOM and opens a `MountScope` that owns every effect disposer, so a repaint or teardown removes listeners deterministically. Behavior is mapped in the **binder** (`chrome/binder.ts`): `createDashboardBinder` translates an action to a single `callServerTool` — `pin → pin_query`, `refresh → refresh_pinned_query`, `remove → unpin_query`, `refreshAll → refresh_all_pinned`, `quotaRefresh → get_quota_usage` — and cross-cutting guards (the refresh-all cost confirmation) wrap an entry as middleware (`withCostConfirm`), short-circuiting to a `Cancelled` sentinel when declined. Because the binder is the one place an intent becomes a tool call, the same `pin`/`refresh` intent can map to different tools on different surfaces.
+
+#### Catalog
+
+The eight chromes registered today (`chrome/chromes/*`):
+
+| Chrome | Scope | Region | Shown when | Acts via |
+|--------|-------|--------|------------|----------|
+| `source-note` | item | footer-start | provider is `direct` (inline snapshot) | — (presentational) |
+| `stats-note` | item | footer-end | facade returned scan/timing stats | — (presentational) |
+| `pin` | item | header-end | standalone result, pinnable, `canManagePins` | `pin` intent → `pin_query` |
+| `sync` | container | header-start | dashboard surface | `reload` on `visibilitychange` (effect) |
+| `refresh-all` | container | header-end | dashboard, fullscreen, ≥ 1 pin | `refresh-all` intent → `refresh_all_pinned` (budget-gated) |
+| `quota` | container | header-end | dashboard with a usage snapshot | spend bar; effect refreshes it via `get_quota_usage` |
+| `refresh` | item | header-end | dashboard card, fullscreen | → `refresh_pinned_query` |
+| `remove` | item | overflow (kebab) | dashboard card, fullscreen | `remove` intent → `unpin_query` |
+
+#### Invariants
+
+- **One catalog, data-driven placement** — adding an affordance is one registry entry + one chrome file; it then appears wherever its `select` matches, with no per-surface list to keep in sync.
+- **Sealed shared context** — uncontrolled growth of `CoreCtx` is a build break (witness) and a test failure (allowlist), not a silent diff.
+- **Chrome never calls tools** — it emits a typed `Intent`; the binder is the only place an action becomes a `callServerTool`.
+- **Deterministic effect lifecycle** — every subscription a chrome opens is owned by the `MountScope` and disposed on repaint/teardown; re-rendering a dashboard over an existing one disposes the prior scope first, so exactly one focus listener is ever live.
+- **XSS-safe** — all chrome DOM is built with `textContent`/`createElement`; no `innerHTML`.
+
 ### AFS Spec Integration
 
 The Athena Facade spec is loaded like any other OpenAPI spec and exposed through `search-apis`, `describe-apis`, and `run-apis`. The relevant operations:
