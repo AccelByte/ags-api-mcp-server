@@ -11,7 +11,9 @@ import type {
 } from "@modelcontextprotocol/ext-apps";
 
 import {
+  clampSpan,
   DashboardDataSchema,
+  DIRECT_DATA_SOURCE,
   QuotaUsageSchema,
   RenderOutputSchema,
   type DashboardOutput,
@@ -20,6 +22,28 @@ import {
   type QuotaUsage,
   type RenderOutput,
 } from "../../shared/render-schemas.js";
+import { buildChromeContext } from "../chrome/context.js";
+import { resolve, type ResolvedChrome } from "../chrome/resolve.js";
+import { type ChromeContext } from "../chrome/types.js";
+import {
+  attachEffect,
+  createMountScope,
+  type BindFn,
+  type MountScope,
+} from "../chrome/frame.js";
+import { CHROMES } from "../chrome/registry.js";
+import { buildUsageBar } from "./usage-bar.js";
+import {
+  createDashboardBinder,
+  isCancelled,
+  withCostConfirm,
+} from "../chrome/binder.js";
+// Chrome are resolved from the unified CHROMES registry; only their slice TYPES
+// are referenced here (for the per-chrome wiring casts).
+import { type PinSlice } from "../chrome/chromes/pin.js";
+import { type QuotaSlice } from "../chrome/chromes/quota.js";
+import { type RefreshSlice } from "../chrome/chromes/refresh.js";
+import { ICONS, iconButton } from "./icons.js";
 import { renderChart } from "./chart.js";
 import { renderMetric } from "./metric.js";
 import { renderTable } from "./table.js";
@@ -63,6 +87,10 @@ interface DashboardSession {
   namespace: string | undefined;
   /** Guards against overlapping load_dashboard calls (focus + mount race). */
   loading: boolean;
+  /** Effect/cleanup scope for chrome mounted this paint; disposed on re-paint/teardown. */
+  scope?: MountScope;
+  /** Push a fresh usage snapshot into the quota chrome's bar (set by its effect host). */
+  quotaUpdate?: (usage: QuotaUsage | undefined) => void;
 }
 
 let session: DashboardSession | null = null;
@@ -107,102 +135,6 @@ function isStaticPin(pin: PinnedQueryMeta): boolean {
   );
 }
 
-/** Resolve a span to the 12-col grid: 1–12 honored, >12 → 12, invalid → 4. */
-function clampSpan(span: number | undefined): number {
-  if (typeof span !== "number" || !Number.isFinite(span) || span < 1) {
-    return 4;
-  }
-  return Math.min(12, Math.floor(span));
-}
-
-const SVG_NS = "http://www.w3.org/2000/svg";
-
-/** Build an inline (CSP-safe) stroke icon from one or more SVG path `d` values. */
-function strokeIcon(paths: string[]): SVGElement {
-  const svg = document.createElementNS(SVG_NS, "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "16");
-  svg.setAttribute("height", "16");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "2");
-  svg.setAttribute("stroke-linecap", "round");
-  svg.setAttribute("stroke-linejoin", "round");
-  svg.setAttribute("aria-hidden", "true");
-  for (const d of paths) {
-    const path = document.createElementNS(SVG_NS, "path");
-    path.setAttribute("d", d);
-    svg.appendChild(path);
-  }
-  return svg;
-}
-
-/** Feather-style icon set used by the dashboard chrome (stroke paths / filled dots). */
-const ICONS = {
-  refresh: (): SVGElement =>
-    strokeIcon([
-      "M23 4v6h-6",
-      "M1 20v-6h6",
-      "M3.51 9a9 9 0 0 1 14.85-3.36L23 10",
-      "M20.49 15a9 9 0 0 1-14.85 3.36L1 14",
-    ]),
-  maximize: (): SVGElement =>
-    strokeIcon([
-      "M8 3H5a2 2 0 0 0-2 2v3",
-      "M21 8V5a2 2 0 0 0-2-2h-3",
-      "M3 16v3a2 2 0 0 0 2 2h3",
-      "M16 21h3a2 2 0 0 0 2-2v-3",
-    ]),
-  minimize: (): SVGElement =>
-    strokeIcon([
-      "M8 3v3a2 2 0 0 1-2 2H3",
-      "M21 8h-3a2 2 0 0 1-2-2V3",
-      "M3 16h3a2 2 0 0 1 2 2v3",
-      "M16 21v-3a2 2 0 0 1 2-2h3",
-    ]),
-  trash: (): SVGElement =>
-    strokeIcon([
-      "M3 6h18",
-      "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
-      "M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14",
-    ]),
-  kebab: (): SVGElement => {
-    const svg = document.createElementNS(SVG_NS, "svg");
-    svg.setAttribute("viewBox", "0 0 24 24");
-    svg.setAttribute("width", "16");
-    svg.setAttribute("height", "16");
-    svg.setAttribute("fill", "currentColor");
-    svg.setAttribute("aria-hidden", "true");
-    for (const cy of [5, 12, 19]) {
-      const dot = document.createElementNS(SVG_NS, "circle");
-      dot.setAttribute("cx", "12");
-      dot.setAttribute("cy", String(cy));
-      dot.setAttribute("r", "1.8");
-      svg.appendChild(dot);
-    }
-    return svg;
-  },
-};
-
-/** An icon-only button with an accessible label (shown as a native tooltip). */
-function iconButton(
-  label: string,
-  className: string,
-  icon: SVGElement,
-  onClick: () => void | Promise<void>,
-): HTMLButtonElement {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = `renderer-dashboard-iconbtn ${className}`;
-  button.title = label;
-  button.setAttribute("aria-label", label);
-  button.appendChild(icon);
-  button.addEventListener("click", () => {
-    void onClick();
-  });
-  return button;
-}
-
 /**
  * Inject a "Pin" button into a freshly-rendered single result so the user can
  * keep it on the dashboard. A pin needs only `{title, sql, render_tool,
@@ -223,42 +155,49 @@ export function maybeAddPinAffordance(
   },
   bridge: DashboardHostBridge | undefined,
 ): void {
-  if (!bridge?.callServerTool || payload.data_source !== "facade" || !payload.sql) {
-    return;
-  }
-  const renderTool = CHART_TYPE_TO_RENDER_TOOL[payload.chart_type];
-  if (!renderTool) {
-    return;
-  }
   const actions = root.querySelector<HTMLElement>(".renderer-header-actions");
   if (!actions) {
     return;
   }
 
-  const sql = payload.sql;
-  const title = payload.title ?? "Pinned query";
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "renderer-pin-btn";
-  button.textContent = "Pin";
-  button.title = "Keep this chart on the dashboard";
+  // Eligibility + payload-forwarding are now declared on the `pin` chrome; the
+  // host's ability to call tools maps to the `canManagePins` permission, and
+  // `resolve` is the single presence choke point. Behavior (the tool call) lives
+  // in the binder; this glue only renders the button and reflects the result.
+  const ctx = buildChromeContext({
+    container: "standalone",
+    renderType: payload.chart_type,
+    dataSource: payload.data_source,
+    sql: payload.sql,
+    title: payload.title,
+    options: payload.options,
+    renderTool: CHART_TYPE_TO_RENDER_TOOL[payload.chart_type],
+    permissions: { canManagePins: Boolean(bridge?.callServerTool) },
+  });
+  // Mount only the header-region chrome here (the pin). Footer notes are mounted
+  // by mountShell; nothing else is eligible in a standalone result. (Resolving
+  // the whole registry keeps placement data-driven.)
+  const resolved = resolve(CHROMES, ctx);
+  const entry = resolved["header-start"][0] ?? resolved["header-end"][0];
+  if (!entry || !bridge?.callServerTool) {
+    return;
+  }
+
+  const slice = entry.slice as PinSlice;
+  const intent = entry.chrome.intent?.(slice);
+  const action = intent ? createDashboardBinder(bridge)[intent.type] : undefined;
+  if (!intent || !action) {
+    return;
+  }
+  const title = slice.title;
+  // The chrome renders the bare `.renderer-pin-btn`; we know it's a button.
+  const button = entry.chrome.render(slice) as HTMLButtonElement;
   button.addEventListener("click", () => {
     button.disabled = true;
     button.textContent = "Pinning…";
-    void bridge.callServerTool!({
-      name: "pin_query",
-      arguments: {
-        title,
-        sql,
-        render_tool: renderTool,
-        render_options: payload.options ?? {},
-      },
-    })
+    void action(intent.payload)
       .then((result) => {
-        const code =
-          result._meta && typeof result._meta === "object"
-            ? String((result._meta as { code?: string }).code ?? "")
-            : "";
+        const code = resultCode(result);
         if (result.isError) {
           button.textContent =
             code === "PINNED_QUERIES_UNAVAILABLE"
@@ -276,7 +215,8 @@ export function maybeAddPinAffordance(
           ],
         });
       })
-      .catch(() => {
+      .catch((error) => {
+        console.warn("Pin request failed", error);
         button.disabled = false;
         button.textContent = "Pin";
       });
@@ -294,6 +234,11 @@ export function renderDashboard(
   bridge: DashboardHostBridge,
   displayMode: McpUiDisplayMode | undefined,
 ): void {
+  // Re-rendering a dashboard over an existing one (dashboard→dashboard bypasses
+  // clearDashboardMode in app-shell) must release the prior chrome scope here;
+  // otherwise its sync `visibilitychange` listener and quota hook leak and stack,
+  // re-firing loadData() once per leaked listener on the next focus.
+  session?.scope?.dispose();
   session = {
     root,
     bridge,
@@ -337,6 +282,7 @@ export function refreshDashboardMode(
 /** Tear down dashboard-specific document styling (e.g. switching to another view). */
 export function clearDashboardMode(): void {
   resetMenus();
+  session?.scope?.dispose();
   if (typeof document !== "undefined") {
     document.body.classList.remove("renderer-dashboard-mode");
     document.documentElement.style.removeProperty("height");
@@ -399,14 +345,9 @@ function applySizing(
   }
 }
 
-/** Re-fetch on focus so pinning from a single-result widget isn't missed. */
-if (typeof document !== "undefined") {
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && session) {
-      void loadData();
-    }
-  });
-}
+// Re-fetch on focus so pinning from a single-result widget isn't missed. This is
+// now the `sync` chrome's effect (mounted per paint, torn down by the scope) — it
+// dispatches `reload` → `containerBind` → loadData. No module-level listener.
 
 function paint(): void {
   if (!session) {
@@ -414,6 +355,11 @@ function paint(): void {
   }
   const { root } = session;
   resetMenus();
+  // Tear down the prior paint's chrome effects (e.g. the quota update hook) and
+  // start a fresh scope for the chrome mounted below.
+  session.scope?.dispose();
+  session.scope = createMountScope();
+  session.quotaUpdate = undefined;
   root.replaceChildren();
   session.cardEls.clear();
 
@@ -484,101 +430,83 @@ function buildHeader(): HTMLElement {
 
   const actions = document.createElement("div");
   actions.className = "renderer-header-actions";
-  if (isInteractive(session_.displayMode) && session_.pins.length > 0) {
-    actions.append(
-      iconButton(
-        "Refresh all",
-        "renderer-dashboard-refresh-all",
-        ICONS.refresh(),
-        () => {
-          void refreshAll();
-        },
-      ),
-    );
+
+  // Container-scoped chrome (refresh-all today) flows through resolve → binder;
+  // eligibility (dashboard + interactive + has pins) is declared in its `select`.
+  const containerCtx = buildChromeContext({
+    container: "dashboard",
+    interactive: isInteractive(session_.displayMode),
+    pinCount: session_.pins.length,
+    usage: session_.usage,
+    namespace: session_.namespace,
+  });
+  // The container dispatcher: an intent type → local orchestration. Used both for
+  // click intents (refresh-all) and effect dispatches (sync's `reload`).
+  const containerBind: BindFn = (type) => {
+    if (type === "reload") {
+      void loadData();
+    } else if (type === "refresh-all") {
+      void refreshAll();
+    }
+    return Promise.resolve({});
+  };
+  // One resolve for the whole container. Actionable/behavior header chrome
+  // (refresh-all, sync) mounts into the actions row; `quota` (the spend bar) is
+  // mounted into the aside below. Effects run via attachEffect on the scope.
+  const resolvedHeader = resolve(CHROMES, containerCtx);
+  for (const region of ["header-start", "header-end"] as const) {
+    for (const { chrome, slice } of resolvedHeader[region]) {
+      if (chrome.id === "quota") {
+        continue; // the spend bar is mounted into the aside below
+      }
+      const view = chrome.render(slice);
+      const intent = chrome.intent?.(slice);
+      const onActivate = intent
+        ? () => {
+            void containerBind(intent.type, intent.payload);
+          }
+        : undefined;
+      if (onActivate) {
+        view.addEventListener("click", onActivate);
+      }
+      actions.append(view);
+      if (session_.scope) {
+        attachEffect(chrome, slice, view, session_.scope, containerBind, onActivate);
+      }
+    }
   }
   actions.append(buildModeToggle());
 
-  aside.append(actions, buildUsageBar(session_.usage));
+  // The spend/usage bar is the `quota` container chrome. It owns its DOM via the
+  // effect host returned by attachEffect; the dashboard drives in-place updates
+  // through `session.quotaUpdate` (called from reconcile when `usage` changes).
+  // The scope's cleanup clears the hook so a stale host can't be updated.
+  const quotaEntry = resolvedHeader["header-end"].find(
+    (entry) => entry.chrome.id === "quota",
+  );
+  const usageBar = quotaEntry
+    ? quotaEntry.chrome.render(quotaEntry.slice)
+    : buildUsageBar(session_.usage);
+  aside.append(actions, usageBar);
+  if (quotaEntry && session_.scope) {
+    const quotaSlice = quotaEntry.slice as QuotaSlice;
+    const host = attachEffect(
+      quotaEntry.chrome,
+      quotaSlice,
+      usageBar,
+      session_.scope,
+    );
+    session_.quotaUpdate = (usage) => host.update({ ...quotaSlice, usage });
+    session_.scope.addDispose(() => {
+      if (session) {
+        session.quotaUpdate = undefined;
+      }
+    });
+  }
+
   bar.append(headerText, aside);
   container.append(bar);
   return container;
-}
-
-function round2(value: number | undefined): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return "—";
-  }
-  return `$${value.toFixed(2)}`;
-}
-
-function buildUsageBar(usage: QuotaUsage | undefined): HTMLElement {
-  const bar = document.createElement("div");
-  bar.className = "renderer-usage-bar";
-
-  if (!usage || (!usage.monthly && !usage.lifetime)) {
-    const empty = document.createElement("span");
-    empty.className = "renderer-usage-empty";
-    empty.textContent = "Usage unavailable";
-    bar.append(empty);
-    return bar;
-  }
-
-  if (usage.monthly) {
-    const m = usage.monthly;
-    const label = m.period ? `Monthly · ${m.period}` : "Monthly";
-    const suffix =
-      typeof m.projected_run_rate_usd === "number" &&
-      m.projected_run_rate_usd > 0
-        ? ` · projected ${round2(m.projected_run_rate_usd)}`
-        : "";
-    bar.append(buildUsageMeter(label, m.used_usd, m.limit_usd ?? null, suffix));
-  }
-  if (usage.lifetime) {
-    const l = usage.lifetime;
-    bar.append(
-      buildUsageMeter("Lifetime", l.used_usd, l.limit_usd ?? null, ""),
-    );
-  }
-  return bar;
-}
-
-function buildUsageMeter(
-  label: string,
-  used: number | undefined,
-  limit: number | null,
-  suffix: string,
-): HTMLElement {
-  const cell = document.createElement("div");
-  cell.className = "renderer-usage-cell";
-
-  const head = document.createElement("div");
-  head.className = "renderer-usage-head";
-  const name = document.createElement("span");
-  name.className = "renderer-usage-label";
-  name.textContent = label;
-  const value = document.createElement("span");
-  value.className = "renderer-usage-value";
-  value.textContent =
-    limit !== null
-      ? `${round2(used)} / ${round2(limit)}${suffix}`
-      : `${round2(used)}${suffix}`;
-  head.append(name, value);
-  cell.append(head);
-
-  if (limit !== null && limit > 0 && typeof used === "number") {
-    const track = document.createElement("div");
-    track.className = "renderer-usage-track";
-    const fill = document.createElement("div");
-    fill.className = "renderer-usage-fill";
-    const ratio = Math.min(1, Math.max(0, used / limit));
-    fill.style.width = `${(ratio * 100).toFixed(1)}%`;
-    if (used >= limit) {
-      fill.dataset.state = "over";
-    }
-    track.append(fill);
-    cell.append(track);
-  }
-  return cell;
 }
 
 // ---------- Cards ----------
@@ -633,21 +561,38 @@ function buildCard(pin: PinnedQueryMeta): HTMLElement {
   if (interactive) {
     const tools = document.createElement("div");
     tools.className = "renderer-dashboard-card-tools";
-    tools.append(
-      iconButton(
-        "Refresh",
-        "renderer-dashboard-card-refresh",
-        ICONS.refresh(),
-        () => {
-          if (staticPin) {
-            rerenderCard(pin);
-          } else {
-            void refreshOne(pin);
-          }
-        },
-      ),
-      buildCardMenu(pin),
-    );
+    // ONE resolve for the whole card. Primary chrome (refresh) mounts into the
+    // tool row; overflow chrome (Remove) is hosted by the kebab. Eligibility and
+    // placement live on each chrome's `select`/`region` — not hardcoded here.
+    // Refresh is dual-mode: live → refreshOne (server), static → rerenderCard.
+    const resolved = resolve(CHROMES, cardChromeContext(pin));
+    // Only the header (tool-row) regions mount here; overflow goes to the kebab
+    // below, and FOOTER notes (e.g. "source: inline" for a static/direct pin)
+    // belong to the card *body* — mountShell renders them there, not in the tools.
+    for (const region of ["header-start", "header-end"] as const) {
+      for (const { chrome, slice } of resolved[region]) {
+        const view = chrome.render(slice);
+        if (chrome.id === "refresh") {
+          const canRefresh = (slice as RefreshSlice).canRefresh;
+          view.addEventListener("click", () => {
+            if (canRefresh) {
+              void refreshOne(pin);
+            } else {
+              rerenderCard(pin);
+            }
+          });
+        }
+        tools.append(view);
+      }
+    }
+    const kebab = buildOverflowMenu(resolved.overflow, ({ chrome }) => {
+      if (chrome.id === "remove") {
+        void removeOne(pin);
+      }
+    });
+    if (kebab) {
+      tools.append(kebab);
+    }
     header.append(tools);
   }
   wrapper.append(header);
@@ -720,8 +665,13 @@ function renderCardBody(
   }
 }
 
-/** Dispatch a resolved RenderOutput into the matching single-result view. */
-function renderResolvedOutput(
+/**
+ * Dispatch a resolved single-result RenderOutput into its matching view. Shared
+ * by the dashboard (pinned card body) and the app-shell (top-level result) so
+ * the table/metric/chart routing lives in one place. Container types
+ * (text_editor, dashboard) are handled by callers before this is reached.
+ */
+export function renderResolvedOutput(
   container: HTMLElement,
   output: RenderOutput,
 ): void {
@@ -737,7 +687,9 @@ function renderResolvedOutput(
     output.chart_type === "text_editor" ||
     output.chart_type === "dashboard"
   ) {
-    throw new Error(`Unsupported pin render type: ${output.chart_type}`);
+    throw new Error(
+      `Unsupported single-result render type: ${output.chart_type}`,
+    );
   }
   renderChart(container, output);
 }
@@ -822,8 +774,36 @@ function resetMenus(): void {
   }
 }
 
-/** A kebab (⋮) menu hosting secondary/destructive per-card actions (Remove; future Configure). */
-function buildCardMenu(pin: PinnedQueryMeta): HTMLElement {
+/**
+ * The chrome context for one dashboard card — shared by all card-scoped chrome.
+ * The provider fragment is derived from the pin: a static (snapshot) pin maps to
+ * `direct` (not refreshable), a live pin to `facade` (refreshable, carries SQL).
+ */
+function cardChromeContext(pin: PinnedQueryMeta): ChromeContext {
+  return buildChromeContext({
+    container: "dashboard-card",
+    pin: { pinId: pin.pin_id },
+    dataSource: isStaticPin(pin) ? DIRECT_DATA_SOURCE : "facade",
+    sql: pin.sql,
+    interactive: isInteractive(session?.displayMode),
+    permissions: { canManagePins: Boolean(session?.bridge.callServerTool) },
+  });
+}
+
+/**
+ * A kebab (⋮) dropdown that HOSTS the `overflow` region — the generic collapse
+ * target. The mount layer (buildCard) passes the resolved overflow entries; this
+ * renders each into the menu and wires `onActivate` (the menu closes on activation).
+ * Returns null when nothing overflows, so an empty kebab never shows. The open/
+ * close machinery (single-open, outside-click, Escape) lives in this module.
+ */
+function buildOverflowMenu(
+  entries: ResolvedChrome[],
+  onActivate: (entry: ResolvedChrome) => void,
+): HTMLElement | null {
+  if (entries.length === 0) {
+    return null;
+  }
   const container = document.createElement("div");
   container.className = "renderer-dashboard-card-menu";
 
@@ -849,20 +829,14 @@ function buildCardMenu(pin: PinnedQueryMeta): HTMLElement {
   menu.className = "renderer-dashboard-card-menu-list";
   menu.setAttribute("role", "menu");
 
-  const remove = document.createElement("button");
-  remove.type = "button";
-  remove.className =
-    "renderer-dashboard-card-menu-item renderer-dashboard-card-remove";
-  remove.setAttribute("role", "menuitem");
-  remove.appendChild(ICONS.trash());
-  const removeLabel = document.createElement("span");
-  removeLabel.textContent = "Remove";
-  remove.appendChild(removeLabel);
-  remove.addEventListener("click", () => {
-    closeMenu(container);
-    void removeOne(pin);
-  });
-  menu.append(remove);
+  for (const entry of entries) {
+    const item = entry.chrome.render(entry.slice);
+    item.addEventListener("click", () => {
+      closeMenu(container);
+      onActivate(entry);
+    });
+    menu.append(item);
+  }
 
   container.append(toggle, menu);
   return container;
@@ -960,9 +934,8 @@ async function refreshUsage(): Promise<void> {
     return;
   }
   try {
-    const result = await session_.bridge.callServerTool({
-      name: "get_quota_usage",
-      arguments: { namespace: session_.namespace },
+    const result = await createDashboardBinder(session_.bridge).quotaRefresh({
+      namespace: session_.namespace,
     });
     if (result.isError || !session) {
       return;
@@ -970,11 +943,13 @@ async function refreshUsage(): Promise<void> {
     session.usage = QuotaUsageSchema.parse(result.structuredContent);
     reconcile();
   } catch (error) {
-    // Usage is best-effort — keep the last-known header in place. A parse failure
-    // here means the upstream usage shape drifted; log it so the header silently
-    // freezing is diagnosable.
+    // Usage is best-effort — keep the last-known header in place. Log either way
+    // so a silently frozen header stays diagnosable: a ZodError means the upstream
+    // usage shape drifted; anything else is a transport/host failure.
     if (error instanceof z.ZodError) {
       console.error("get_quota_usage returned an unexpected shape", error);
+    } else {
+      console.warn("get_quota_usage refresh failed", error);
     }
   }
 }
@@ -1009,9 +984,15 @@ function reconcile(): void {
   );
   const scrollTop = scroller?.scrollTop ?? 0;
 
-  // Usage bar: replace in place (it's nested in the header aside, so swap by node).
-  const oldBar = s.root.querySelector(".renderer-usage-bar");
-  oldBar?.replaceWith(buildUsageBar(s.usage));
+  // Usage bar: the quota chrome owns its DOM — push the latest snapshot through
+  // its effect host (re-renders in place). Fall back to a direct swap if the
+  // chrome isn't mounted (e.g. transient pre-paint reconcile).
+  if (s.quotaUpdate) {
+    s.quotaUpdate(s.usage);
+  } else {
+    const oldBar = s.root.querySelector(".renderer-usage-bar");
+    oldBar?.replaceWith(buildUsageBar(s.usage));
+  }
 
   // Cards: if the set/order changed materially, repaint; else update bodies.
   const sameSet =
@@ -1058,16 +1039,13 @@ async function refreshOne(pin: PinnedQueryMeta): Promise<void> {
   session_.loading = true;
   setCardLoading(pin.pin_id);
   try {
-    const result = await session_.bridge.callServerTool({
-      name: "refresh_pinned_query",
-      arguments: {
-        pin_id: pin.pin_id,
-        render_tool: pin.render_tool,
-        render_options: pin.render_options,
-        title: pin.title,
-        sql: pin.sql,
-        namespace: session_.namespace,
-      },
+    const result = await createDashboardBinder(session_.bridge).refresh({
+      pin_id: pin.pin_id,
+      render_tool: pin.render_tool,
+      render_options: pin.render_options,
+      title: pin.title,
+      sql: pin.sql,
+      namespace: session_.namespace,
     });
     if (result.isError) {
       setCardError(pin.pin_id, errorText(result));
@@ -1092,23 +1070,30 @@ async function refreshAll(): Promise<void> {
   if (!session_?.bridge.callServerTool || session_.pins.length === 0) {
     return;
   }
-  // Budget-gated: confirm with the last-known scan estimate before re-running.
-  if (!confirmRefreshAll(session_.pins, session_.cards)) {
-    return;
-  }
-  // Hold the shared load guard so a focus self-reload can't race the refresh.
-  session_.loading = true;
-  for (const pin of session_.pins) {
-    setCardLoading(pin.pin_id);
-  }
+  // Cost confirmation is binder middleware, not a button property (plan §2): the
+  // wrapped action — hold the load guard, mark cards loading, then re-run — runs
+  // only if the budget gate is confirmed; declining short-circuits to Cancelled.
+  let started = false;
+  const run = withCostConfirm(
+    () => confirmRefreshAll(session_.pins, session_.cards),
+    (payload) => {
+      started = true;
+      // Hold the shared load guard so a focus self-reload can't race the refresh.
+      session_.loading = true;
+      for (const pin of session_.pins) {
+        setCardLoading(pin.pin_id);
+      }
+      return createDashboardBinder(session_.bridge).refreshAll(payload);
+    },
+  );
   try {
-    const result = await session_.bridge.callServerTool({
-      name: "refresh_all_pinned",
-      arguments: {
-        pins: pinsToInput(session_.pins),
-        namespace: session_.namespace,
-      },
+    const result = await run({
+      pins: pinsToInput(session_.pins),
+      namespace: session_.namespace,
     });
+    if (isCancelled(result)) {
+      return;
+    }
     if (result.isError) {
       showReconnectHint(errorText(result));
       return;
@@ -1117,7 +1102,7 @@ async function refreshAll(): Promise<void> {
   } catch (error) {
     showReconnectHint(error instanceof Error ? error.message : String(error));
   } finally {
-    if (session) {
+    if (started && session) {
       session.loading = false;
     }
   }
@@ -1132,14 +1117,11 @@ async function removeOne(pin: PinnedQueryMeta): Promise<void> {
   // the store is unavailable) just drop locally and tell the model.
   if (session_.bridge.callServerTool && !pin.pin_id.startsWith("mh-")) {
     try {
-      const result = await session_.bridge.callServerTool({
-        name: "unpin_query",
-        arguments: { pin_id: pin.pin_id, namespace: session_.namespace },
+      const result = await createDashboardBinder(session_.bridge).remove({
+        pin_id: pin.pin_id,
+        namespace: session_.namespace,
       });
-      const code =
-        result._meta && typeof result._meta === "object"
-          ? String((result._meta as { code?: string }).code ?? "")
-          : "";
+      const code = resultCode(result);
       // NOT_FOUND is idempotent success (the pin is already gone). Anything else
       // — including PINNED_QUERIES_UNAVAILABLE — means the removal did NOT happen
       // server-side: don't drop the card and tell the model it's gone, or it
@@ -1234,14 +1216,18 @@ function cardBody(pinId: string): HTMLElement | null {
   );
 }
 
+/** Read the `code` string from a tool result's `_meta`, or "" when absent. */
+function resultCode(result: { _meta?: Record<string, unknown> }): string {
+  return result._meta && typeof result._meta === "object"
+    ? String((result._meta as { code?: string }).code ?? "")
+    : "";
+}
+
 function handleLoadError(result: {
   _meta?: Record<string, unknown>;
   content?: Array<{ type?: string; text?: string }>;
 }): void {
-  const code =
-    result._meta && typeof result._meta === "object"
-      ? String((result._meta as { code?: string }).code ?? "")
-      : "";
+  const code = resultCode(result);
   const isAuth =
     /401|unauthor|HTTP_401/i.test(code) ||
     /401|unauthor/i.test(errorText(result));

@@ -712,6 +712,32 @@ describe("refresh_all_pinned quota stop", () => {
       /quota/i,
     );
   });
+
+  test("renders a still-running (202 NOT_READY) pin as stale, not an error", async () => {
+    const runApi = (async (args: { path?: string }) => {
+      const path = args.path ?? "";
+      if (path.includes("/quota/usage")) {
+        return USAGE_OK();
+      }
+      if (path.includes("/refresh")) {
+        // A 202 means the re-run went async — refreshPin throws NOT_READY.
+        return { response: { status: 202, data: {} } };
+      }
+      return { response: { status: 200, data: {} } };
+    }) as RunApi;
+    const tools = setupTools(runApi);
+    const result = await tools.get("refresh_all_pinned")!.cb(
+      { pins: [BAR_PIN], namespace: "studioalpha" },
+      EXTRA as never,
+    );
+
+    const data = DashboardDataSchema.parse(result.structuredContent);
+    assert.equal(data.pins.length, 1);
+    // Still-running is a pending state, not a failure: stale, no error card.
+    assert.equal(data.pins[0].stale, true);
+    assert.equal(data.pins[0].error, undefined);
+    assert.equal(data.pins[0].render_output, undefined);
+  });
 });
 
 describe("load_dashboard with a pin store", () => {

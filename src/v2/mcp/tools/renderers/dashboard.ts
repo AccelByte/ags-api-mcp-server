@@ -12,6 +12,7 @@ import {
   clampSpan,
   DashboardDataSchema,
   DashboardOutputSchema,
+  DIRECT_DATA_SOURCE,
   isStaticPin,
   PinnedQueryCardSchema,
   PinnedQueryMetaSchema,
@@ -210,7 +211,7 @@ function buildStaticCard(pin: PinnedQueryMeta): PinnedQueryCard {
         columns: pin.data_columns ?? [],
         rows: (pin.data_rows ?? []).slice(0, MAX_ROWS_DEFAULT),
       },
-      { title: pin.title, dataSource: "direct" },
+      { title: pin.title, dataSource: DIRECT_DATA_SOURCE },
     );
     return PinnedQueryCardSchema.parse({
       ...base,
@@ -283,6 +284,10 @@ export function setupDashboardTools(
                   `HTTP_${status}`,
               )
             : `HTTP_${status}`;
+        log.warn(
+          { code, status },
+          "quota/usage returned an error; spend header keeps its last value.",
+        );
         return {
           error: new FacadeError(code, `quota/usage returned ${status}.`),
         };
@@ -298,6 +303,10 @@ export function setupDashboardTools(
       });
       return { usage };
     } catch (error) {
+      log.warn(
+        { err: error instanceof Error ? error.message : String(error) },
+        "quota/usage fetch failed; spend header keeps its last value.",
+      );
       return {
         error:
           error instanceof FacadeError
@@ -844,6 +853,26 @@ export function setupDashboardTools(
         } catch (error) {
           if (error instanceof FacadeError && isQuotaError(error)) {
             quota.stopped = true;
+          }
+          // A still-running/expired refresh (202 NOT_READY, 404, TIMEOUT, …) is a
+          // pending state, not a failure — keep the card as stale, matching the
+          // load path (resolvePinCard). Quota errors fall through to an error card
+          // so the user sees why the batch stopped.
+          if (
+            error instanceof FacadeError &&
+            !isQuotaError(error) &&
+            STALE_CODES.has(error.code)
+          ) {
+            return PinnedQueryCardSchema.parse({
+              pin_id: pin.pin_id,
+              title: pin.title,
+              render_tool: pin.render_tool,
+              render_options: pin.render_options,
+              sql: pin.sql,
+              query_id: pin.query_id ?? undefined,
+              span: pin.span,
+              stale: true,
+            });
           }
           return PinnedQueryCardSchema.parse({
             pin_id: pin.pin_id,

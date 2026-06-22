@@ -19,6 +19,11 @@ import type {
   RenderColumnHint,
   RenderStats,
 } from "../../shared/render-schemas.js";
+import type { ChromeContainer } from "../../shared/chrome-context.js";
+import { buildChromeContext } from "../chrome/context.js";
+import { createFrame, mountResolved } from "../chrome/frame.js";
+import { resolve } from "../chrome/resolve.js";
+import { CHROMES } from "../chrome/registry.js";
 import { getRowSetMeta, type Primitive, type Row } from "./types.js";
 
 let chartJsRegistered = false;
@@ -96,6 +101,12 @@ export interface MountShellOptions {
   stats?: RenderStats;
   sql?: string;
   tableData?: FoldoutTableData;
+  /**
+   * Where this shell lives. Footer notes are container-independent, so callers
+   * may omit it (defaults to "standalone"); container-scoped chrome added in
+   * later phases reads it.
+   */
+  container?: ChromeContainer;
 }
 
 export interface ShellRefs {
@@ -103,118 +114,33 @@ export interface ShellRefs {
   footer: HTMLDivElement;
 }
 
-export function appendInlineSourceNote(footer: HTMLElement, dataSource?: string): void {
-  if (dataSource !== "direct") {
-    return;
-  }
-  const note = document.createElement("span");
-  note.className = "renderer-footer-source";
-  note.textContent = "source: inline";
-  footer.appendChild(note);
-}
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) {
-    return `${bytes} B`;
-  }
-  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
-  let value = bytes;
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-  const digits = unitIndex === 0 || value >= 100 ? 0 : value >= 10 ? 1 : 2;
-  return `${value.toFixed(digits)} ${units[unitIndex]}`;
-}
-
-function formatDurationMs(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) {
-    return `${ms} ms`;
-  }
-  if (ms < 1000) {
-    return `${Math.round(ms)} ms`;
-  }
-  const seconds = ms / 1000;
-  if (seconds < 60) {
-    return `${seconds.toFixed(seconds >= 10 ? 1 : 2)} s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  const remainder = Math.round(seconds - minutes * 60);
-  return `${minutes}m ${remainder}s`;
-}
-
-export function appendStatsNote(footer: HTMLElement, stats?: RenderStats): void {
-  if (!stats) {
-    return;
-  }
-  const parts: string[] = [];
-  if (typeof stats.data_scanned_bytes === "number") {
-    parts.push(`scanned ${formatBytes(stats.data_scanned_bytes)}`);
-  }
-  if (typeof stats.engine_execution_time_ms === "number") {
-    parts.push(formatDurationMs(stats.engine_execution_time_ms));
-  }
-  if (parts.length === 0) {
-    return;
-  }
-  const note = document.createElement("span");
-  note.className = "renderer-footer-stats";
-  note.textContent = parts.join(" · ");
-  footer.appendChild(note);
-}
-
 export function mountShell(
   root: HTMLElement,
   options: MountShellOptions = {},
 ): ShellRefs {
-  const shell = document.createElement("section");
-  shell.className = "renderer-shell";
+  const frame = createFrame(root, {
+    title: options.title,
+    description: options.description,
+    chartType: options.chartType,
+  });
 
-  const header = document.createElement("div");
-  header.className = "renderer-header";
+  mountFoldouts(frame.shell, frame.footer, options);
 
-  const headerText = document.createElement("div");
-  headerText.className = "renderer-header-text";
+  // Chrome flows through the pipe (resolve -> frame). The shell resolves the
+  // whole registry; in this standalone, no-permissions context only the footer
+  // notes are eligible (pin needs `canManagePins`, which only the interactive
+  // host glue grants; container/card chrome needs another container). The pin is
+  // mounted separately by `maybeAddPinAffordance` where the bridge is available.
+  const ctx = buildChromeContext({
+    container: options.container,
+    renderType: options.chartType,
+    dataSource: options.dataSource,
+    stats: options.stats,
+    sql: options.sql,
+  });
+  mountResolved(frame, resolve(CHROMES, ctx));
 
-  if (options.chartType) {
-    const eyebrow = document.createElement("span");
-    eyebrow.className = "renderer-eyebrow";
-    eyebrow.textContent = options.chartType;
-    headerText.appendChild(eyebrow);
-  }
-
-  const heading = document.createElement("h1");
-  heading.className = "renderer-title";
-  heading.textContent = options.title ?? "Analytics visualization";
-  headerText.appendChild(heading);
-
-  if (options.description) {
-    const description = document.createElement("p");
-    description.className = "renderer-description";
-    description.textContent = options.description;
-    headerText.appendChild(description);
-  }
-
-  const actions = document.createElement("div");
-  actions.className = "renderer-header-actions";
-
-  header.append(headerText, actions);
-
-  const body = document.createElement("div");
-  body.className = "renderer-chart-body";
-
-  const footer = document.createElement("div");
-  footer.className = "renderer-footer";
-
-  shell.append(header, body, footer);
-  root.appendChild(shell);
-
-  mountFoldouts(shell, footer, options);
-  appendInlineSourceNote(footer, options.dataSource);
-  appendStatsNote(footer, options.stats);
-
-  return { body, footer };
+  return { body: frame.body, footer: frame.footer };
 }
 
 const SQL_KEYWORDS = new Set([

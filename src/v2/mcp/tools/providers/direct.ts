@@ -4,6 +4,7 @@
 
 import { z } from "zod/v3";
 
+import { DIRECT_DATA_SOURCE } from "../../../shared/render-schemas.js";
 import type { Provider, ProviderColumn, ProviderData } from "./interface.js";
 
 const ProviderColumnSchema = z
@@ -15,7 +16,7 @@ const ProviderColumnSchema = z
 
 function createDirectProvider(): Provider {
   return {
-    name: "direct",
+    name: DIRECT_DATA_SOURCE,
     schemaFields: {
       data_columns: z
         .array(ProviderColumnSchema)

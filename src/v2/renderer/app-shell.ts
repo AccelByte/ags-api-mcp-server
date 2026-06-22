@@ -16,16 +16,14 @@ import {
   BUNDLE_VERSION,
   RenderOutputSchema,
 } from "../shared/render-schemas.js";
-import { renderChart } from "./views/chart.js";
 import {
   clearDashboardMode,
   type DashboardHostBridge,
   maybeAddPinAffordance,
   refreshDashboardMode,
   renderDashboard,
+  renderResolvedOutput,
 } from "./views/dashboard.js";
-import { renderMetric } from "./views/metric.js";
-import { renderTable } from "./views/table.js";
 import {
   type EditorHostBridge,
   refreshTextEditorMode,
@@ -222,19 +220,7 @@ export function renderToolResult(
     return;
   }
 
-  if (parsed.chart_type === "table") {
-    renderTable(element, parsed);
-    maybeAddPinAffordance(element, parsed, dashboardHost?.bridge);
-    return;
-  }
-
-  if (parsed.chart_type === "metric") {
-    renderMetric(element, parsed);
-    maybeAddPinAffordance(element, parsed, dashboardHost?.bridge);
-    return;
-  }
-
-  renderChart(element, parsed);
+  renderResolvedOutput(element, parsed);
   maybeAddPinAffordance(element, parsed, dashboardHost?.bridge);
 }
 

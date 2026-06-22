@@ -127,4 +127,31 @@ describe("renderer app shell", () => {
 
     assert.match(root.textContent ?? "", /42/);
   });
+
+  test("routes a dashboard result to the dashboard view (chart_type dispatch branch)", async () => {
+    const root = resetRoot();
+    const app = createFakeApp({ "ags/bundleVersion": BUNDLE_VERSION });
+    const noopAppliers: RendererHostStyleAppliers = {
+      applyTheme() {},
+      applyStyleVariables() {},
+      applyFonts() {},
+    };
+    await bootstrapRenderer(app, { root, styleAppliers: noopAppliers });
+
+    app.ontoolresult?.({
+      structuredContent: {
+        chart_type: "dashboard",
+        namespace: "studioalpha",
+        pins: [],
+      },
+    });
+
+    // The chart_type:"dashboard" branch routed to the dashboard view (empty-board
+    // shell), not the single-result chart/metric path.
+    assert.ok(
+      root.querySelector(".renderer-dashboard"),
+      "expected the dashboard shell to render",
+    );
+    assert.match(root.textContent ?? "", /No pinned queries yet/);
+  });
 });

@@ -138,6 +138,31 @@ describe("pinned-queries provider", () => {
       assert.equal(calls[0].method, "DELETE");
       assert.ok(calls[0].path?.includes("/pinned-queries/{id}"));
     });
+
+    test("maps a 4xx with an upstream error envelope to that FacadeError code", async () => {
+      const { runApi } = fakeRunApi(() => ({
+        response: {
+          status: 404,
+          data: { error: { code: "NOT_FOUND", message: "already gone" } },
+        },
+      }));
+      await assert.rejects(
+        () => deletePin(tools(runApi), "studioalpha", "p1", "tok"),
+        (err: unknown) =>
+          err instanceof FacadeError && err.code === "NOT_FOUND",
+      );
+    });
+
+    test("falls back to HTTP_<status> when a 4xx has no error envelope", async () => {
+      const { runApi } = fakeRunApi(() => ({
+        response: { status: 403, data: {} },
+      }));
+      await assert.rejects(
+        () => deletePin(tools(runApi), "studioalpha", "p1", "tok"),
+        (err: unknown) =>
+          err instanceof FacadeError && err.code === "HTTP_403",
+      );
+    });
   });
 
   describe("refreshPin", () => {

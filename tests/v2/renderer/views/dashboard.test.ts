@@ -562,6 +562,299 @@ describe("dashboard view", () => {
   });
 });
 
+describe("refresh-all (container chrome)", () => {
+  const originalConfirm = globalThis.window?.confirm;
+  afterEach(() => {
+    if (globalThis.window) {
+      globalThis.window.confirm = originalConfirm as typeof window.confirm;
+    }
+  });
+
+  function renderFullscreen(
+    calls: Array<{ name: string; args?: Record<string, unknown> }>,
+    displayMode: "inline" | "fullscreen" = "fullscreen",
+  ): HTMLElement {
+    const el = root();
+    // load_dashboard must return the same pins as the metadata, or applyLoadedData
+    // replaces session.pins (with []) and the header repaints without refresh-all.
+    const loaded: DashboardData = {
+      namespace: "studioalpha",
+      pins: [
+        {
+          pin_id: "p1",
+          title: "Headline metric",
+          render_tool: "render_metric",
+          render_options: { value: "v" },
+          render_output: {
+            chart_type: "metric",
+            data: { columns: [{ name: "v", type: "bigint" }], rows: [["42"]] },
+            options: { value: "v" },
+          },
+        },
+        {
+          pin_id: "p2",
+          title: "Stale pin",
+          render_tool: "render_table",
+          render_options: {},
+          stale: true,
+        },
+      ],
+    };
+    renderDashboard(el, metaPayload(), makeBridge(loaded, calls), displayMode);
+    return el;
+  }
+
+  test("button shows in fullscreen with pins; confirm → calls refresh_all_pinned", async () => {
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    const el = renderFullscreen(calls);
+    await flush();
+
+    const button = el.querySelector<HTMLButtonElement>(
+      ".renderer-dashboard-refresh-all",
+    );
+    assert.ok(button, "expected a Refresh all button in fullscreen with pins");
+
+    window.confirm = () => true;
+    const before = calls.length;
+    button.click();
+    await flush();
+    assert.ok(
+      calls.slice(before).some((c) => c.name === "refresh_all_pinned"),
+      "confirming should call refresh_all_pinned",
+    );
+  });
+
+  test("declining the cost confirm does not call refresh_all_pinned", async () => {
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    const el = renderFullscreen(calls);
+    await flush();
+
+    window.confirm = () => false;
+    const before = calls.length;
+    el.querySelector<HTMLButtonElement>(".renderer-dashboard-refresh-all")?.click();
+    await flush();
+    assert.equal(
+      calls.slice(before).some((c) => c.name === "refresh_all_pinned"),
+      false,
+      "declining must not call refresh_all_pinned",
+    );
+  });
+
+  test("button is absent in inline (non-interactive) display", async () => {
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    const el = renderFullscreen(calls, "inline");
+    await flush();
+    assert.equal(el.querySelector(".renderer-dashboard-refresh-all"), null);
+  });
+});
+
+describe("sync chrome (reload on refocus)", () => {
+  test("a visibilitychange→visible reloads the board via load_dashboard", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    const loaded: DashboardData = { namespace: "studioalpha", pins: [] };
+    renderDashboard(el, metaPayload(), makeBridge(loaded, calls), "fullscreen");
+    await flush();
+
+    // The behavior-only sync marker is mounted in the dashboard header.
+    assert.ok(
+      el.querySelector(".renderer-dashboard-sync"),
+      "expected the sync marker in the dashboard header",
+    );
+
+    const before = calls.filter((c) => c.name === "load_dashboard").length;
+    Object.defineProperty(document, "visibilityState", {
+      value: "visible",
+      configurable: true,
+    });
+    document.dispatchEvent(new CustomEvent("visibilitychange"));
+    await flush();
+
+    const after = calls.filter((c) => c.name === "load_dashboard").length;
+    assert.ok(after > before, "becoming visible should re-run load_dashboard");
+  });
+
+  test("re-rendering a dashboard disposes the prior focus listener (no scope leak)", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    const loaded: DashboardData = { namespace: "studioalpha", pins: [] };
+    let liveVis = 0;
+    const realAdd = document.addEventListener.bind(document);
+    const realRemove = document.removeEventListener.bind(document);
+    const countingAdd: typeof document.addEventListener = (
+      type,
+      listener,
+      options,
+    ) => {
+      if (type === "visibilitychange") liveVis += 1;
+      realAdd(type, listener, options);
+    };
+    const countingRemove: typeof document.removeEventListener = (
+      type,
+      listener,
+      options,
+    ) => {
+      if (type === "visibilitychange") liveVis -= 1;
+      realRemove(type, listener, options);
+    };
+    document.addEventListener = countingAdd;
+    document.removeEventListener = countingRemove;
+    try {
+      renderDashboard(
+        el,
+        metaPayload(),
+        makeBridge(loaded, calls),
+        "fullscreen",
+      );
+      await flush();
+      // Dashboard→dashboard re-render (the path that bypasses clearDashboardMode
+      // in app-shell): the prior scope must be disposed, not orphaned.
+      renderDashboard(
+        el,
+        metaPayload(),
+        makeBridge(loaded, calls),
+        "fullscreen",
+      );
+      await flush();
+      // Exactly one focus listener is live — the first render's was removed, not
+      // stacked. Before the fix this was 2 (a leak that re-fired loadData).
+      assert.equal(liveVis, 1);
+    } finally {
+      document.addEventListener = realAdd;
+      document.removeEventListener = realRemove;
+    }
+  });
+});
+
+describe("card remove (kebab / overflow chrome)", () => {
+  const liveLoaded: DashboardData = {
+    namespace: "studioalpha",
+    pins: [
+      {
+        pin_id: "p1",
+        title: "Headline metric",
+        render_tool: "render_metric",
+        render_options: { value: "v" },
+        render_output: {
+          chart_type: "metric",
+          data: { columns: [{ name: "v", type: "bigint" }], rows: [["42"]] },
+          options: { value: "v" },
+        },
+      },
+    ],
+  };
+
+  test("clicking Remove calls unpin_query for the pin", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    renderDashboard(el, metaPayload(), makeBridge(liveLoaded, calls), "fullscreen");
+    await flush();
+
+    const removeBtn = el.querySelector<HTMLButtonElement>(
+      ".renderer-dashboard-card-remove",
+    );
+    assert.ok(removeBtn, "expected a Remove item in the kebab (fullscreen)");
+    const before = calls.length;
+    removeBtn.click();
+    await flush();
+
+    const unpin = calls.slice(before).find((c) => c.name === "unpin_query");
+    assert.ok(unpin, "Remove should call unpin_query");
+    assert.equal(unpin.args?.pin_id, "p1");
+  });
+
+  test("a non-NOT_FOUND store error keeps the card (no phantom delete)", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    const bridge: DashboardHostBridge = {
+      getHostContext: () => ({
+        displayMode: "fullscreen",
+        availableDisplayModes: ["inline", "fullscreen"],
+        containerDimensions: { height: 600, width: 800 },
+      }),
+      getHostCapabilities: () => ({ serverTools: {} }),
+      async callServerTool({ name, arguments: args }) {
+        calls.push({ name, args });
+        if (name === "load_dashboard") {
+          return { structuredContent: liveLoaded };
+        }
+        if (name === "unpin_query") {
+          return {
+            isError: true,
+            _meta: { code: "PINNED_QUERIES_UNAVAILABLE" },
+            content: [{ type: "text", text: "pins not enabled" }],
+          };
+        }
+        return { structuredContent: { namespace: "studioalpha", pins: [] } };
+      },
+      async requestDisplayMode({ mode }) {
+        return { mode };
+      },
+      async updateModelContext() {
+        return {};
+      },
+    };
+    renderDashboard(el, metaPayload(), bridge, "fullscreen");
+    await flush();
+
+    const removeBtn = el.querySelector<HTMLButtonElement>(
+      ".renderer-dashboard-card-remove",
+    );
+    assert.ok(removeBtn, "expected a Remove item");
+    removeBtn.click();
+    await flush();
+
+    // A store error other than NOT_FOUND means the unpin did NOT happen — the
+    // card must stay; dropping it would be a phantom delete that reappears on
+    // the next store-backed reload.
+    assert.ok(
+      el.querySelector('.renderer-dashboard-card[data-pin-id="p1"]'),
+      "the card must remain after a failed (non-NOT_FOUND) remove",
+    );
+  });
+
+  test("Remove item is absent in inline (non-interactive) display", async () => {
+    const el = root();
+    renderDashboard(el, metaPayload(), makeBridge(liveLoaded), "inline");
+    await flush();
+    assert.equal(el.querySelector(".renderer-dashboard-card-remove"), null);
+  });
+});
+
+describe("static pin card chrome (regression)", () => {
+  test("a static (snapshot) pin shows no 'source: inline' in its card tools", async () => {
+    // Regression: a static pin sets the card context's provider to `direct`, which
+    // makes the footer `source-note` eligible. The card tools must mount only the
+    // header regions — footer notes belong to the card BODY, not the tool row.
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    const staticPin = {
+      pin_id: "s1",
+      title: "Snapshot",
+      render_tool: "render_table" as const,
+      render_options: {},
+      data_columns: [{ name: "a", type: "varchar" }],
+      data_rows: [["x"]],
+    };
+    const payload = DashboardOutputSchema.parse({
+      chart_type: "dashboard",
+      namespace: "studioalpha",
+      pins: [staticPin],
+    });
+    const loaded: DashboardData = { namespace: "studioalpha", pins: [staticPin] };
+    renderDashboard(el, payload, makeBridge(loaded, calls), "fullscreen");
+    await flush();
+
+    const tools = el.querySelector(".renderer-dashboard-card-tools");
+    assert.ok(tools, "expected card tools in fullscreen");
+    assert.equal(
+      tools.querySelector(".renderer-footer-source"),
+      null,
+      "'source: inline' must not leak into the card tools (top-right)",
+    );
+  });
+});
+
 describe("CHART_TYPE_TO_RENDER_TOOL", () => {
   test("every pinnable render tool has a chart_type → render_tool reverse mapping", () => {
     // The Pin affordance maps a rendered chart_type back to its render tool. A
