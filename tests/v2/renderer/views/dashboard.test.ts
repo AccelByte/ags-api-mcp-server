@@ -189,6 +189,42 @@ describe("dashboard view", () => {
     );
   });
 
+  test("surfaces the reason (not the retry hint) when load fails with INVALID_ARGUMENT", async () => {
+    const el = root();
+    const bridge: DashboardHostBridge = {
+      getHostContext: () => ({
+        displayMode: "fullscreen",
+        availableDisplayModes: ["inline", "fullscreen"],
+        containerDimensions: { height: 600, width: 800 },
+      }),
+      getHostCapabilities: () => ({ serverTools: {} }),
+      async callServerTool({ name }) {
+        if (name === "load_dashboard") {
+          return {
+            isError: true,
+            _meta: { code: "INVALID_ARGUMENT" },
+            content: [{ type: "text", text: "namespace is required." }],
+          };
+        }
+        return { structuredContent: { namespace: "studioalpha", pins: [] } };
+      },
+      async requestDisplayMode({ mode }) {
+        return { mode };
+      },
+      async updateModelContext() {
+        return {};
+      },
+    };
+    renderDashboard(el, metaPayload(), bridge, "fullscreen");
+    await flush();
+
+    const hint = el.querySelector(".renderer-dashboard-hint");
+    assert.ok(hint, "expected a hint");
+    // A deterministic config error surfaces its reason, not the retry copy.
+    assert.match(hint.textContent ?? "", /namespace is required/);
+    assert.doesNotMatch(hint.textContent ?? "", /will retry/i);
+  });
+
   test("renders an empty state when there are no pins", async () => {
     const el = root();
     const empty = DashboardOutputSchema.parse({

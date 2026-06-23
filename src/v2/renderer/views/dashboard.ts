@@ -14,6 +14,7 @@ import {
   clampSpan,
   DashboardDataSchema,
   DIRECT_DATA_SOURCE,
+  isStaticPin,
   QuotaUsageSchema,
   RenderOutputSchema,
   type DashboardOutput,
@@ -122,17 +123,6 @@ export const CHART_TYPE_TO_RENDER_TOOL: Record<string, string> = {
 /** Edit/manage affordances only in fullscreen; inline is a compact read-only glance. */
 function isInteractive(displayMode: McpUiDisplayMode | undefined): boolean {
   return displayMode === "fullscreen";
-}
-
-/** A pin is static (a snapshot) when it carries its rows inline. */
-function isStaticPin(pin: PinnedQueryMeta): boolean {
-  // Empty arrays are truthy — require columns so empty arrays don't read as a
-  // snapshot (mirrors the server-side check).
-  return (
-    Array.isArray(pin.data_columns) &&
-    pin.data_columns.length > 0 &&
-    Array.isArray(pin.data_rows)
-  );
 }
 
 /**
@@ -1238,10 +1228,16 @@ function handleLoadError(result: {
   const isAuth =
     /401|unauthor|HTTP_401/i.test(code) ||
     /401|unauthor/i.test(errorText(result));
+  // A bad-request error (e.g. no namespace in the request context) is
+  // deterministic — retrying on the next focus can't fix it, so surface the
+  // reason instead of the misleading "it will retry" hint.
+  const isConfig = /INVALID_ARGUMENT|HTTP_400/i.test(code);
   showReconnectHint(
     isAuth
       ? "Your session expired — re-authenticate to load the dashboard."
-      : "Couldn't load dashboard data. It will retry when you return to this view.",
+      : isConfig
+        ? `Dashboard can't load: ${errorText(result)}`
+        : "Couldn't load dashboard data. It will retry when you return to this view.",
   );
 }
 
