@@ -1296,12 +1296,14 @@ function confirmRefreshAll(
  * native modals, so `confirm()` returns false and is ignored — a native dialog
  * would silently deny every refresh-all. Mounted on `document.body` so a focus
  * repaint of the dashboard can't orphan it mid-prompt. Only the Re-run button
- * resolves true; Cancel, Escape, and a backdrop click resolve false. Falls back
- * to true when there's no DOM (SSR/test), where the server still caps spend.
+ * resolves true; Cancel, Escape, and a backdrop click resolve false. Denies
+ * (resolves false) when there's no DOM to prompt in (SSR/test) — a billable
+ * gate fails safe rather than auto-confirming; the server quota cap is a
+ * backstop, not a reason to skip the gate.
  */
 function confirmInDom(message: string): Promise<boolean> {
   if (typeof document === "undefined") {
-    return Promise.resolve(true);
+    return Promise.resolve(false);
   }
   // One gate at a time — drop any stale dialog before opening a new one.
   document.querySelector(".renderer-dashboard-confirm")?.remove();
