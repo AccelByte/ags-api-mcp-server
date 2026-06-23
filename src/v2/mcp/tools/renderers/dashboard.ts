@@ -820,6 +820,10 @@ export function setupDashboardTools(
         return facadeErrorResult(error);
       }
       const authToken = token(extra);
+      // Refresh exactly the widget's pin set — the cost confirmation the user
+      // approved was computed against this list. Re-reading the store here could
+      // re-run (and bill) pins added in another view that were never in that
+      // estimate; those are picked up by the next load_dashboard instead.
       const pins = normalizePins(typed.pins);
 
       // `stopped` lives on an object (not a reassigned closure variable) so the
