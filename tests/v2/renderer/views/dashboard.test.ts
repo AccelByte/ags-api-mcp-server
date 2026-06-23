@@ -599,13 +599,6 @@ describe("dashboard view", () => {
 });
 
 describe("refresh-all (container chrome)", () => {
-  const originalConfirm = globalThis.window?.confirm;
-  afterEach(() => {
-    if (globalThis.window) {
-      globalThis.window.confirm = originalConfirm as typeof window.confirm;
-    }
-  });
-
   function renderFullscreen(
     calls: Array<{ name: string; args?: Record<string, unknown> }>,
     displayMode: "inline" | "fullscreen" = "fullscreen",
@@ -650,13 +643,31 @@ describe("refresh-all (container chrome)", () => {
     );
     assert.ok(button, "expected a Refresh all button in fullscreen with pins");
 
-    window.confirm = () => true;
     const before = calls.length;
     button.click();
+    await flush();
+
+    // The gate is an in-DOM dialog (window.confirm is blocked in sandboxed
+    // hosts), so nothing fires until the user clicks Re-run.
+    assert.equal(
+      calls.slice(before).some((c) => c.name === "refresh_all_pinned"),
+      false,
+      "must not call refresh_all_pinned before the dialog is confirmed",
+    );
+    const ok = document.querySelector<HTMLButtonElement>(
+      ".renderer-dashboard-confirm-ok",
+    );
+    assert.ok(ok, "expected an in-DOM confirm dialog");
+    ok.click();
     await flush();
     assert.ok(
       calls.slice(before).some((c) => c.name === "refresh_all_pinned"),
       "confirming should call refresh_all_pinned",
+    );
+    assert.equal(
+      document.querySelector(".renderer-dashboard-confirm"),
+      null,
+      "the dialog should close after confirming",
     );
   });
 
@@ -665,14 +676,25 @@ describe("refresh-all (container chrome)", () => {
     const el = renderFullscreen(calls);
     await flush();
 
-    window.confirm = () => false;
     const before = calls.length;
     el.querySelector<HTMLButtonElement>(".renderer-dashboard-refresh-all")?.click();
+    await flush();
+
+    const cancel = document.querySelector<HTMLButtonElement>(
+      ".renderer-dashboard-confirm-cancel",
+    );
+    assert.ok(cancel, "expected an in-DOM confirm dialog");
+    cancel.click();
     await flush();
     assert.equal(
       calls.slice(before).some((c) => c.name === "refresh_all_pinned"),
       false,
       "declining must not call refresh_all_pinned",
+    );
+    assert.equal(
+      document.querySelector(".renderer-dashboard-confirm"),
+      null,
+      "the dialog should close after cancelling",
     );
   });
 

@@ -284,6 +284,8 @@ export function clearDashboardMode(): void {
     document.body.classList.remove("renderer-dashboard-mode");
     document.documentElement.style.removeProperty("height");
     document.body.style.removeProperty("height");
+    // The cost-confirm modal mounts on <body>, so drop it on teardown too.
+    document.querySelector(".renderer-dashboard-confirm")?.remove();
   }
   session = null;
 }
@@ -1273,10 +1275,7 @@ function errorText(result: {
 function confirmRefreshAll(
   pins: PinnedQueryMeta[],
   cards: Map<string, PinnedQueryCard>,
-): boolean {
-  if (typeof window === "undefined" || typeof window.confirm !== "function") {
-    return true;
-  }
+): Promise<boolean> {
   let totalBytes = 0;
   for (const pin of pins) {
     const output = cards.get(pin.pin_id)?.render_output as
@@ -1286,9 +1285,87 @@ function confirmRefreshAll(
   }
   const estimate =
     totalBytes > 0 ? ` (last run scanned ~${formatBytes(totalBytes)})` : "";
-  return window.confirm(
+  return confirmInDom(
     `Re-run all ${pins.length} pinned ${pins.length === 1 ? "query" : "queries"}? This scans billable bytes${estimate}.`,
   );
+}
+
+/**
+ * In-DOM confirmation that resolves on an explicit user click. Replaces
+ * `window.confirm`: sandboxed webview hosts (VS Code, MCP-UI iframes) block
+ * native modals, so `confirm()` returns false and is ignored — a native dialog
+ * would silently deny every refresh-all. Mounted on `document.body` so a focus
+ * repaint of the dashboard can't orphan it mid-prompt. Only the Re-run button
+ * resolves true; Cancel, Escape, and a backdrop click resolve false. Falls back
+ * to true when there's no DOM (SSR/test), where the server still caps spend.
+ */
+function confirmInDom(message: string): Promise<boolean> {
+  if (typeof document === "undefined") {
+    return Promise.resolve(true);
+  }
+  // One gate at a time — drop any stale dialog before opening a new one.
+  document.querySelector(".renderer-dashboard-confirm")?.remove();
+
+  return new Promise<boolean>((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "renderer-dashboard-confirm";
+
+    const box = document.createElement("div");
+    box.className = "renderer-dashboard-confirm-box";
+    box.setAttribute("role", "alertdialog");
+    box.setAttribute("aria-modal", "true");
+    box.setAttribute("aria-describedby", "renderer-dashboard-confirm-text");
+
+    const text = document.createElement("p");
+    text.id = "renderer-dashboard-confirm-text";
+    text.className = "renderer-dashboard-confirm-text";
+    text.textContent = message;
+
+    const actions = document.createElement("div");
+    actions.className = "renderer-dashboard-confirm-actions";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "renderer-dashboard-confirm-cancel";
+    cancelBtn.textContent = "Cancel";
+
+    const okBtn = document.createElement("button");
+    okBtn.type = "button";
+    okBtn.className = "renderer-dashboard-confirm-ok";
+    okBtn.textContent = "Re-run";
+
+    let settled = false;
+    function onKey(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        close(false);
+      }
+    }
+    function close(result: boolean): void {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      document.removeEventListener("keydown", onKey);
+      overlay.remove();
+      resolve(result);
+    }
+
+    cancelBtn.addEventListener("click", () => close(false));
+    okBtn.addEventListener("click", () => close(true));
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) {
+        close(false);
+      }
+    });
+    document.addEventListener("keydown", onKey);
+
+    actions.append(cancelBtn, okBtn);
+    box.append(text, actions);
+    overlay.append(box);
+    document.body.append(overlay);
+    // Default focus on Cancel — the safe choice for a billable action.
+    cancelBtn.focus();
+  });
 }
 
 function formatBytes(bytes: number): string {

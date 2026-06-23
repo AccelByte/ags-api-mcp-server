@@ -71,11 +71,13 @@ export function isCancelled(
  * baked into a button (plan §2). Runs `confirm` first; if declined, short-circuits
  * to a {@link Cancelled} sentinel and the wrapped `action` never runs. The caller
  * supplies `confirm` (it needs surface state — pins/cards — to estimate cost).
+ * `confirm` may be async — the gate is an in-DOM dialog, since sandboxed webview
+ * hosts block the native `window.confirm`.
  */
 export function withCostConfirm(
-  confirm: () => boolean,
+  confirm: () => boolean | Promise<boolean>,
   action: BinderEntry,
 ): GatedBinderAction {
-  return (payload) =>
-    confirm() ? action(payload) : Promise.resolve({ cancelled: true });
+  return async (payload) =>
+    (await confirm()) ? action(payload) : { cancelled: true };
 }
