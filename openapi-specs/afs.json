@@ -2,7 +2,7 @@
   "info": {
     "description": "Proof-of-concept facade with an asynchronous, polled query lifecycle.\nRoutes follow the AGS admin-endpoint convention: {SERVER_BASE_PATH}/v1/admin/namespaces/{namespace}/...\nThe MCP server is the only intended client and is responsible for the poll loop.",
     "title": "Athena Facade POC",
-    "version": "0.4.0"
+    "version": "0.5.0"
   },
   "schemes": [
     "https"
@@ -500,6 +500,339 @@
         ]
       }
     },
+    "/afs/v1/admin/namespaces/{namespace}/pinned-queries": {
+      "get": {
+        "description": "Returns all pins for the namespace, sorted by (position, created_at). Result rows are not included — the client resolves cached rows per pin via GET .../queries/{id}.",
+        "operationId": "AdminListPinnedQueries",
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Pin list.",
+            "schema": {
+              "$ref": "#/definitions/handler.pinnedQueryListResponse"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "500": {
+            "description": "Unexpected store error while listing pins.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List the namespace's pinned queries",
+        "tags": [
+          "pinned-queries"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
+      },
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "Stores a dashboard pin (SQL + render spec + optional cache pointer). Result rows are never stored. `span` defaults to 4. Returns 409 PIN_COUNT_EXCEEDED when the per-namespace pin cap is reached.",
+        "operationId": "AdminCreatePinnedQuery",
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Pin creation request.",
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/handler.pinnedQueryCreateBody"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "201": {
+            "description": "Created pin.",
+            "schema": {
+              "$ref": "#/definitions/handler.pinnedQueryResponse"
+            }
+          },
+          "400": {
+            "description": "Validation error (missing title/sql, INVALID_RENDER_TOOL, or malformed render_options).",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "409": {
+            "description": "PIN_COUNT_EXCEEDED.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "413": {
+            "description": "SQL or render_options exceeds the configured MAX_SQL_BYTES limit.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "500": {
+            "description": "Pinned-query store unavailable or unexpected store error.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Pin a query to the namespace dashboard",
+        "tags": [
+          "pinned-queries"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
+      }
+    },
+    "/afs/v1/admin/namespaces/{namespace}/pinned-queries/{id}": {
+      "delete": {
+        "description": "Removes a pin. Idempotent — deleting an unknown ID returns 204.",
+        "operationId": "AdminDeletePinnedQuery",
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Pin ID.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted (or ID did not exist)."
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "500": {
+            "description": "Unexpected store error while deleting the pin.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Unpin a query from the namespace dashboard",
+        "tags": [
+          "pinned-queries"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
+      }
+    },
+    "/afs/v1/admin/namespaces/{namespace}/pinned-queries/{id}/refresh": {
+      "post": {
+        "description": "Re-runs the pin&#39;s stored SQL, repoints the pin at the new query_id, and returns the result row-set. Returns 202 when the run is still executing past the fast-path window. This is the only billable pinned-query operation and may return 429. A terminal FAILED/CANCELLED run returns 200 carrying that status (no rows) plus an `error` object with the failure reason.",
+        "operationId": "AdminRefreshPinnedQuery",
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Pin ID.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Terminal result (status SUCCEEDED/FAILED/CANCELLED).",
+            "schema": {
+              "$ref": "#/definitions/handler.pinnedQueryResultResponse"
+            }
+          },
+          "202": {
+            "description": "Still running; re-open the dashboard when it completes.",
+            "schema": {
+              "$ref": "#/definitions/handler.submitAccepted"
+            }
+          },
+          "400": {
+            "description": "READ_ONLY_VIOLATION or MISSING_PARTITION_PREDICATE on the stored SQL.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "404": {
+            "description": "PIN_NOT_FOUND.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "429": {
+            "description": "Quota exceeded for the current billing period.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "500": {
+            "description": "Unexpected error.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "503": {
+            "description": "Transient tenancy provisioning failure; retry.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Refresh a pinned query (re-run its SQL)",
+        "tags": [
+          "pinned-queries"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
+      }
+    },
     "/afs/v1/admin/namespaces/{namespace}/queries": {
       "post": {
         "consumes": [
@@ -596,6 +929,96 @@
           }
         ],
         "summary": "Submit an Athena SQL query (async)",
+        "tags": [
+          "queries"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
+      }
+    },
+    "/afs/v1/admin/namespaces/{namespace}/queries/estimate": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "Returns a conservative pre-submit cost estimate without running the query. No Athena execution and no quota reservation occur, so the call is side-effect free and safe to repeat.\nThe byte estimate is the summed Glue table size of every referenced table (a full-scan ceiling); it ignores partition pruning and column projection, so it is an upper bound, not the amount that will be billed.\nThe `database` field is optional; when omitted, unqualified table references resolve against the configured default database.",
+        "operationId": "AdminEstimateQuery",
+        "parameters": [
+          {
+            "description": "Target namespace. Caller must have ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY permission.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Query to estimate",
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/handler.estimateRequest"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Cost estimate.",
+            "schema": {
+              "$ref": "#/definitions/handler.estimateResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request (invalid SQL, unknown database, malformed body, missing partition predicate).",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "413": {
+            "description": "SQL body exceeds the configured MAX_SQL_BYTES limit.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "500": {
+            "description": "Unexpected error.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Estimate the cost of an Athena SQL query (no execution)",
         "tags": [
           "queries"
         ],
@@ -997,7 +1420,7 @@
             "type": "string"
           },
           {
-            "description": "Case-insensitive substring filter on table name.",
+            "description": "Case-insensitive search across table name, description, and tags. Results are relevance-ranked; omit to list all tables.",
             "in": "query",
             "name": "query",
             "type": "string"
@@ -1167,6 +1590,7 @@
       "type": "object"
     },
     "athena.Stats": {
+      "description": "Scan/timing statistics for the run.",
       "properties": {
         "data_scanned_bytes": {
           "type": "integer"
@@ -1179,6 +1603,10 @@
     },
     "glue.Column": {
       "properties": {
+        "comment": {
+          "description": "Comment is the column's spec-derived field description, surfaced from the\nGlue column comment. Omitted when the catalog carries none.",
+          "type": "string"
+        },
         "name": {
           "type": "string"
         },
@@ -1317,6 +1745,14 @@
           "type": "integer"
         },
         "partition_keys": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": false
+        },
+        "tags": {
+          "description": "Tags are spec-derived search tokens for discovery, read from the Glue\nparameter \"ab_ai_table_tags\". Populated on both list and describe (they\nare the discovery signal `query=` matches against). Empty when none.",
           "items": {
             "type": "string"
           },
@@ -1521,6 +1957,72 @@
       },
       "type": "object"
     },
+    "handler.estimateRequest": {
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "sql": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "handler.estimateResponse": {
+      "properties": {
+        "basis": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string"
+        },
+        "disclaimer": {
+          "type": "string"
+        },
+        "estimated_bytes_scanned": {
+          "type": "integer"
+        },
+        "estimated_cost_usd": {
+          "type": "number"
+        },
+        "estimated_cost_usd_micros": {
+          "type": "integer"
+        },
+        "pricing_rate_usd_per_tb": {
+          "type": "number"
+        },
+        "tables": {
+          "items": {
+            "$ref": "#/definitions/handler.estimateTable"
+          },
+          "type": "array",
+          "uniqueItems": false
+        },
+        "would_exceed_quota": {
+          "type": "boolean",
+          "x-omitempty": false
+        }
+      },
+      "type": "object"
+    },
+    "handler.estimateTable": {
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "resolved": {
+          "type": "boolean",
+          "x-omitempty": false
+        },
+        "table": {
+          "type": "string"
+        },
+        "total_bytes": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
     "handler.fetchResponse": {
       "properties": {
         "columns": {
@@ -1540,6 +2042,9 @@
           "type": "string"
         },
         "query_id": {
+          "type": "string"
+        },
+        "reasoning": {
           "type": "string"
         },
         "rows": {
@@ -1590,7 +2095,207 @@
       },
       "type": "object"
     },
+    "handler.pinnedQueryCreateBody": {
+      "properties": {
+        "position": {
+          "description": "Optional author-controlled grid order.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "query_id": {
+          "description": "Optional cache pointer to a recent query result.",
+          "type": "string"
+        },
+        "render_options": {
+          "description": "Opaque chart options object; stored verbatim and never interpreted by the facade.",
+          "type": "object"
+        },
+        "render_tool": {
+          "description": "One of the 16 pinnable render tools.",
+          "enum": [
+            "render_area_chart",
+            "render_bar_chart",
+            "render_box_chart",
+            "render_donut_chart",
+            "render_funnel_chart",
+            "render_gauge_chart",
+            "render_heatmap_chart",
+            "render_histogram_chart",
+            "render_line_chart",
+            "render_meter",
+            "render_metric",
+            "render_pie_chart",
+            "render_scatter_chart",
+            "render_state_timeline_chart",
+            "render_table",
+            "render_waterfall_chart"
+          ],
+          "type": "string"
+        },
+        "sql": {
+          "description": "SQL statement (source of truth); re-run on refresh.",
+          "type": "string"
+        },
+        "title": {
+          "description": "Human-readable card title.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "render_tool",
+        "sql",
+        "title"
+      ],
+      "type": "object"
+    },
+    "handler.pinnedQueryListResponse": {
+      "properties": {
+        "data": {
+          "items": {
+            "$ref": "#/definitions/handler.pinnedQueryResponse"
+          },
+          "type": "array",
+          "uniqueItems": false
+        }
+      },
+      "type": "object"
+    },
+    "handler.pinnedQueryResponse": {
+      "properties": {
+        "authored_by": {
+          "description": "JWT `sub` of the creator.",
+          "type": "string"
+        },
+        "created_at": {
+          "description": "RFC 3339 UTC timestamp.",
+          "type": "string"
+        },
+        "pin_id": {
+          "type": "string"
+        },
+        "position": {
+          "description": "Author-controlled grid order.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "query_id": {
+          "description": "Last query_id cache pointer; null when the pin has never been refreshed.",
+          "type": "string"
+        },
+        "refreshed_at": {
+          "description": "RFC 3339 UTC timestamp of the last refresh; null when never refreshed.",
+          "type": "string"
+        },
+        "render_options": {
+          "description": "Opaque chart options, stored and returned verbatim.",
+          "type": "object"
+        },
+        "render_tool": {
+          "description": "One of the 16 pinnable render tools.",
+          "enum": [
+            "render_area_chart",
+            "render_bar_chart",
+            "render_box_chart",
+            "render_donut_chart",
+            "render_funnel_chart",
+            "render_gauge_chart",
+            "render_heatmap_chart",
+            "render_histogram_chart",
+            "render_line_chart",
+            "render_meter",
+            "render_metric",
+            "render_pie_chart",
+            "render_scatter_chart",
+            "render_state_timeline_chart",
+            "render_table",
+            "render_waterfall_chart"
+          ],
+          "type": "string"
+        },
+        "span": {
+          "description": "Layout width on the 12-column grid (1–12).",
+          "format": "int32",
+          "type": "integer"
+        },
+        "sql": {
+          "description": "The SQL statement re-run on refresh.",
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "updated_at": {
+          "description": "RFC 3339 UTC timestamp.",
+          "type": "string"
+        },
+        "updated_by": {
+          "description": "JWT `sub` of the last writer.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "handler.pinnedQueryResultResponse": {
+      "properties": {
+        "columns": {
+          "description": "Result columns (SUCCEEDED only).",
+          "items": {
+            "$ref": "#/definitions/athena.Column"
+          },
+          "type": "array",
+          "uniqueItems": false
+        },
+        "error": {
+          "$ref": "#/definitions/handler.queryErrorBody"
+        },
+        "healed": {
+          "description": "True when the run re-billed because the pin had no usable cache pointer.",
+          "type": "boolean",
+          "x-omitempty": false
+        },
+        "pin_id": {
+          "type": "string"
+        },
+        "query_id": {
+          "description": "Cache pointer to the run that produced this result.",
+          "type": "string"
+        },
+        "refreshed_at": {
+          "description": "RFC 3339 UTC timestamp of this refresh. Present only when the pin's cache\npointer was actually persisted — absent when the best-effort repoint failed,\nso the response never claims a refresh the stored pin did not record.",
+          "type": "string"
+        },
+        "rows": {
+          "description": "Result rows (SUCCEEDED only).",
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "array",
+          "uniqueItems": false
+        },
+        "sql": {
+          "description": "The SQL that was re-run.",
+          "type": "string"
+        },
+        "stats": {
+          "$ref": "#/definitions/athena.Stats"
+        },
+        "status": {
+          "description": "Terminal Athena state: SUCCEEDED, FAILED, or CANCELLED.",
+          "type": "string"
+        },
+        "truncated": {
+          "description": "True when the result set was capped at max_rows.",
+          "type": "boolean",
+          "x-omitempty": false
+        }
+      },
+      "type": "object"
+    },
     "handler.queryErrorBody": {
+      "description": "Failure detail on a terminal FAILED/CANCELLED run (the Athena state-change\nreason); absent on SUCCEEDED.",
       "properties": {
         "code": {
           "type": "string"
@@ -1619,6 +2324,9 @@
         },
         "max_rows": {
           "type": "integer"
+        },
+        "reasoning": {
+          "type": "string"
         },
         "sql": {
           "type": "string"
@@ -1670,10 +2378,10 @@
     }
   },
   "x-version": {
-    "buildDate": "2026-06-04T02:16:33Z",
-    "gitHash": "c1146ae",
+    "buildDate": "2026-06-24T04:24:04Z",
+    "gitHash": "bb3b0bb",
     "name": "athena-facade-api",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "version-roles-seeding": "1.2.130"
   }
 }
