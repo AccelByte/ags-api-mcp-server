@@ -148,6 +148,8 @@ A pin stores **SQL (source of truth) + last `query_id` (cache pointer) + render 
 
 **Live vs. static pins.** A pin's source is inferred per pin (no `provider` field): a **live** pin carries a `query_id` and resolves rows from the facade (refreshable, durable downstream); a **static** pin carries inline `data_columns`/`data_rows` — those rows *are* the data (a snapshot, built via `buildPinRenderOutput(..., dataSource:"direct")`, capped at `MAX_ROWS_DEFAULT`). Static pins are **transient** (model-held, never persisted, never billed): `resolvePinCard` builds them without touching the facade, the refresh tools return them unchanged, and the view shows a "Snapshot" badge with no Refresh. The inline rows ride along on both `PinnedQueryMeta` and `PinnedQueryCard` so a self-load/focus reload round-trips them instead of dropping to stale.
 
+> **Dev-only.** Static/direct pins are gated behind `DASHBOARD_ALLOW_DIRECT_PINS` (default `false`) — a development flag, not a customer-facing option. In production this is off, so dashboards are **live-only**.
+
 **Layout.** Each pin has an optional `span` (integer 1–12, clamped; default 4) placing it on a fixed **12-column** grid in fullscreen; cards are a fixed height (`--dashboard-card-height`) with the body scrolling inside. Compact/inline and containers narrower than 720px collapse to a single column (spans ignored). `span` is layout-only.
 
 Lifecycle invariants:
