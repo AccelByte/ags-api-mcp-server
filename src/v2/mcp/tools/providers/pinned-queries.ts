@@ -16,9 +16,12 @@ import { FacadeError } from "./facade.js";
  * `FacadeError`s, exactly as `facade.ts` does for query resolution. No
  * server-side state — every call hits AFS.
  *
- * NOTE: until the facade ships these endpoints, `runApi` rejects the operation
- * at lookup time; we surface that as `PINNED_QUERIES_UNAVAILABLE` so the
- * dashboard tools degrade with a clear message rather than a stack trace.
+ * NOTE: these endpoints are now in the bundled afs spec, so `runApi` resolves
+ * them and issues a real call. An environment whose facade hasn't deployed them
+ * returns an HTTP error (handled by the dashboard's generic fallback). The
+ * `PINNED_QUERIES_UNAVAILABLE` path below only fires on a server build whose
+ * bundled spec predates these endpoints — `runApi` then throws a lookup miss,
+ * which we surface as a clear message rather than a stack trace.
  */
 
 const PINNED_QUERIES_BASE =
@@ -146,14 +149,16 @@ async function callPinnedQueries(
       token,
     )) as RunApiEnvelope;
   } catch (error) {
-    // `runApi` throws (rather than returning an envelope) when the operation is
-    // not in the spec — i.e. the facade hasn't shipped pinned-queries yet.
+    // `runApi` throws (rather than returning an envelope) only when the
+    // operation isn't in the loaded spec — i.e. this server build's bundled afs
+    // spec predates the pinned-queries endpoints. (A deployed-but-erroring
+    // facade returns an HTTP error envelope, handled below, not here.)
     const message = error instanceof Error ? error.message : String(error);
     log.warn({ err: message, path: args.path }, "pinned-queries call failed");
     throw new FacadeError(
       "PINNED_QUERIES_UNAVAILABLE",
-      `The pinned-queries endpoint is not available in this deployment yet (${message}). ` +
-        "Durable pin save/refresh requires the athena-facade-api pinned-queries resource.",
+      `The pinned-queries endpoint is not in this server's bundled spec (${message}). ` +
+        "Durable pin save/refresh requires a build whose afs spec includes the pinned-queries resource.",
     );
   }
 
