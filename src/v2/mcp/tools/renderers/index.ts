@@ -38,6 +38,7 @@ export function setupRenderTools(
   server: McpServer,
   openApiTools: OpenApiTools,
   defaultNamespace?: string,
+  allowDirectPins = false,
 ): void {
   const registry = createProviderRegistry([
     createFacadeProvider(openApiTools),
@@ -64,7 +65,7 @@ export function setupRenderTools(
 
   // Dashboard home surface: open_dashboard (model-facing) + app-only
   // load/pin/unpin/refresh/usage tools, all bound to the same renderer resource.
-  setupDashboardTools(server, openApiTools, defaultNamespace);
+  setupDashboardTools(server, openApiTools, defaultNamespace, allowDirectPins);
 }
 
 export default setupRenderTools;

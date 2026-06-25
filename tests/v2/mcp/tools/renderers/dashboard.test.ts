@@ -30,6 +30,7 @@ interface ToolEntry {
 function setupTools(
   runApi: RunApi,
   namespace = "studioalpha",
+  allowDirectPins = true,
 ): Map<string, ToolEntry> {
   const tools = new Map<string, ToolEntry>();
   const server = {
@@ -42,7 +43,12 @@ function setupTools(
       return {} as RegisteredTool;
     },
   };
-  setupRenderTools(server as never, { runApi } as OpenApiTools, namespace);
+  setupRenderTools(
+    server as never,
+    { runApi } as OpenApiTools,
+    namespace,
+    allowDirectPins,
+  );
   return tools;
 }
 

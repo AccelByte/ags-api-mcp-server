@@ -253,8 +253,32 @@ export function setupDashboardTools(
   server: McpServer,
   openApiTools: OpenApiTools,
   defaultNamespace?: string,
+  allowDirectPins = false,
 ): void {
   const facade = createFacadeProvider(openApiTools);
+
+  /**
+   * Drop static/direct (inline-data) pins when they're gated off, returning the
+   * surviving pins plus how many were dropped. Live (facade-backed) pins always
+   * pass. With `DASHBOARD_ALLOW_DIRECT_PINS` unset the dashboard is live-only —
+   * snapshot pins route data through the model and bypass the facade, so an
+   * operator can forbid them.
+   */
+  function admitPins(pins: PinnedQueryMeta[]): {
+    pins: PinnedQueryMeta[];
+    droppedDirect: number;
+  } {
+    if (allowDirectPins) {
+      return { pins, droppedDirect: 0 };
+    }
+    const kept = pins.filter((pin) => !isStaticPin(pin));
+    return { pins: kept, droppedDirect: pins.length - kept.length };
+  }
+
+  const directPinsNotice = (dropped: number): string =>
+    `Snapshot (direct) pins are disabled on this server — ${dropped} pin${
+      dropped === 1 ? "" : "s"
+    } omitted. Pin a live query instead.`;
 
   /** Best-effort `GET .../quota/usage` → usage snapshot. Returns the FacadeError on failure. */
   async function fetchUsage(
@@ -467,7 +491,7 @@ export function setupDashboardTools(
         );
       }
 
-      const pins = normalizePins(typed.pins);
+      const { pins, droppedDirect } = admitPins(normalizePins(typed.pins));
       const { usage } = namespace
         ? await fetchUsage(namespace, authToken)
         : { usage: undefined };
@@ -480,11 +504,16 @@ export function setupDashboardTools(
         pins,
       });
 
+      // DashboardOutput carries no notice field, so tell the model about gated
+      // pins in the text content (the widget's follow-up load_dashboard repeats
+      // the omission as a user-visible notice).
+      const directNote =
+        droppedDirect > 0 ? ` ${directPinsNotice(droppedDirect)}` : "";
       return {
         content: [
           {
             type: "text" as const,
-            text: `Opening dashboard with ${pins.length} pinned ${pins.length === 1 ? "query" : "queries"}.`,
+            text: `Opening dashboard with ${pins.length} pinned ${pins.length === 1 ? "query" : "queries"}.${directNote}`,
           },
         ],
         structuredContent: payload,
@@ -519,9 +548,15 @@ export function setupDashboardTools(
       }
 
       // Authoritative pin list comes from the facade store when available;
-      // otherwise fall back to the widget-supplied (model-held) list.
-      let pins = normalizePins(typed.pins);
-      let notice: string | undefined;
+      // otherwise fall back to the widget-supplied (model-held) list. Static
+      // (direct) pins are dropped up front when gated off, so they never reach
+      // the merge or the per-card resolve.
+      const admitted = admitPins(normalizePins(typed.pins));
+      let pins = admitted.pins;
+      const notices: string[] = [];
+      if (admitted.droppedDirect > 0) {
+        notices.push(directPinsNotice(admitted.droppedDirect));
+      }
       try {
         const stored = await listPins(openApiTools, namespace, authToken);
         const storedMeta = stored.map((record, index) =>
@@ -561,8 +596,9 @@ export function setupDashboardTools(
             { err: message, code },
             "load_dashboard: pin store error, falling back to inline pins",
           );
-          notice =
-            "Couldn't reach the pinned-query store — showing model-held pins only. Some saved pins may be missing.";
+          notices.push(
+            "Couldn't reach the pinned-query store — showing model-held pins only. Some saved pins may be missing.",
+          );
         }
       }
 
@@ -574,7 +610,7 @@ export function setupDashboardTools(
       const payload = DashboardDataSchema.parse({
         namespace,
         usage,
-        notice,
+        notice: notices.length > 0 ? notices.join(" ") : undefined,
         pins: cards,
       });
       return {

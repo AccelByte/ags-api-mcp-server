@@ -43,6 +43,9 @@ const McpConfigSchema = z.object({
   serverUrl: z.string().url(),
   enableAuth: EnvBooleanSchema.default(true),
   enableRenderTools: EnvBooleanSchema.default(true),
+  // Direct/snapshot dashboard pins (inline data routed through the model) are
+  // off by default: dashboards are live-only unless an operator opts in.
+  allowDirectPins: EnvBooleanSchema.default(false),
   /**
    * TEMPORARY WORKAROUND: OAuth authorization server discovery mode.
    * Needed because VS Code (and some MCP clients) cannot discover the actual
@@ -136,6 +139,7 @@ function loadConfig(): Config {
         serverUrl: mcpServerUrl,
         enableAuth: process.env.MCP_AUTH,
         enableRenderTools: process.env.MCP_RENDER_TOOLS,
+        allowDirectPins: process.env.DASHBOARD_ALLOW_DIRECT_PINS,
         authServerDiscoveryMode: process.env.MCP_AUTH_SERVER_DISCOVERY_MODE,
       },
       openapi: {
