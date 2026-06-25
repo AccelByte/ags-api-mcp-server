@@ -142,6 +142,7 @@ export function maybeAddPinAffordance(
     sql?: string;
     title?: string;
     options?: Record<string, unknown>;
+    namespace?: string;
   },
   bridge: DashboardHostBridge | undefined,
 ): void {
@@ -180,29 +181,66 @@ export function maybeAddPinAffordance(
     return;
   }
   const title = slice.title;
+  // AFS queries are namespace-scoped and a standalone result can't recover the
+  // namespace from a `query_id`, so forward the one the render output carried
+  // (the facade provider requires it, so it's present on any pinnable result).
+  // Without it `pin_query` falls back to the server's default namespace, which
+  // only exists on the `/mcp/:namespace` route.
+  const pinPayload =
+    typeof payload.namespace === "string"
+      ? { ...intent.payload, namespace: payload.namespace }
+      : intent.payload;
+
   // The chrome renders an icon button; status rides on the title/aria-label
-  // (tooltip) and the icon, so we never clobber the SVG with textContent.
+  // (tooltip) PLUS a visible state class (spinner / success / error) and the
+  // icon, so a pin that succeeds or fails is obvious without hovering. We never
+  // clobber the SVG with textContent — only swap the whole icon.
   const button = entry.chrome.render(slice) as HTMLButtonElement;
   const setStatus = (label: string): void => {
     button.title = label;
     button.setAttribute("aria-label", label);
   };
+  const setState = (
+    state: "is-pinning" | "is-pinned" | "is-error" | null,
+  ): void => {
+    button.classList.remove("is-pinning", "is-pinned", "is-error");
+    if (state) {
+      void button.offsetWidth; // restart the animation if the state repeats
+      button.classList.add(state);
+    }
+  };
+  // Failure is surfaced three ways: the red+shake state, the tooltip label, and
+  // (so the reason isn't hover-gated) a note pushed to the model's context.
+  const reportFailure = (label: string, reason: string): void => {
+    button.disabled = false; // allow a retry
+    button.replaceChildren(ICONS.pin());
+    setStatus(label);
+    setState("is-error");
+    void bridge.updateModelContext?.({
+      content: [{ type: "text", text: `Pinning "${title}" failed: ${reason}` }],
+    });
+  };
   button.addEventListener("click", () => {
     button.disabled = true;
+    button.replaceChildren(ICONS.refresh()); // spun by the is-pinning class
     setStatus("Pinning…");
-    void action(intent.payload)
+    setState("is-pinning");
+    void action(pinPayload)
       .then((result) => {
         if (result.isError) {
           const code = resultCode(result);
-          setStatus(
+          const detail = result.content?.find((c) => c.text)?.text;
+          reportFailure(
             code === "PINNED_QUERIES_UNAVAILABLE"
               ? "Pinning not enabled yet"
               : "Pin failed",
+            detail || code || "unknown error",
           );
           return;
         }
         button.replaceChildren(ICONS.check());
         setStatus("Pinned");
+        setState("is-pinned");
         void bridge.updateModelContext?.({
           content: [
             {
@@ -213,9 +251,9 @@ export function maybeAddPinAffordance(
         });
       })
       .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
         console.warn("Pin request failed", error);
-        button.disabled = false;
-        setStatus("Pin");
+        reportFailure("Pin failed", message);
       });
   });
   actions.prepend(button);

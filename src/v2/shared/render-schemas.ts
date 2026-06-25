@@ -10,7 +10,7 @@ import { z } from "zod/v3";
 // chart_type:"dashboard" + pinned-query metadata. The app-shell asserts
 // host-advertised version == bundle version, so any change to a render payload
 // schema MUST bump this.
-export const BUNDLE_VERSION = "1.4.0";
+export const BUNDLE_VERSION = "1.5.0";
 
 export function strictObject<T extends z.ZodRawShape>(
   shape: T,
@@ -85,6 +85,11 @@ const CommonEnvelopeFields = {
   data_source: z.string().optional(),
   stats: RenderStatsSchema.optional(),
   sql: z.string().optional(),
+  // The AGS namespace a facade-backed result was resolved from. Carried through
+  // so the standalone Pin button can forward it to `pin_query` — AFS queries are
+  // namespace-scoped, so it can't be recovered from the `query_id` alone. Absent
+  // for `direct` snapshots (which aren't pinnable anyway).
+  namespace: z.string().optional(),
 };
 
 export const BarChartOutputSchema = strictObject({

@@ -1515,3 +1515,55 @@ body {
   cursor: default;
   opacity: 0.8;
 }
+
+/* Pin status, made visible (not just a tooltip): a spinner while pinning, a
+   green check on success, a red shake on failure. The icon itself is swapped in
+   JS (refresh / check / pin); these rules carry color + motion. */
+.renderer-pin-btn.is-pinning svg {
+  color: var(--color-accent);
+  animation: renderer-pin-spin 0.9s linear infinite;
+}
+
+.renderer-pin-btn.is-pinned,
+.renderer-pin-btn.is-pinned svg {
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border));
+}
+
+.renderer-pin-btn.is-error,
+.renderer-pin-btn.is-error svg {
+  color: var(--color-danger);
+}
+
+.renderer-pin-btn.is-error {
+  border-color: color-mix(in srgb, var(--color-danger) 55%, var(--color-border));
+  animation: renderer-pin-shake 0.4s var(--ease-out);
+}
+
+@keyframes renderer-pin-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes renderer-pin-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-2px);
+  }
+  40%,
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .renderer-pin-btn.is-pinning svg,
+  .renderer-pin-btn.is-error {
+    animation: none;
+  }
+}

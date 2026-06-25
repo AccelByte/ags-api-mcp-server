@@ -80,6 +80,7 @@ const ExampleOutputSchema = strictObject({
     })
     .optional(),
   sql: z.string().optional(),
+  namespace: z.string().optional(),
   options: strictObject({
     x: z.string(),
   }),
@@ -197,6 +198,7 @@ describe("defineRenderTool", () => {
       data_source: "direct",
       stats: undefined,
       sql: undefined,
+      namespace: undefined,
       options: { x: "team" },
     });
     assert.equal("_meta" in result, false);

@@ -131,6 +131,13 @@ export function defineRenderTool<TSchema extends AnyZodObject>({
           data_source: toolInput.provider,
           stats,
           sql,
+          // Carry the namespace through so the standalone Pin button can forward
+          // it to `pin_query` (facade provider requires it, so it's present on
+          // any pinnable result; absent for `direct`).
+          namespace:
+            typeof toolInput.namespace === "string"
+              ? toolInput.namespace
+              : undefined,
           options: mapInputToOptions(toolInput),
         });
 
