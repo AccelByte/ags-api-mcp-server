@@ -132,6 +132,8 @@ Body fields: `sql` (the query text), optional `database`, optional `max_rows`, a
 - **Small result you're confident reproducing** (a headline number, a handful of rows): pass a small `wait_ms` (e.g. a few seconds). If the response is `200` with `columns` and `rows` inline, the query finished synchronously — skip step 6 and render those inline rows via `provider="direct"`.
 - **Substantial result set destined for a table or chart:** pass `wait_ms=0`, skip the fast path on purpose, and poll (step 6). This guarantees you hold a pollable `query_id` so the renderer can fetch rows from source via `provider="facade"`. See the provider note in step 7 for why this matters.
 
+**A second factor beyond fidelity: pinnability.** Only `facade` results get a **Pin** button — a `direct` snapshot can't be pinned to the dashboard (it has no `query_id` to re-fetch and never refreshes). Size and pin-worthiness don't correlate: a single headline KPI ("MAU this month", "revenue yesterday") is both small *and* exactly what someone keeps on a dashboard. So if the result is something the user might want to pin — a recurring KPI, a chart they'll revisit, or anything they've signalled dashboard intent for — submit with `wait_ms=0` and render via `facade` **even when it's small**. The fast-path/`direct` route is the default only for genuinely one-off results. See *Pinning & the dashboard* below.
+
 Either way, if you don't get inline rows you get a `query_id` and need to poll.
 
 > **Don't try to have it both ways.** A `query_id` returned alongside fast-path inline rows may **404** if you later `GET` it — fast-path results aren't guaranteed to be pollable. So once you've taken the fast path, render the inline rows with `direct`; don't hand that id to `facade`. If you need source-fetched rows, decide *before* submitting and use `wait_ms=0` (re-running a finished query costs latency and re-scans bytes).
@@ -170,8 +172,8 @@ Pick the render tool that fits the *shape* of the answer, not just "results are 
 
 So:
 
-- Use `provider="direct"` only for **small results you're confident reproducing exactly** — the fast-path case in step 5.
-- Use `provider="facade"` for **anything substantial** — larger row counts, anything the user will scrutinize as a table or chart. Get a pollable `query_id` (submit with `wait_ms=0`, poll in step 6) so the renderer pulls from source rather than from your reproduction.
+- Use `provider="direct"` only for **small results you're confident reproducing exactly** — the fast-path case in step 5. Note these render with **no Pin button** (see *Pinning & the dashboard*).
+- Use `provider="facade"` for **anything substantial** — larger row counts, anything the user will scrutinize as a table or chart, **or anything they might pin**. Get a pollable `query_id` (submit with `wait_ms=0`, poll in step 6) so the renderer pulls from source rather than from your reproduction.
 
 ### 8. Summarize and offer follow-up threads
 
@@ -179,3 +181,11 @@ Don't just dump the rendered output. Write:
 
 - A **brief summary** of what the data shows (2–4 sentences).
 - **2–3 follow-up suggestions** the user might pull on — related questions, drill-downs, anomalies worth checking, angles you didn't pursue. Call them "threads," "leads," "follow-ups," whatever fits — the point is to turn a one-shot answer into a conversation.
+
+## Pinning & the dashboard
+
+AGS Analytics has a **dashboard** surface — a home for pinned queries plus a spend/usage header — so the user can keep the charts they care about at a glance.
+
+- **Pinning is the user's action, not yours.** Every `facade`-backed chart you render carries a **Pin** button (where the host can call tools); the user clicks it to keep that chart. You can't pin on their behalf, but you *should* offer it: when you've rendered something with lasting value — a recurring KPI, a trend they'll want to re-check — mention they can pin it. Remember the constraint from step 5: only `facade` results show the button, so render anything dashboard-worthy via `facade` (not `direct`).
+- **Opening the dashboard is yours.** Call `open_dashboard` when the user wants to see their pinned charts. It opens the surface with the spend header and the pin grid; each pin shows its **last cached result** and **never re-runs SQL on open**.
+- **Refresh is the only billable re-run.** Opening or reloading the dashboard resolves cached results only; re-scanning bytes happens only when the user explicitly clicks Refresh on a pin.
