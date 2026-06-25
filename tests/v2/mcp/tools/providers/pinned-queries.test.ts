@@ -16,6 +16,7 @@ interface RunApiCall {
   method?: string;
   path?: string;
   body?: unknown;
+  headers?: Record<string, string>;
 }
 
 /**
@@ -27,7 +28,12 @@ function fakeRunApi(
 ): { runApi: RunApi; calls: RunApiCall[] } {
   const calls: RunApiCall[] = [];
   const runApi = (async (args: RunApiCall) => {
-    calls.push({ method: args.method, path: args.path, body: args.body });
+    calls.push({
+      method: args.method,
+      path: args.path,
+      body: args.body,
+      headers: args.headers,
+    });
     return respond(args);
   }) as RunApi;
   return { runApi, calls };
@@ -56,6 +62,17 @@ describe("pinned-queries provider", () => {
       assert.equal(pins.length, 1);
       assert.equal(pins[0].pin_id, "p1");
       assert.equal(pins[0].span, 6);
+    });
+
+    test("sends JSON Content-Type and Accept headers (AFS 415s without them)", async () => {
+      const { runApi, calls } = fakeRunApi(() => ({
+        response: { status: 200, data: { data: [] } },
+      }));
+      await listPins(tools(runApi), "studioalpha", "tok");
+      // The list is a bodiless GET, so `runApi` won't auto-attach a content type
+      // — the provider must, or AFS rejects it with 415.
+      assert.equal(calls[0].headers?.["Content-Type"], "application/json");
+      assert.equal(calls[0].headers?.["Accept"], "application/json");
     });
 
     test("skips a malformed record rather than dropping the whole list", async () => {

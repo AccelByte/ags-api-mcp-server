@@ -142,7 +142,15 @@ async function callPinnedQueries(
         pathParams: args.pathParams,
         query: args.query,
         body: args.body,
-        headers: args.headers,
+        // AFS rejects pinned-queries requests that lack an explicit JSON content
+        // type with `415 Unsupported Media Type` — including the bodiless `GET`
+        // list. `runApi` only auto-sets Content-Type for non-GET object bodies,
+        // so set both JSON headers here for every call. Caller headers win.
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...args.headers,
+        },
         useAccessToken: true,
       },
       undefined,
