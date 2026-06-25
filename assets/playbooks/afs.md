@@ -109,6 +109,20 @@ Determine which widgets to render based on this matrix:
   - `label`: `Lifetime (USD)`
   - `description`: `No lifetime cap set`
 
+#### Estimating what a specific query will cost
+
+The quota snapshot tells you how much budget is *left*; it doesn't tell you what *this* query will cost. For that, dry-run it before submitting:
+
+- `POST /afs/v1/admin/namespaces/{namespace}/queries/estimate`, body `{ "sql": "…" }` (plus optional `database`) → returns `estimated_cost_usd`, `estimated_bytes_scanned`, `pricing_rate_usd_per_tb`, and a `would_exceed_quota` flag. It executes nothing and reserves no quota, so it's side-effect free and safe to repeat.
+
+Reach for it before anything you expect to be **large or open-ended** — a wide or unbounded time range, several big tables, or a question where the user hasn't pinned down the scope. Skip it for an obviously small probe (a `LIMIT` over one narrow partition): the estimate costs a round-trip and can mislead (see below).
+
+**Read the number honestly — it's a ceiling, not the bill.** `estimated_bytes_scanned` is the summed full-scan size of every referenced table; it *ignores* partition pruning and column projection. A query carrying the `namespacez` filter and a tight time partition (both already required above) routinely scans **orders of magnitude less** than the estimate. So:
+
+- Present it as an upper bound — "at most ~$X, likely far less once the tenant and date partitions prune" — never as the definite price, or you'll talk the user out of a query that actually costs cents.
+- If `would_exceed_quota` is `true`, stop: surface it, then either narrow the query or get the user's explicit go-ahead before submitting.
+- If the ceiling is non-trivial and the user hasn't already signalled they're fine spending, **confirm before you submit.** That is the whole point of estimating.
+
 ### 5. Submit with `POST /afs/v1/admin/namespaces/{namespace}/queries`
 
 Body fields: `sql` (the query text), optional `database`, optional `max_rows`, and `wait_ms` (milliseconds).
