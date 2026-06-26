@@ -1,5 +1,15 @@
 # Changelog
 
+## v2026.3.7 (2026-06-26)
+
+### Changed
+- **Pins now source by `query_id` instead of client-supplied SQL.** The whole save path — the standalone **Pin** button, the pin chrome, and the `pin_query` tool — forwards the facade `query_id` as the pin's source key; the backend re-sources `sql`, `database`, and `namespace` from the durable query row, so the model can't hallucinate them and refresh runs against the right Athena database (fixes a refresh-DB bug where a pin could re-run against the wrong database). `sql` is dropped as a trusted client input on create (still returned read-only for display), and a result is pinnable only when it carries a `query_id` — `direct` snapshots already had none, so the pinnable set is unchanged.
+- **`afs.json` OpenAPI spec refreshed** for the above. `sql` is dropped from the required pin fields, `query_id` is documented as the preferred cache pointer (the facade sources `sql`/`database`/`namespace`/`moving_window`/`reasoning` from it), and a display-only `moving_window` field is added to the query, pin, and result schemas.
+
+### Added
+- **Rolling-window pins carry an authoritative `moving_window` flag.** The model declares `moving_window` at submit; it persists on the durable query row, travels with the `query_id`, and drives the dashboard's "re-scans a sliding range" caption. The old SQL regex heuristic is demoted to a fallback that fires only when the stored flag is absent (a legacy pin, or one whose durable row aged out), and the flag survives a refresh even when the refresh response omits it.
+- **AFS playbook documents rolling vs snapshot windows.** `afs.md` adds a rolling-vs-snapshot decision to the pre-submit checklist — confirm with the user whether a relative time bound ("last 30 days") should be a frozen snapshot or a rolling window before writing the SQL, since the two behave differently once pinned — and documents the new `reasoning` and `moving_window` submit-body fields.
+
 ## v2026.3.6 (2026-06-25)
 
 ### Added
