@@ -60,6 +60,11 @@ Athena bills per byte scanned, and bad queries get expensive fast. Before callin
 
 - **Tenant filter (`namespacez`):** every query against the analytics database must constrain the `namespacez` column to the caller's tenant — e.g. `WHERE namespacez = '<namespace>'`. The literal has to equal the caller's *studio* (the part before the first `-` in the namespace, so `studioalpha-game-a` → `studioalpha`) or a full `<studio>-<game>` value under it. Omit it and submission is rejected with `400 MISSING_PARTITION_PREDICATE`. Two gotchas: the column is spelled `namespacez` (with a **z**), and this is a *row filter inside the SQL* — separate from, and required in addition to, the `{namespace}` in the URL path.
 - **Time bound:** include a partition predicate (typically a date/time range). If the user didn't give one, **ask** — don't assume "all time."
+- **Rolling vs. snapshot window:** whenever the time bound is relative ("last 30 days", "this week"), decide *with the user* whether they want a **snapshot** or a **rolling window** — they produce different SQL and behave differently once pinned:
+  - **Snapshot** — a fixed date range that shows the same window forever, e.g. `WHERE day BETWEEN '2026-06-01' AND '2026-06-25'`.
+  - **Rolling window** — a relative range that moves on every refresh (and re-scans a sliding range, re-billing each time), e.g. `WHERE day >= current_date - interval '30' day`.
+
+  Hardcoding dates when the user wanted a rolling window — or using `current_date` when they wanted a frozen snapshot — produces a pin that silently does the wrong thing on refresh. Confirm intent before writing the SQL. See *Pinning & the dashboard*.
 - **Explicit columns:** project the columns you need, not `SELECT *`.
 - **`LIMIT`:** use it during exploration. Widen only after you've seen the shape of the results.
 - **Mind the column types.** Event `timestamp` columns are often ISO-8601 *strings*, not SQL dates — so if a `CAST(... AS DATE)` or date comparison errors, reach for `from_iso8601_timestamp()` rather than assuming a bad column. Check the schema from step 3 when in doubt.
@@ -125,7 +130,11 @@ Reach for it before anything you expect to be **large or open-ended** — a wide
 
 ### 5. Submit with `POST /afs/v1/admin/namespaces/{namespace}/queries`
 
-Body fields: `sql` (the query text), optional `database`, optional `max_rows`, and `wait_ms` (milliseconds).
+Body fields: `sql` (the query text), optional `database`, optional `max_rows`, `wait_ms` (milliseconds), `reasoning`, and `moving_window`.
+
+**Always populate `reasoning`** with a one-line justification for the run (e.g. "DAU trend, last 30 days — dashboard KPI the user asked to track"). It's recorded on the durable query row and the audit log, and travels with the query, so a later pin can carry it without you re-supplying anything.
+
+**Set `moving_window: true` when the SQL uses a rolling window** (a relative range like `current_date - interval '30' day`), and leave it `false`/unset for a fixed-date snapshot — this is the rolling-vs-snapshot intent you confirmed with the user (see step 4 above). It travels with the query the same way `reasoning` does, so a pin made from this `query_id` inherits the flag and the dashboard captions it as a query that re-scans (and re-bills) a sliding range on every refresh. Declaring it here is authoritative; if you omit it the pin falls back to guessing from the SQL.
 
 `wait_ms` controls the fast path, and the choice has a fidelity cost worth understanding:
 
