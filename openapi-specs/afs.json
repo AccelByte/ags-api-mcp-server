@@ -2038,6 +2038,10 @@
         "finished_at": {
           "type": "string"
         },
+        "moving_window": {
+          "description": "Display-only: true when the query re-scans a sliding range on every refresh.",
+          "type": "boolean"
+        },
         "next_page_token": {
           "type": "string"
         },
@@ -2103,7 +2107,7 @@
           "type": "integer"
         },
         "query_id": {
-          "description": "Optional cache pointer to a recent query result.",
+          "description": "Preferred cache pointer. When present, the facade sources sql + database from\nAthena GetQueryExecution(query_id) and namespace + moving_window + reasoning\nfrom the durable query record — the client-supplied sql below is ignored.",
           "type": "string"
         },
         "render_options": {
@@ -2133,7 +2137,7 @@
           "type": "string"
         },
         "sql": {
-          "description": "SQL statement (source of truth); re-run on refresh.",
+          "description": "Legacy/transitional: used as the verbatim SQL only when query_id is absent.\nPrefer query_id; this path is deprecated and will be removed once all clients\npin by query_id.",
           "type": "string"
         },
         "title": {
@@ -2143,7 +2147,6 @@
       },
       "required": [
         "render_tool",
-        "sql",
         "title"
       ],
       "type": "object"
@@ -2168,6 +2171,18 @@
         },
         "created_at": {
           "description": "RFC 3339 UTC timestamp.",
+          "type": "string"
+        },
+        "database": {
+          "description": "Athena database the SQL runs against on refresh.",
+          "type": "string"
+        },
+        "moving_window": {
+          "description": "Display-only: true when the query re-scans a sliding range on every refresh.",
+          "type": "boolean"
+        },
+        "namespace": {
+          "description": "Source namespace of the pinned query; the namespace its SQL re-runs against.",
           "type": "string"
         },
         "pin_id": {
@@ -2253,6 +2268,14 @@
           "type": "boolean",
           "x-omitempty": false
         },
+        "moving_window": {
+          "description": "Display-only: true when the query re-scans a sliding range on every refresh.",
+          "type": "boolean"
+        },
+        "namespace": {
+          "description": "Source namespace of the pinned query.",
+          "type": "string"
+        },
         "pin_id": {
           "type": "string"
         },
@@ -2324,6 +2347,10 @@
         },
         "max_rows": {
           "type": "integer"
+        },
+        "moving_window": {
+          "description": "MovingWindow is the model-declared intent that this query re-scans a sliding\nrange on every refresh (relative/rolling window). Display-only metadata; it\nis persisted on the durable query row and surfaced to the dashboard, but it\nchanges no storage or execution branch.",
+          "type": "boolean"
         },
         "reasoning": {
           "type": "string"
