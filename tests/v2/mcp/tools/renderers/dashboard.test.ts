@@ -630,6 +630,45 @@ describe("static pins (inline data)", () => {
     assert.equal(data.pins[0].moving_window, true);
   });
 
+  test("refresh_pinned_query preserves the moving_window flag when the refresh response omits it", async () => {
+    // Single-pin refresh: REFRESH_OK carries no moving_window and BAR_PIN's SQL
+    // is a plain snapshot (regex → false). The caller-supplied flag must keep the
+    // caption — without it the single-pin path degrades to the SQL heuristic.
+    const { runApi } = recordingRunApi({ pinnedQueries: REFRESH_OK });
+    const tools = setupTools(runApi);
+    const result = await tools.get("refresh_pinned_query")!.cb(
+      {
+        pin_id: "p1",
+        title: "Daily revenue",
+        render_tool: "render_bar_chart",
+        render_options: { x: "day", y: "rev" },
+        sql: BAR_PIN.sql,
+        moving_window: true,
+        namespace: "studioalpha",
+      },
+      EXTRA as never,
+    );
+
+    const data = DashboardDataSchema.parse(result.structuredContent);
+    assert.equal(data.pins[0].moving_window, true);
+  });
+
+  test("refresh_all_pinned keeps moving_window on a stale (not-ready) card", async () => {
+    // A 202 → NOT_READY refresh yields a stale card; the stored flag must ride
+    // along so the next load_dashboard's cardToMeta doesn't drop the caption.
+    const REFRESH_PENDING = () => ({ response: { status: 202, data: {} } });
+    const { runApi } = recordingRunApi({ pinnedQueries: REFRESH_PENDING });
+    const tools = setupTools(runApi);
+    const result = await tools.get("refresh_all_pinned")!.cb(
+      { pins: [{ ...BAR_PIN, moving_window: true }], namespace: "studioalpha" },
+      EXTRA as never,
+    );
+
+    const data = DashboardDataSchema.parse(result.structuredContent);
+    assert.equal(data.pins[0].stale, true);
+    assert.equal(data.pins[0].moving_window, true);
+  });
+
   test("static-pin rows beyond MAX_ROWS_DEFAULT are truncated in the render_output", async () => {
     const tools = setupTools(fakeRunApi({ quotaUsage: USAGE_OK }));
     const rows = Array.from({ length: 10_005 }, (_, i) => [

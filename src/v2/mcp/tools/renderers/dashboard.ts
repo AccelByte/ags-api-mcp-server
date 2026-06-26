@@ -58,6 +58,10 @@ const STALE_CODES = new Set([
  * the durable query row and the pin record); this regex fires only when that
  * flag is absent — a legacy pin, or one whose durable row aged out. SQL with a
  * relative/moving window re-scans a sliding range on every refresh.
+ *
+ * Known gaps (uncommon in Athena; expand only if they show up): getdate(),
+ * `AT TIME ZONE`, and date_trunc/trunc patterns that don't also reference
+ * current_date. These misclassify as snapshots — acceptable for a fallback.
  */
 function isMovingWindowSql(sql: string | undefined): boolean {
   if (!sql) {
@@ -121,6 +125,11 @@ const RefreshPinnedQueryInputSchema = z.object({
   render_options: z.record(z.string(), z.unknown()).default({}),
   title: z.string().optional(),
   sql: z.string().optional(),
+  // Carried so the refresh response's stored flag has a fallback (matches the
+  // refresh-all path): if the backend omits moving_window on the result, the
+  // widget's already-resolved value keeps the caption instead of degrading to
+  // the SQL heuristic.
+  moving_window: z.boolean().optional(),
   data_columns: z.array(ProviderColumnSchema).optional(),
   data_rows: z.array(z.array(z.string())).optional(),
   span: z.number().int().optional(),
@@ -387,6 +396,10 @@ export function setupDashboardTools(
       span: pin.span,
     };
 
+    // null and undefined are both "no query_id" — the consumption sites collapse
+    // them via `?? undefined` (the backend uses null for a pin whose durable
+    // query row was removed; undefined for a legacy pin that was never linked).
+    // Either way there is no source key to resolve, so the card is stale.
     if (!pin.query_id) {
       return PinnedQueryCardSchema.parse({ ...base, stale: true });
     }
@@ -486,7 +499,7 @@ export function setupDashboardTools(
       title: "Open Analytics Dashboard",
       description:
         "Open the analytics dashboard surface — a home for pinned Athena queries plus a spend/usage header. " +
-        "Pass the pins the user is curating (each with its title, sql, query_id, render_tool, render_options); " +
+        "Pass the pins the user is curating (each with its title, query_id, render_tool, render_options, and moving_window flag); " +
         "the dashboard renders the last-known cached result for each and never re-runs SQL on open (refresh is an explicit click). " +
         "The payload is metadata-only; the widget fetches row data itself. Use this when the user wants to see their pinned charts at a glance.",
       inputSchema: OpenDashboardInputSchema.shape,
@@ -831,6 +844,7 @@ export function setupDashboardTools(
             render_tool: typed.render_tool,
             render_options: typed.render_options ?? {},
             sql: typed.sql,
+            moving_window: typed.moving_window,
             span: typed.span,
           },
           result,
@@ -932,6 +946,7 @@ export function setupDashboardTools(
               render_options: pin.render_options,
               sql: pin.sql,
               query_id: pin.query_id ?? undefined,
+              moving_window: pin.moving_window,
               span: pin.span,
               stale: true,
             });
@@ -943,6 +958,7 @@ export function setupDashboardTools(
             render_options: pin.render_options,
             sql: pin.sql,
             query_id: pin.query_id ?? undefined,
+            moving_window: pin.moving_window,
             span: pin.span,
             error: error instanceof Error ? error.message : String(error),
           });

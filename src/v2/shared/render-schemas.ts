@@ -4,13 +4,14 @@
 
 import { z } from "zod/v3";
 
-// Bumped to 1.4.0 for the `notice` field on the load_dashboard payload (degraded
-// pin-store load) + the tightened 1–12 `span` constraint. 1.3.0 added static-pin
-// inline data (data_columns/data_rows) + per-pin `span`; 1.2.0 added
-// chart_type:"dashboard" + pinned-query metadata. The app-shell asserts
-// host-advertised version == bundle version, so any change to a render payload
-// schema MUST bump this.
-export const BUNDLE_VERSION = "1.5.0";
+// Bumped to 1.6.0 for `query_id` on CommonEnvelopeFields (propagates to every
+// render output schema) — the pin-by-query_id source key. 1.5.0 added the
+// `notice` field on the load_dashboard payload (degraded pin-store load) + the
+// tightened 1–12 `span` constraint; 1.3.0 added static-pin inline data
+// (data_columns/data_rows) + per-pin `span`; 1.2.0 added chart_type:"dashboard"
+// + pinned-query metadata. The app-shell asserts host-advertised version ==
+// bundle version, so any change to a render payload schema MUST bump this.
+export const BUNDLE_VERSION = "1.6.0";
 
 export function strictObject<T extends z.ZodRawShape>(
   shape: T,

@@ -10,6 +10,10 @@
 - **Rolling-window pins carry an authoritative `moving_window` flag.** The model declares `moving_window` at submit; it persists on the durable query row, travels with the `query_id`, and drives the dashboard's "re-scans a sliding range" caption. The old SQL regex heuristic is demoted to a fallback that fires only when the stored flag is absent (a legacy pin, or one whose durable row aged out), and the flag survives a refresh even when the refresh response omits it.
 - **AFS playbook documents rolling vs snapshot windows.** `afs.md` adds a rolling-vs-snapshot decision to the pre-submit checklist — confirm with the user whether a relative time bound ("last 30 days") should be a frozen snapshot or a rolling window before writing the SQL, since the two behave differently once pinned — and documents the new `reasoning` and `moving_window` submit-body fields.
 
+### Fixed
+- **`moving_window` flag now survives every refresh path.** The single-pin `refresh_pinned_query` tool and the stale/error cards built by `refresh_all_pinned` now carry the stored `moving_window` flag, matching the batch-refresh and load paths. Previously these two paths dropped it, so a rolling-window pin's caption could silently revert to the SQL-heuristic fallback after a single refresh or a partial (quota-stopped) refresh-all.
+- **`BUNDLE_VERSION` bumped to `1.6.0`** for the `query_id` field added to every render output schema (via `CommonEnvelopeFields`) — the app-shell asserts host-advertised version == bundle version, so a new payload field requires the bump. The `open_dashboard` tool description no longer lists `sql` as a pin field, since it's re-sourced from `query_id` rather than trusted as client input.
+
 ## v2026.3.6 (2026-06-25)
 
 ### Added
