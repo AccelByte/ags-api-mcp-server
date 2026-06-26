@@ -85,6 +85,11 @@ const CommonEnvelopeFields = {
   data_source: z.string().optional(),
   stats: RenderStatsSchema.optional(),
   sql: z.string().optional(),
+  // The Athena Facade query_id behind a facade-backed result. Carried through so
+  // the standalone Pin button can forward it to `pin_query` as the pin's source
+  // key — the backend re-sources SQL/database/namespace from it, so the model
+  // can't hallucinate them. Absent for `direct` snapshots (not pinnable).
+  query_id: z.string().optional(),
   // The AGS namespace a facade-backed result was resolved from. Carried through
   // so the standalone Pin button can forward it to `pin_query` — AFS queries are
   // namespace-scoped, so it can't be recovered from the `query_id` alone. Absent

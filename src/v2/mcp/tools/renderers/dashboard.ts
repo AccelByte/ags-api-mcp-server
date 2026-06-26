@@ -52,7 +52,13 @@ const STALE_CODES = new Set([
   "INVALID_ARGUMENT",
 ]);
 
-/** Heuristic: SQL with a relative/moving window re-scans a sliding range on every refresh. */
+/**
+ * Heuristic FALLBACK for the rolling-window flag. The authoritative source is
+ * the backend's stored `moving_window` (model-declared at submit, persisted on
+ * the durable query row and the pin record); this regex fires only when that
+ * flag is absent — a legacy pin, or one whose durable row aged out. SQL with a
+ * relative/moving window re-scans a sliding range on every refresh.
+ */
 function isMovingWindowSql(sql: string | undefined): boolean {
   if (!sql) {
     return false;
@@ -71,6 +77,9 @@ const PinInputSchema = z.object({
   render_options: z.record(z.string(), z.unknown()).default({}),
   position: z.number().int().optional(),
   refreshed_at: z.string().nullable().optional(),
+  // Carried on model-held pins so the stored rolling-window flag survives a
+  // round-trip through the model (used as the preferred source over the regex).
+  moving_window: z.boolean().optional(),
   // Static pin: inline rows described in chat. Presence ⇒ static (no facade).
   data_columns: z.array(ProviderColumnSchema).optional(),
   data_rows: z.array(z.array(z.string())).optional(),
@@ -94,10 +103,11 @@ const LoadDashboardInputSchema = z.object({
 const QuotaUsageInputSchema = z.object({ namespace: z.string().optional() });
 const PinQueryInputSchema = z.object({
   title: z.string(),
-  sql: z.string(),
+  // query_id is the pin's source key — the backend re-sources SQL/database/
+  // namespace from it. SQL is no longer accepted as a trusted client input.
+  query_id: z.string(),
   render_tool: PinRenderToolSchema,
   render_options: z.record(z.string(), z.unknown()).default({}),
-  query_id: z.string().optional(),
   position: z.number().int().optional(),
   namespace: z.string().optional(),
 });
@@ -151,7 +161,8 @@ function normalizePins(pins: PinInput[] | undefined): PinnedQueryMeta[] {
       render_options: pin.render_options ?? {},
       position: pin.position ?? index,
       refreshed_at: pin.refreshed_at ?? undefined,
-      moving_window: isMovingWindowSql(pin.sql),
+      // Prefer the stored flag; fall back to the SQL heuristic only when absent.
+      moving_window: pin.moving_window ?? isMovingWindowSql(pin.sql),
       data_columns: pin.data_columns,
       data_rows: pin.data_rows,
       span: clampSpan(pin.span),
@@ -174,7 +185,9 @@ function recordToMeta(
     position: record.position ?? index,
     refreshed_at: record.refreshed_at ?? undefined,
     updated_at: record.updated_at,
-    moving_window: isMovingWindowSql(record.sql),
+    // The backend stores the authoritative flag (model-declared at submit);
+    // fall back to the SQL heuristic only for legacy/aged-out records.
+    moving_window: record.moving_window ?? isMovingWindowSql(record.sql),
     // The facade stores `span` verbatim (layout-only); carry it through clamped.
     span: clampSpan(record.span),
   });
@@ -417,6 +430,7 @@ export function setupDashboardTools(
       render_tool: string;
       render_options: Record<string, unknown>;
       sql?: string;
+      moving_window?: boolean;
       span?: number;
     },
     result: PinnedQueryResultRecord,
@@ -429,6 +443,14 @@ export function setupDashboardTools(
       sql: result.sql ?? pin.sql,
       query_id: result.query_id,
       refreshed_at: result.refreshed_at,
+      // Prefer the refresh response's stored flag, then the already-resolved
+      // value the meta carried in, then the SQL heuristic — so the moving-window
+      // caption survives a refresh even if a future change rebuilds pins from the
+      // refreshed card (the load path does exactly this via cardToMeta).
+      moving_window:
+        result.moving_window ??
+        pin.moving_window ??
+        isMovingWindowSql(result.sql ?? pin.sql),
       span: pin.span,
     };
     try {
@@ -552,7 +574,7 @@ export function setupDashboardTools(
       // (direct) pins are dropped up front when gated off, so they never reach
       // the merge or the per-card resolve.
       const admitted = admitPins(normalizePins(typed.pins));
-      let pins = admitted.pins;
+      let { pins } = admitted;
       const notices: string[] = [];
       if (admitted.droppedDirect > 0) {
         notices.push(directPinsNotice(admitted.droppedDirect));
@@ -672,7 +694,7 @@ export function setupDashboardTools(
     {
       title: "Pin Query",
       description:
-        "Internal: persist a pinned query (title + SQL + render spec) to the namespace's dashboard. SQL is the immutable source of truth.",
+        "Internal: persist a pinned query (title + query_id + render spec) to the namespace's dashboard. The query_id is the source key — the facade re-sources SQL/database/namespace from it, so they can't be hallucinated.",
       inputSchema: PinQueryInputSchema.shape,
       outputSchema: PinnedQueryMetaSchema.shape,
       _meta: APP_ONLY_META,
@@ -689,7 +711,6 @@ export function setupDashboardTools(
           namespace,
           {
             title: typed.title,
-            sql: typed.sql,
             render_tool: typed.render_tool,
             render_options: typed.render_options ?? {},
             query_id: typed.query_id,
@@ -886,6 +907,7 @@ export function setupDashboardTools(
               render_tool: pin.render_tool,
               render_options: pin.render_options,
               sql: pin.sql,
+              moving_window: pin.moving_window,
               span: pin.span,
             },
             result,

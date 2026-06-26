@@ -44,7 +44,11 @@ const tools = (runApi: RunApi): OpenApiTools => ({ runApi }) as OpenApiTools;
 const RECORD = {
   pin_id: "p1",
   title: "Daily revenue",
+  // sql is still returned by the backend (read-only — re-sourced from Athena at
+  // create), alongside the server-sourced namespace + moving_window.
   sql: "SELECT day, rev FROM t",
+  namespace: "studioalpha",
+  moving_window: true,
   query_id: "q1",
   render_tool: "render_bar_chart",
   render_options: { x: "day", y: "rev" },
@@ -113,14 +117,22 @@ describe("pinned-queries provider", () => {
         "studioalpha",
         {
           title: "Daily revenue",
-          sql: "SELECT day, rev FROM t",
+          query_id: "q1",
           render_tool: "render_bar_chart",
           render_options: { x: "day", y: "rev" },
         },
         "tok",
       );
       assert.equal(record.pin_id, "p1");
+      // The backend sources these and returns them on the record.
+      assert.equal(record.namespace, "studioalpha");
+      assert.equal(record.moving_window, true);
       assert.equal(calls[0].method, "POST");
+      // The create body forwards the query_id (the pin's source key); the client
+      // no longer sends a trusted sql.
+      const body = calls[0].body as { query_id?: string; sql?: string };
+      assert.equal(body.query_id, "q1");
+      assert.equal(body.sql, undefined);
     });
 
     test("rejects an invalid create payload as INVALID_RESPONSE", async () => {
@@ -134,7 +146,7 @@ describe("pinned-queries provider", () => {
             "studioalpha",
             {
               title: "x",
-              sql: "SELECT 1",
+              query_id: "q1",
               render_tool: "render_bar_chart",
               render_options: {},
             },

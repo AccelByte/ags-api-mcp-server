@@ -38,7 +38,17 @@ const PINNED_QUERIES_BASE =
 export const PinnedQueryRecordSchema = z.object({
   pin_id: z.string(),
   title: z.string(),
+  // SQL is still returned by the backend (read-only — re-sourced from Athena at
+  // create), but it's no longer a trusted client input on create.
   sql: z.string().optional(),
+  // Persisted on the pin record by the backend (sourced at create from the
+  // durable query row / Athena), so the dashboard reads them authoritatively
+  // instead of re-deriving: `namespace` (AFS is namespace-scoped), `database`
+  // (the Athena DB the SQL runs against — fixes the refresh-DB bug), and
+  // `moving_window` (model-declared rolling-window intent; drives the caption).
+  namespace: z.string().optional(),
+  database: z.string().optional(),
+  moving_window: z.boolean().optional(),
   query_id: z.string().nullable().optional(),
   render_tool: PinRenderToolSchema,
   render_options: z.record(z.string(), z.unknown()).optional(),
@@ -69,6 +79,8 @@ export const PinnedQueryResultRecordSchema = z.object({
     })
     .optional(),
   sql: z.string().optional(),
+  namespace: z.string().optional(),
+  moving_window: z.boolean().optional(),
   refreshed_at: z.string().optional(),
   healed: z.boolean().optional(),
 });
@@ -78,10 +90,12 @@ export type PinnedQueryResultRecord = z.infer<
 
 export interface CreatePinInput {
   title: string;
-  sql: string;
+  // query_id is the pin's source key — the backend re-sources SQL/database/
+  // namespace from it (the model can't hallucinate them). SQL is no longer a
+  // trusted client input on create.
+  query_id: string;
   render_tool: string;
   render_options: Record<string, unknown>;
-  query_id?: string;
   position?: number;
 }
 

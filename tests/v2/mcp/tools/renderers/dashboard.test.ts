@@ -264,6 +264,35 @@ describe("open_dashboard", () => {
     const payload = DashboardOutputSchema.parse(result.structuredContent);
     assert.equal(payload.pins[0].moving_window, true);
   });
+
+  test("stored moving_window flag wins over the SQL heuristic", async () => {
+    const tools = setupTools(fakeRunApi({ quotaUsage: USAGE_OK }));
+    const result = await tools.get("open_dashboard")!.cb(
+      {
+        pins: [
+          // Moving-window-looking SQL, but the stored flag says false → false wins.
+          {
+            ...BAR_PIN,
+            position: 0,
+            sql: "SELECT day, rev FROM t WHERE day > current_date - interval '30' day",
+            moving_window: false,
+          },
+          // Plain snapshot SQL, but the stored flag says true → true wins.
+          {
+            ...BAR_PIN,
+            pin_id: "p2",
+            position: 1,
+            moving_window: true,
+          },
+        ],
+        namespace: "studioalpha",
+      },
+      EXTRA as never,
+    );
+    const payload = DashboardOutputSchema.parse(result.structuredContent);
+    assert.equal(payload.pins[0].moving_window, false);
+    assert.equal(payload.pins[1].moving_window, true);
+  });
 });
 
 describe("load_dashboard", () => {
@@ -380,7 +409,7 @@ describe("pin_query / unpin_query degrade gracefully without the facade endpoint
     const result = await tools.get("pin_query")!.cb(
       {
         title: "Daily revenue",
-        sql: "SELECT 1",
+        query_id: "q1",
         render_tool: "render_bar_chart",
         render_options: { x: "day", y: "rev" },
         namespace: "studioalpha",
@@ -399,7 +428,7 @@ describe("pin_query / unpin_query degrade gracefully without the facade endpoint
     const result = await tools.get("pin_query")!.cb(
       {
         title: "x",
-        sql: "SELECT 1",
+        query_id: "q1",
         render_tool: "render_bar_chart",
         render_options: { x: "day", y: "rev" },
       },
@@ -583,6 +612,22 @@ describe("static pins (inline data)", () => {
     assert.equal(statOut.data_source, "direct");
     // Exactly one refresh call — only the live pin was billed.
     assert.equal(counts.refresh, 1);
+  });
+
+  test("refresh preserves the moving_window flag when the refresh response omits it", async () => {
+    // The refresh response (REFRESH_OK) carries no moving_window and BAR_PIN's SQL
+    // is a plain snapshot (regex → false). The card must still come back true,
+    // carried through from the meta the caller already resolved — otherwise a
+    // refresh would silently drop the moving-window caption.
+    const { runApi } = recordingRunApi({ pinnedQueries: REFRESH_OK });
+    const tools = setupTools(runApi);
+    const result = await tools.get("refresh_all_pinned")!.cb(
+      { pins: [{ ...BAR_PIN, moving_window: true }], namespace: "studioalpha" },
+      EXTRA as never,
+    );
+
+    const data = DashboardDataSchema.parse(result.structuredContent);
+    assert.equal(data.pins[0].moving_window, true);
   });
 
   test("static-pin rows beyond MAX_ROWS_DEFAULT are truncated in the render_output", async () => {

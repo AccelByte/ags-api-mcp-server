@@ -127,12 +127,12 @@ function isInteractive(displayMode: McpUiDisplayMode | undefined): boolean {
 
 /**
  * Inject a "Pin" button into a freshly-rendered single result so the user can
- * keep it on the dashboard. A pin needs only `{title, sql, render_tool,
- * render_options}` — `query_id` is nullable (the facade recomputes from SQL on
- * first open). No-ops when the host can't call server tools, the chart type
- * isn't pinnable, or the result isn't a facade-backed query — pinning persists
- * SQL to the Athena facade (`pin_query`), so it only applies to `facade` results
- * that carry SQL (not inline `direct` data, nor any other provider's rows).
+ * keep it on the dashboard. A pin forwards `{title, query_id, render_tool,
+ * render_options}` (plus the resolved namespace) — the backend re-sources
+ * SQL/database/namespace from the `query_id`, so the model can't hallucinate
+ * them. No-ops when the host can't call server tools, the chart type isn't
+ * pinnable, or the result isn't a facade-backed query carrying a `query_id`
+ * (not inline `direct` data, nor any other provider's rows).
  */
 export function maybeAddPinAffordance(
   root: HTMLElement,
@@ -140,6 +140,7 @@ export function maybeAddPinAffordance(
     chart_type: string;
     data_source?: string;
     sql?: string;
+    query_id?: string;
     title?: string;
     options?: Record<string, unknown>;
     namespace?: string;
@@ -160,6 +161,7 @@ export function maybeAddPinAffordance(
     renderType: payload.chart_type,
     dataSource: payload.data_source,
     sql: payload.sql,
+    queryId: payload.query_id,
     title: payload.title,
     options: payload.options,
     renderTool: CHART_TYPE_TO_RENDER_TOOL[payload.chart_type],

@@ -6,13 +6,14 @@ import { pinChrome, type PinSlice } from "../../../../src/v2/renderer/chrome/chr
 import { buildChromeContext } from "../../../../src/v2/renderer/chrome/context.js";
 import { resolve } from "../../../../src/v2/renderer/chrome/resolve.js";
 
-/** A fully-eligible pin context: standalone, facade-backed, has SQL + tool + permission. */
+/** A fully-eligible pin context: standalone, facade-backed, has query_id + tool + permission. */
 function eligibleInput(): Parameters<typeof buildChromeContext>[0] {
   return {
     container: "standalone",
     renderType: "bar",
     dataSource: "facade",
     sql: "SELECT 1",
+    queryId: "qid-1",
     title: "Daily revenue",
     options: { x: "day", y: "rev" },
     renderTool: "render_bar_chart",
@@ -29,10 +30,10 @@ function selectPin(
 }
 
 describe("pin chrome — eligibility truth table", () => {
-  test("eligible: standalone + facade + sql + tool + permission ⇒ slice", () => {
+  test("eligible: standalone + facade + query_id + tool + permission ⇒ slice", () => {
     assert.deepEqual(selectPin({}), {
       title: "Daily revenue",
-      sql: "SELECT 1",
+      queryId: "qid-1",
       renderTool: "render_bar_chart",
       options: { x: "day", y: "rev" },
     });
@@ -47,12 +48,12 @@ describe("pin chrome — eligibility truth table", () => {
     assert.equal(selectPin({ container: "dashboard" }), null);
   });
 
-  test("not shown for a direct (snapshot) result, even with SQL", () => {
+  test("not shown for a direct (snapshot) result, even with a query_id", () => {
     assert.equal(selectPin({ dataSource: "direct" }), null);
   });
 
-  test("not shown when the facade result carries no SQL", () => {
-    assert.equal(selectPin({ sql: undefined }), null);
+  test("not shown when the facade result carries no query_id", () => {
+    assert.equal(selectPin({ queryId: undefined }), null);
   });
 
   test("not shown when the host cannot manage pins (no callServerTool)", () => {
@@ -74,13 +75,13 @@ describe("pin chrome — presentation + intent", () => {
     assert.ok(button.querySelector("svg"), "expected an inline icon");
   });
 
-  test("intent forwards exactly {title, sql, render_tool, render_options}", () => {
+  test("intent forwards exactly {title, query_id, render_tool, render_options}", () => {
     const slice = selectPin({}) as PinSlice;
     assert.deepEqual(pinChrome.intent?.(slice), {
       type: "pin",
       payload: {
         title: "Daily revenue",
-        sql: "SELECT 1",
+        query_id: "qid-1",
         render_tool: "render_bar_chart",
         render_options: { x: "day", y: "rev" },
       },

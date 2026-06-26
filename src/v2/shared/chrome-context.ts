@@ -93,8 +93,14 @@ export const CORE_CTX_KEY_WITNESS: Record<keyof CoreCtx, true> = {
 /** Live results resolved by reference from the facade — re-runnable (billed). */
 export type FacadeFragment = {
   kind: "facade";
-  /** SQL behind the result, when the facade returned it (drives pin/copy chrome). */
+  /** SQL behind the result, when the facade returned it (drives the copy/foldout chrome). */
   sql?: string;
+  /**
+   * The Athena Facade query_id behind the result — the pin's source key. The pin
+   * chrome forwards it to `pin_query`; the backend re-sources SQL/database/
+   * namespace from it, so the model can't hallucinate them. Required for pinning.
+   */
+  queryId?: string;
   /** Execution stats, when present (drives the stats note). */
   stats?: RenderStats;
   /** Facade results can be re-fetched server-side. */

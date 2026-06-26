@@ -131,6 +131,14 @@ export function defineRenderTool<TSchema extends AnyZodObject>({
           data_source: toolInput.provider,
           stats,
           sql,
+          // Carry the query_id through so the standalone Pin button can forward
+          // it to `pin_query` as the pin's source key (the backend re-sources
+          // SQL/database/namespace from it). Present on facade results; absent
+          // for `direct` snapshots.
+          query_id:
+            typeof toolInput.query_id === "string"
+              ? toolInput.query_id
+              : undefined,
           // Carry the namespace through so the standalone Pin button can forward
           // it to `pin_query` (facade provider requires it, so it's present on
           // any pinnable result; absent for `direct`).

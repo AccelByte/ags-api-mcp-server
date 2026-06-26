@@ -8,17 +8,18 @@ import { defineChrome } from "../types.js";
 /** Exactly what the pin forwards into `pin_query` — the contract, made explicit. */
 export type PinSlice = {
   title: string;
-  sql: string;
+  queryId: string;
   renderTool: string;
   options: Record<string, unknown>;
 };
 
 /**
  * "Pin" affordance on a standalone single result. Ported from
- * `maybeAddPinAffordance`: its scattered guards (facade-backed + has SQL +
+ * `maybeAddPinAffordance`: its scattered guards (facade-backed + has a query_id +
  * pinnable chart type + a host that can call tools) are now one data-driven
- * `select`. Pinning persists SQL to the Athena facade, so it applies only to
- * `facade` results — never inline `direct` snapshots.
+ * `select`. Pinning forwards the `query_id` to the Athena facade (which
+ * re-sources SQL/database/namespace from it), so it applies only to `facade`
+ * results — never inline `direct` snapshots.
  */
 export const pinChrome = defineChrome<PinSlice>({
   id: "pin",
@@ -32,15 +33,15 @@ export const pinChrome = defineChrome<PinSlice>({
     if (!ctx.core.permissions.canManagePins) {
       return null; // host can't call server tools
     }
-    if (ctx.provider.kind !== "facade" || !ctx.provider.sql) {
-      return null; // only facade-backed results carrying SQL are pinnable
+    if (ctx.provider.kind !== "facade" || !ctx.provider.queryId) {
+      return null; // only facade-backed results carrying a query_id are pinnable
     }
     if (!ctx.render.renderTool) {
       return null; // chart type isn't in the pinnable set
     }
     return {
       title: ctx.render.title ?? "Pinned query",
-      sql: ctx.provider.sql,
+      queryId: ctx.provider.queryId,
       renderTool: ctx.render.renderTool,
       options: ctx.render.options,
     };
@@ -59,7 +60,7 @@ export const pinChrome = defineChrome<PinSlice>({
     type: "pin",
     payload: {
       title: slice.title,
-      sql: slice.sql,
+      query_id: slice.queryId,
       render_tool: slice.renderTool,
       render_options: slice.options,
     },

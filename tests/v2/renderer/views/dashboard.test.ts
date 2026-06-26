@@ -136,6 +136,75 @@ describe("dashboard view", () => {
     assert.match(staleStatus?.textContent ?? "", /Refresh/i);
   });
 
+  test("renders the moving-window caption only on pins whose stored flag is true", async () => {
+    const el = root();
+    const meta = DashboardOutputSchema.parse({
+      chart_type: "dashboard",
+      namespace: "studioalpha",
+      pins: [
+        {
+          pin_id: "p1",
+          title: "Rolling DAU",
+          render_tool: "render_metric",
+          render_options: { value: "v" },
+          moving_window: true,
+        },
+        {
+          pin_id: "p2",
+          title: "Snapshot DAU",
+          render_tool: "render_metric",
+          render_options: { value: "v" },
+          moving_window: false,
+        },
+      ],
+    });
+    const loaded: DashboardData = {
+      namespace: "studioalpha",
+      pins: [
+        {
+          pin_id: "p1",
+          title: "Rolling DAU",
+          render_tool: "render_metric",
+          render_options: { value: "v" },
+          moving_window: true,
+          render_output: {
+            chart_type: "metric",
+            data: { columns: [{ name: "v", type: "bigint" }], rows: [["42"]] },
+            options: { value: "v" },
+          },
+        },
+        {
+          pin_id: "p2",
+          title: "Snapshot DAU",
+          render_tool: "render_metric",
+          render_options: { value: "v" },
+          moving_window: false,
+          render_output: {
+            chart_type: "metric",
+            data: { columns: [{ name: "v", type: "bigint" }], rows: [["7"]] },
+            options: { value: "v" },
+          },
+        },
+      ],
+    };
+
+    renderDashboard(el, meta, makeBridge(loaded), "fullscreen");
+    await flush();
+
+    const note = el.querySelector(
+      '.renderer-dashboard-card[data-pin-id="p1"] .renderer-dashboard-card-note',
+    );
+    assert.ok(note, "expected the moving-window caption on the rolling pin");
+    assert.match(note.textContent ?? "", /re-scans a sliding range/);
+    assert.equal(
+      el.querySelector(
+        '.renderer-dashboard-card[data-pin-id="p2"] .renderer-dashboard-card-note',
+      ),
+      null,
+      "snapshot pin (moving_window false) must not show the caption",
+    );
+  });
+
   test("isolates a poison-pill render_output to its own card (§8A.9)", async () => {
     const el = root();
     const loaded: DashboardData = {
@@ -256,6 +325,7 @@ describe("dashboard view", () => {
       {
         chart_type: "bar",
         data_source: "facade",
+        query_id: "q1",
         sql: "SELECT day, rev FROM t",
         title: "Daily revenue",
         options: { x: "day", y: "rev" },
@@ -271,16 +341,19 @@ describe("dashboard view", () => {
     const pinCall = calls.find((c) => c.name === "pin_query");
     assert.ok(pinCall, "expected pin_query to be called");
     assert.equal(pinCall.args?.render_tool, "render_bar_chart");
-    assert.equal(pinCall.args?.sql, "SELECT day, rev FROM t");
+    // The pin forwards the query_id (the backend re-sources SQL from it) and no
+    // longer trusts a client-supplied sql.
+    assert.equal(pinCall.args?.query_id, "q1");
+    assert.equal(pinCall.args?.sql, undefined);
     assert.deepEqual(pinCall.args?.render_options, { x: "day", y: "rev" });
   });
 
-  test("maybeAddPinAffordance is a no-op without SQL or a server-tool bridge", () => {
+  test("maybeAddPinAffordance is a no-op without a query_id or a server-tool bridge", () => {
     const el = root();
     el.innerHTML =
       '<section class="renderer-shell"><div class="renderer-header">' +
       '<div class="renderer-header-actions"></div></div></section>';
-    // No SQL → no button.
+    // No query_id → no button (the pin's source key is required).
     maybeAddPinAffordance(
       el,
       { chart_type: "bar", data_source: "facade", title: "x", options: {} },
@@ -290,25 +363,31 @@ describe("dashboard view", () => {
     // No callServerTool → no button.
     maybeAddPinAffordance(
       el,
-      { chart_type: "bar", data_source: "facade", sql: "SELECT 1", options: {} },
+      {
+        chart_type: "bar",
+        data_source: "facade",
+        query_id: "q1",
+        options: {},
+      },
       {},
     );
     assert.equal(el.querySelector(".renderer-pin-btn"), null);
   });
 
-  test("maybeAddPinAffordance is a no-op for a non-facade result even with SQL", () => {
+  test("maybeAddPinAffordance is a no-op for a non-facade result even with a query_id", () => {
     const el = root();
     el.innerHTML =
       '<section class="renderer-shell"><div class="renderer-header">' +
       '<div class="renderer-header-actions"></div></div></section>';
-    // SQL present but the rows came from a non-facade provider — pinning persists
-    // to the Athena facade, so it must not offer to pin a non-facade result.
+    // query_id present but the rows came from a non-facade provider — pinning
+    // persists to the Athena facade, so it must not offer to pin a non-facade
+    // (snapshot) result.
     maybeAddPinAffordance(
       el,
       {
         chart_type: "bar",
         data_source: "direct",
-        sql: "SELECT 1",
+        query_id: "q1",
         title: "x",
         options: {},
       },

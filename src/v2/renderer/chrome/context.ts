@@ -24,6 +24,8 @@ export type ChromeContextInput = {
   dataSource?: string;
   stats?: RenderStats;
   sql?: string;
+  /** Athena Facade query_id behind the result — the pin's source key. */
+  queryId?: string;
   permissions?: PermissionSet;
   pin?: PinMeta;
   title?: string;
@@ -56,6 +58,7 @@ function toFragment(input: ChromeContextInput): ContextFragment {
     kind: "facade",
     canRefresh: true,
     ...(input.sql !== undefined && { sql: input.sql }),
+    ...(input.queryId !== undefined && { queryId: input.queryId }),
     ...(input.stats !== undefined && { stats: input.stats }),
   };
 }
