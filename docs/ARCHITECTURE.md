@@ -142,6 +142,7 @@ The renderer resource has **two modes, one bundle**: the default single-result m
 | `load_dashboard` | app-only | The widget's self-load: resolves each pin's **cached** rows via the existing `GET .../queries/{id}` path and the usage header, returning full `RenderOutput`s. Rows reach the widget here, never the transcript. |
 | `get_quota_usage` | app-only | Proxies `GET .../quota/usage` for the header. |
 | `pin_query` / `unpin_query` | app-only | Create/delete a pin in the downstream `.../pinned-queries` store. |
+| `update_pinned_query` | app-only | Edit a pin's layout/label — `title` (rename), `span` (grid width 1–12), `position` — via the facade `PATCH` (partial update; SQL/`query_id`/render-spec immutable; not billable). |
 | `refresh_pinned_query` / `refresh_all_pinned` | app-only | Force a SQL re-run (the only billing path); refresh-all is budget-gated and stops on `429`. |
 
 A pin stores **SQL (source of truth) + last `query_id` (cache pointer) + render spec (`render_tool` + opaque `render_options`)** — never rows. Card bodies are rebuilt from the stored `render_tool` via a registry in `renderers/define.ts` (`buildPinRenderOutput`), so any of the 16 charts re-renders with no bespoke code.
@@ -150,7 +151,7 @@ A pin stores **SQL (source of truth) + last `query_id` (cache pointer) + render 
 
 > **Dev-only.** Static/direct pins are gated behind `DASHBOARD_ALLOW_DIRECT_PINS` (default `false`) — a development flag, not a customer-facing option. In production this is off, so dashboards are **live-only**.
 
-**Layout.** Each pin has an optional `span` (integer 1–12, clamped; default 4) placing it on a fixed **12-column** grid in fullscreen; cards are a fixed height (`--dashboard-card-height`) with the body scrolling inside. Compact/inline and containers narrower than 720px collapse to a single column (spans ignored). `span` is layout-only.
+**Layout.** Each pin has an optional `span` (integer 1–12, clamped; default 4) placing it on a fixed **12-column** grid in fullscreen; cards are a fixed height (`--dashboard-card-height`) with the body scrolling inside. Compact/inline and containers narrower than 720px collapse to a single column (spans ignored). `span` is layout-only. In fullscreen a **live** pin's `span` is user-editable via **Wider**/**Narrower** kebab items (disabled at the 1/12 bounds) and its title via inline click-to-edit; both persist through `update_pinned_query` → facade `PATCH`, applied optimistically and rolled back on failure. Static/snapshot pins are read-only here — they have no durable row, so a snapshot's width/title is changed by re-prompting the model to re-open the dashboard.
 
 Lifecycle invariants:
 - **Open never re-runs SQL.** `load_dashboard` resolves cached results only; an expired/absent `query_id` yields a *stale* card ("click Refresh"), so a dashboard of moving-window queries can't bill on every open (denial-of-wallet defense).
@@ -185,7 +186,7 @@ Each chrome is declared once via `defineChrome<Slice>` (`chrome/types.ts`):
 
 #### Pipeline: registry → resolve → frame / binder
 
-`CHROMES` (`chrome/registry.ts`) is **the** single catalog; every surface resolves from it and no surface keeps its own hardcoded list. `resolve(CHROMES, ctx)` (`chrome/resolve.ts`) is the single placement/presence choke point: it runs each chrome's `select`, groups the survivors by region in a fixed `REGION_ORDER`, and is the seam where a future persisted reorder/hide layer would apply (a documented no-op today). The frame (`chrome/frame.ts`) mounts the resolved chrome into the surface's DOM and opens a `MountScope` that owns every effect disposer, so a repaint or teardown removes listeners deterministically. Behavior is mapped in the **binder** (`chrome/binder.ts`): `createDashboardBinder` translates an action to a single `callServerTool` — `pin → pin_query`, `refresh → refresh_pinned_query`, `remove → unpin_query`, `refreshAll → refresh_all_pinned`, `quotaRefresh → get_quota_usage` — and cross-cutting guards (the refresh-all cost confirmation) wrap an entry as middleware (`withCostConfirm`), short-circuiting to a `Cancelled` sentinel when declined. Because the binder is the one place an intent becomes a tool call, the same `pin`/`refresh` intent can map to different tools on different surfaces.
+`CHROMES` (`chrome/registry.ts`) is **the** single catalog; every surface resolves from it and no surface keeps its own hardcoded list. `resolve(CHROMES, ctx)` (`chrome/resolve.ts`) is the single placement/presence choke point: it runs each chrome's `select`, groups the survivors by region in a fixed `REGION_ORDER`, and is the seam where a future persisted reorder/hide layer would apply (a documented no-op today). The frame (`chrome/frame.ts`) mounts the resolved chrome into the surface's DOM and opens a `MountScope` that owns every effect disposer, so a repaint or teardown removes listeners deterministically. Behavior is mapped in the **binder** (`chrome/binder.ts`): `createDashboardBinder` translates an action to a single `callServerTool` — `pin → pin_query`, `refresh → refresh_pinned_query`, `remove → unpin_query`, `refreshAll → refresh_all_pinned`, `quotaRefresh → get_quota_usage`, `update → update_pinned_query` — and cross-cutting guards (the refresh-all cost confirmation) wrap an entry as middleware (`withCostConfirm`), short-circuiting to a `Cancelled` sentinel when declined. Because the binder is the one place an intent becomes a tool call, the same `pin`/`refresh` intent can map to different tools on different surfaces.
 
 #### Catalog
 
@@ -200,6 +201,7 @@ The eight chromes registered today (`chrome/chromes/*`):
 | `refresh-all` | container | header-end | dashboard, fullscreen, ≥ 1 pin | `refresh-all` intent → `refresh_all_pinned` (budget-gated) |
 | `quota` | container | header-end | dashboard with a usage snapshot | spend bar; effect refreshes it via `get_quota_usage` |
 | `refresh` | item | header-end | dashboard card, fullscreen | → `refresh_pinned_query` |
+| `grow` / `shrink` | item | overflow (kebab) | dashboard card, fullscreen, **live** pin | "Wider"/"Narrower" — `update` intent → `update_pinned_query` (disabled at span 12/1) |
 | `remove` | item | overflow (kebab) | dashboard card, fullscreen | `remove` intent → `unpin_query` |
 
 #### Invariants

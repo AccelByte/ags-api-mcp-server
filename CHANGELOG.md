@@ -1,5 +1,14 @@
 # Changelog
 
+## v2026.3.8 (2026-07-01)
+
+### Added
+- **Edit pinned queries from the dashboard (resize + rename).** A live pin's layout width is now user-editable via **Wider**/**Narrower** items in the card's kebab menu (a `+`/`−` step on the fullscreen 12-column grid, disabled at the 1/12 bounds), and its title via **inline click-to-edit** (a sandboxed webview blocks `window.prompt`, so the editor is an in-DOM input — Enter/blur commit, Escape cancels). Both persist to the facade through a new app-only `update_pinned_query` tool (→ `PATCH .../pinned-queries/{id}`), are applied **optimistically** and rolled back on failure, and are gated on the shared load guard so an edit can't interleave with a refresh/reload. Two new overflow chromes (`grow`/`shrink`), a `resize.ts` chrome module, and an `update` binder entry (`IntentType` gains `"update"`). **Static/snapshot pins are read-only** — they have no durable downstream row, so a snapshot's width/title is changed by re-prompting the model to re-open the dashboard (consistent with production being live-only).
+- **Pinned-query provider gains `updatePin`** (`tools/providers/pinned-queries.ts`) — a partial `PATCH` proxy (`title`/`span`/`position`, only supplied fields sent). Requires facade **≥ 0.7.0** (`AdminUpdatePinnedQuery`); a build whose bundled `afs.json` predates it degrades with the usual `PINNED_QUERIES_UNAVAILABLE` error.
+
+### Changed
+- **`BUNDLE_VERSION` bumped to `1.7.0`** for the new edit affordances (cache-bust convention on a renderer change; no render-payload schema field changed). `PinMeta` gains a `span` field so the resize chromes can read the current width for the step + bound state.
+
 ## v2026.3.7 (2026-06-26)
 
 ### Changed
