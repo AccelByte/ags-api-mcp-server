@@ -8,6 +8,7 @@ import {
   deletePin,
   listPins,
   refreshPin,
+  updatePin,
 } from "../../../../../src/v2/mcp/tools/providers/pinned-queries.js";
 
 type RunApi = OpenApiTools["runApi"];
@@ -241,6 +242,48 @@ describe("pinned-queries provider", () => {
         () => refreshPin(tools(runApi), "studioalpha", "p1", "tok"),
         (err: unknown) =>
           err instanceof FacadeError && err.code === "INVALID_RESPONSE",
+      );
+    });
+  });
+
+  describe("updatePin", () => {
+    test("issues a PATCH with only the supplied fields and returns the record", async () => {
+      const { runApi, calls } = fakeRunApi(() => ({
+        response: { status: 200, data: { ...RECORD, title: "Renamed", span: 8 } },
+      }));
+      const record = await updatePin(
+        tools(runApi),
+        "studioalpha",
+        "p1",
+        { title: "Renamed", span: 8 },
+        "tok",
+      );
+      assert.equal(record.title, "Renamed");
+      assert.equal(record.span, 8);
+      assert.equal(calls[0].method, "PATCH");
+      assert.ok(calls[0].path?.includes("/pinned-queries/{id}"));
+      const body = calls[0].body as {
+        title?: string;
+        span?: number;
+        position?: number;
+      };
+      assert.equal(body.title, "Renamed");
+      assert.equal(body.span, 8);
+      // A field the caller didn't set is omitted from the PATCH body.
+      assert.equal(body.position, undefined);
+    });
+
+    test("maps a 404 to the upstream PIN_NOT_FOUND FacadeError", async () => {
+      const { runApi } = fakeRunApi(() => ({
+        response: {
+          status: 404,
+          data: { error: { code: "PIN_NOT_FOUND", message: "gone" } },
+        },
+      }));
+      await assert.rejects(
+        () => updatePin(tools(runApi), "studioalpha", "p1", { span: 6 }, "tok"),
+        (err: unknown) =>
+          err instanceof FacadeError && err.code === "PIN_NOT_FOUND",
       );
     });
   });

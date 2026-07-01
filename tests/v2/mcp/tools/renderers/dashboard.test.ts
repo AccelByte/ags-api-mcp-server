@@ -439,6 +439,75 @@ describe("pin_query / unpin_query degrade gracefully without the facade endpoint
   });
 });
 
+describe("update_pinned_query", () => {
+  const UPDATED = {
+    pin_id: "p1",
+    title: "Renamed",
+    render_tool: "render_bar_chart",
+    render_options: { x: "day", y: "rev" },
+    position: 0,
+    span: 8,
+  };
+
+  test("PATCHes and returns the updated pin metadata (title + span)", async () => {
+    const tools = setupTools(
+      fakeRunApi({
+        pinnedQueries: () => ({ response: { status: 200, data: UPDATED } }),
+      }),
+    );
+    const result = await tools.get("update_pinned_query")!.cb(
+      { pin_id: "p1", title: "Renamed", span: 8, namespace: "studioalpha" },
+      EXTRA as never,
+    );
+    assert.notEqual(result.isError, true);
+    const meta = PinnedQueryMetaSchema.parse(result.structuredContent);
+    assert.equal(meta.title, "Renamed");
+    assert.equal(meta.span, 8);
+  });
+
+  test("degrades gracefully without the facade endpoint (PINNED_QUERIES_UNAVAILABLE)", async () => {
+    const tools = setupTools(fakeRunApi({}));
+    const result = await tools.get("update_pinned_query")!.cb(
+      { pin_id: "p1", span: 6, namespace: "studioalpha" },
+      EXTRA as never,
+    );
+    assert.equal(result.isError, true);
+    assert.equal(
+      (result._meta as { code?: string }).code,
+      "PINNED_QUERIES_UNAVAILABLE",
+    );
+  });
+
+  test("requires a namespace (none in context) → INVALID_ARGUMENT", async () => {
+    const tools = setupTools(fakeRunApi({}), "");
+    const result = await tools.get("update_pinned_query")!.cb(
+      { pin_id: "p1", span: 6 },
+      EXTRA as never,
+    );
+    assert.equal(result.isError, true);
+    assert.equal((result._meta as { code?: string }).code, "INVALID_ARGUMENT");
+  });
+
+  test("an empty patch (no mutable fields) → INVALID_ARGUMENT, no PATCH sent", async () => {
+    const calls: string[] = [];
+    const tools = setupTools(
+      fakeRunApi({
+        pinnedQueries: () => {
+          calls.push("patch");
+          return { response: { status: 200, data: UPDATED } };
+        },
+      }),
+    );
+    const result = await tools.get("update_pinned_query")!.cb(
+      { pin_id: "p1", namespace: "studioalpha" },
+      EXTRA as never,
+    );
+    assert.equal(result.isError, true);
+    assert.equal((result._meta as { code?: string }).code, "INVALID_ARGUMENT");
+    assert.equal(calls.length, 0, "must not round-trip an empty patch");
+  });
+});
+
 describe("dashboard schemas", () => {
   test("dashboard is a member of the render union (open_dashboard dispatch)", () => {
     const parsed = RenderOutputSchema.parse({

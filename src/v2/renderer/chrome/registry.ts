@@ -9,6 +9,7 @@ import { refreshAllChrome } from "./chromes/refresh-all.js";
 import { quotaChrome } from "./chromes/quota.js";
 import { refreshChrome } from "./chromes/refresh.js";
 import { removeChrome } from "./chromes/remove.js";
+import { growChrome, shrinkChrome } from "./chromes/resize.js";
 import { syncChrome } from "./chromes/sync.js";
 
 /**
@@ -30,5 +31,7 @@ export const CHROMES: readonly AnyChrome[] = [
   quotaChrome,
   // Dashboard card.
   refreshChrome,
+  growChrome,
+  shrinkChrome,
   removeChrome,
 ];

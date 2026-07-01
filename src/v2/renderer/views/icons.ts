@@ -60,6 +60,8 @@ export const ICONS = {
   pin: (): SVGElement =>
     strokeIcon(["M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"]),
   check: (): SVGElement => strokeIcon(["M20 6L9 17l-5-5"]),
+  plus: (): SVGElement => strokeIcon(["M12 5v14", "M5 12h14"]),
+  minus: (): SVGElement => strokeIcon(["M5 12h14"]),
   kebab: (): SVGElement => {
     const svg = document.createElementNS(SVG_NS, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");

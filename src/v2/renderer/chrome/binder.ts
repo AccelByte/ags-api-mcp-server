@@ -57,6 +57,8 @@ export function createDashboardBinder(bridge: DashboardHostBridge): Binder {
     remove: (payload) => call("unpin_query", payload),
     refreshAll: (payload) => call("refresh_all_pinned", payload),
     quotaRefresh: (payload) => call("get_quota_usage", payload),
+    // Edit a pin's layout/label (span resize + title rename). Not billable.
+    update: (payload) => call("update_pinned_query", payload),
   };
 }
 

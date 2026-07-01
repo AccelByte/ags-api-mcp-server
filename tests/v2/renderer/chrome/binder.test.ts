@@ -23,6 +23,7 @@ describe("createDashboardBinder — action → server tool table", () => {
     { action: "remove", tool: "unpin_query" },
     { action: "refreshAll", tool: "refresh_all_pinned" },
     { action: "quotaRefresh", tool: "get_quota_usage" },
+    { action: "update", tool: "update_pinned_query" },
   ];
 
   for (const { action, tool } of cases) {

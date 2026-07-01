@@ -583,6 +583,14 @@ function buildCard(pin: PinnedQueryMeta): HTMLElement {
   const title = document.createElement("h2");
   title.className = "renderer-dashboard-card-title";
   title.textContent = pin.title; // textContent only — never innerHTML
+  // Live pins get an inline click-to-edit title (rename → PATCH). Static/snapshot
+  // titles stay read-only (no durable row to persist to) — same gating as resize.
+  // A sandboxed webview blocks window.prompt, so the editor is an in-DOM input.
+  if (interactive && !staticPin && Boolean(session?.bridge.callServerTool)) {
+    title.classList.add("renderer-dashboard-card-title-editable");
+    title.title = "Click to rename";
+    title.addEventListener("click", () => beginTitleEdit(pin, title));
+  }
   header.append(title);
 
   // Static pins are snapshots — flag them with a badge.
@@ -624,9 +632,20 @@ function buildCard(pin: PinnedQueryMeta): HTMLElement {
         tools.append(view);
       }
     }
-    const kebab = buildOverflowMenu(resolved.overflow, ({ chrome }) => {
-      if (chrome.id === "remove") {
+    const kebab = buildOverflowMenu(resolved.overflow, (entry) => {
+      if (entry.chrome.id === "remove") {
         void removeOne(pin);
+        return;
+      }
+      // grow/shrink: the chrome's `update` intent carries the clamped target span
+      // — the single source of truth for the ±1 step + bound math; resizeOne just
+      // applies it optimistically. (Dispatching by intent, not by id, keeps that
+      // math in one place instead of re-deriving the delta here.)
+      const intent = entry.chrome.intent?.(entry.slice);
+      const targetSpan =
+        intent?.type === "update" ? intent.payload?.span : undefined;
+      if (typeof targetSpan === "number") {
+        void resizeOne(pin, targetSpan);
       }
     });
     if (kebab) {
@@ -821,7 +840,7 @@ function resetMenus(): void {
 function cardChromeContext(pin: PinnedQueryMeta): ChromeContext {
   return buildChromeContext({
     container: "dashboard-card",
-    pin: { pinId: pin.pin_id },
+    pin: { pinId: pin.pin_id, span: pin.span },
     dataSource: isStaticPin(pin) ? DIRECT_DATA_SOURCE : "facade",
     sql: pin.sql,
     interactive: isInteractive(session?.displayMode),
@@ -1104,6 +1123,218 @@ async function refreshOne(pin: PinnedQueryMeta): Promise<void> {
   }
 }
 
+/** Rebuild one card's wrapper in place — fresh gridColumn + kebab bound-state + body. */
+function rebuildCardEl(pin: PinnedQueryMeta): void {
+  const s = session;
+  if (!s) {
+    return;
+  }
+  const entry = s.cardEls.get(pin.pin_id);
+  if (!entry) {
+    return;
+  }
+  resetMenus(); // drop any open menu + its listeners before detaching the node
+  const next = buildCard(pin);
+  entry.wrapper.replaceWith(next);
+  s.cardEls.set(pin.pin_id, {
+    wrapper: next,
+    signature: cardSignature(s.cards.get(pin.pin_id)),
+  });
+}
+
+/**
+ * Step a pin's grid width to `nextSpan` and persist it (`update_pinned_query` →
+ * PATCH). Optimistic: apply locally + rebuild the card (new width, refreshed
+ * "Wider"/"Narrower" bound-state) before the round-trip. On failure roll back and
+ * surface a non-destructive header hint — NOT `setCardError`: a metadata write
+ * must not blank the chart (unlike a data refresh). On success reconcile to the
+ * server's authoritative width. Only reachable for live pins (the resize chromes
+ * gate off static pins).
+ */
+async function resizeOne(pin: PinnedQueryMeta, nextSpan: number): Promise<void> {
+  const session_ = session;
+  if (!session_?.bridge.callServerTool) {
+    return;
+  }
+  const prev = clampSpan(pin.span);
+  const next = clampSpan(nextSpan);
+  if (next === prev) {
+    return; // at a bound / no change — no-op (also defends a stale-enabled item)
+  }
+  // Entry-gate: `refreshOne` only sets `loading`, it doesn't gate its own entry,
+  // so our edits must bail while any load/refresh/edit is in flight — otherwise a
+  // resize can interleave with a focus-reload or a concurrent refresh. Tell the
+  // user instead of dropping the click silently.
+  if (session_.loading) {
+    showReconnectHint("Dashboard is busy — try resizing again in a moment.");
+    return;
+  }
+  session_.loading = true;
+  pin.span = next;
+  rebuildCardEl(pin);
+  try {
+    const result = await createDashboardBinder(session_.bridge).update({
+      pin_id: pin.pin_id,
+      span: next,
+      namespace: session_.namespace,
+    });
+    if (result.isError) {
+      pin.span = prev;
+      rebuildCardEl(pin);
+      showReconnectHint(
+        `Couldn't resize "${pin.title}" — reverted. ${errorText(result)}`,
+      );
+      return;
+    }
+    // Reconcile to the server's authoritative width (it clamps too, so this is a
+    // no-op today — but don't trust the optimistic guess over the response).
+    const serverSpan = spanFromResult(result);
+    if (serverSpan !== null && serverSpan !== pin.span) {
+      pin.span = serverSpan;
+      rebuildCardEl(pin);
+    }
+  } catch (error) {
+    pin.span = prev;
+    rebuildCardEl(pin);
+    showReconnectHint(
+      `Couldn't resize "${pin.title}" — reverted. ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  } finally {
+    if (session) {
+      session.loading = false;
+    }
+  }
+}
+
+/** Set a pin's title on the session model + its card label (textContent — never innerHTML). */
+function applyTitle(pin: PinnedQueryMeta, title: string): void {
+  pin.title = title;
+  const el = session?.cardEls
+    .get(pin.pin_id)
+    ?.wrapper.querySelector<HTMLElement>(".renderer-dashboard-card-title");
+  if (el) {
+    el.textContent = title;
+  }
+}
+
+/**
+ * Rename a pin and persist it (`update_pinned_query` → PATCH). Trims; a blank or
+ * unchanged title is a no-op. Optimistic; on failure roll back and surface a
+ * non-destructive header hint (the chart body is untouched). On success reconcile
+ * to the server's authoritative title. Live pins only. The `session.loading`
+ * check here is a backstop — `beginTitleEdit`'s commit gates first so a busy
+ * commit keeps the editor open instead of dropping the typed text.
+ */
+async function renameOne(pin: PinnedQueryMeta, rawTitle: string): Promise<void> {
+  const session_ = session;
+  if (!session_?.bridge.callServerTool) {
+    return;
+  }
+  const next = rawTitle.trim();
+  const prev = pin.title;
+  if (!next || next === prev) {
+    return;
+  }
+  if (session_.loading) {
+    return; // backstop; beginTitleEdit's commit is the user-facing gate
+  }
+  session_.loading = true;
+  applyTitle(pin, next);
+  try {
+    const result = await createDashboardBinder(session_.bridge).update({
+      pin_id: pin.pin_id,
+      title: next,
+      namespace: session_.namespace,
+    });
+    if (result.isError) {
+      applyTitle(pin, prev);
+      showReconnectHint(
+        `Couldn't rename "${prev}" — reverted. ${errorText(result)}`,
+      );
+      return;
+    }
+    // Reconcile to the server's authoritative (trimmed) title.
+    const serverTitle = titleFromResult(result);
+    if (serverTitle !== null && serverTitle !== pin.title) {
+      applyTitle(pin, serverTitle);
+    }
+  } catch (error) {
+    applyTitle(pin, prev);
+    showReconnectHint(
+      `Couldn't rename "${prev}" — reverted. ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  } finally {
+    if (session) {
+      session.loading = false;
+    }
+  }
+}
+
+/**
+ * Swap a card's title <h2> for a text input seeded with the current title; commit
+ * on Enter/blur, cancel on Escape. A blank/unchanged value just restores the label
+ * (no write). Commit runs `renameOne` (optimistic + PATCH). The input value is read
+ * back via `textContent`, never `innerHTML` (stored-XSS defense — see
+ * ARCHITECTURE.md "Abuse resistance").
+ */
+function beginTitleEdit(pin: PinnedQueryMeta, titleEl: HTMLElement): void {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "renderer-dashboard-card-title-input";
+  input.value = pin.title;
+  input.setAttribute("aria-label", "Card title");
+
+  let settled = false;
+  const restore = (): void => {
+    titleEl.textContent = pin.title; // reflect current (committed or unchanged) title
+    if (input.parentNode) {
+      input.replaceWith(titleEl);
+    }
+  };
+  const commit = (): void => {
+    if (settled) {
+      return; // Enter commits, then blur fires — act once
+    }
+    // A load/refresh in flight would make renameOne's entry-gate drop the edit
+    // and lose the typed text. Keep the editor open (text preserved) and tell the
+    // user to retry, rather than silently reverting the label.
+    if (session?.loading) {
+      showReconnectHint("Dashboard is busy — press Enter again in a moment.");
+      return;
+    }
+    settled = true;
+    const next = input.value;
+    restore();
+    void renameOne(pin, next);
+  };
+  const cancel = (): void => {
+    if (settled) {
+      return;
+    }
+    settled = true;
+    restore();
+  };
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commit();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      cancel();
+    }
+  });
+  input.addEventListener("blur", commit);
+
+  titleEl.replaceWith(input);
+  input.focus();
+  input.select();
+}
+
 async function refreshAll(): Promise<void> {
   const session_ = session;
   if (!session_?.bridge.callServerTool || session_.pins.length === 0) {
@@ -1260,6 +1491,18 @@ function resultCode(result: { _meta?: Record<string, unknown> }): string {
   return result._meta && typeof result._meta === "object"
     ? String((result._meta as { code?: string }).code ?? "")
     : "";
+}
+
+/** Authoritative span from an `update_pinned_query` result's record (clamped), or null. */
+function spanFromResult(result: { structuredContent?: unknown }): number | null {
+  const sc = result.structuredContent as { span?: unknown } | undefined;
+  return typeof sc?.span === "number" ? clampSpan(sc.span) : null;
+}
+
+/** Authoritative (non-empty) title from an `update_pinned_query` result's record, or null. */
+function titleFromResult(result: { structuredContent?: unknown }): string | null {
+  const sc = result.structuredContent as { title?: unknown } | undefined;
+  return typeof sc?.title === "string" && sc.title.length > 0 ? sc.title : null;
 }
 
 function handleLoadError(result: {

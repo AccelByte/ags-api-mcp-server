@@ -45,9 +45,9 @@ export type ChromeView = HTMLElement;
  * The closed set of actions a chrome can emit. A union (not `string`) so a chrome
  * can't emit an intent no surface handles — adding one is a deliberate, compile-
  * checked edit. The dashboard routes these to the tool binder (`pin`/`remove`/
- * `refresh-all`) or to a container action (`reload`).
+ * `refresh-all`/`update`) or to a container action (`reload`).
  */
-export type IntentType = "pin" | "remove" | "refresh-all" | "reload";
+export type IntentType = "pin" | "remove" | "refresh-all" | "reload" | "update";
 
 /**
  * What a chrome emits on activation. The binder (Phase 3) maps `type` →

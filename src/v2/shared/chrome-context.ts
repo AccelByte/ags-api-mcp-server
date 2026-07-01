@@ -34,9 +34,11 @@ export type PermissionSet = {
   canManagePins?: boolean;
 };
 
-/** Pin identity available only inside a dashboard card (for remove/refresh payloads). */
+/** Pin identity available only inside a dashboard card (for remove/refresh/resize payloads). */
 export type PinMeta = {
   pinId: string;
+  /** Current layout width (1–12); the resize chromes read it to compute the next step + bound state. */
+  span?: number;
 };
 
 /**

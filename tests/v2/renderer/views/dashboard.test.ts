@@ -1003,3 +1003,484 @@ describe("CHART_TYPE_TO_RENDER_TOOL", () => {
     }
   });
 });
+
+describe("dashboard view — resize + rename (update_pinned_query)", () => {
+  function livePinMeta(): DashboardOutput {
+    return DashboardOutputSchema.parse({
+      chart_type: "dashboard",
+      namespace: "studioalpha",
+      pins: [
+        {
+          pin_id: "p1",
+          title: "Headline metric",
+          render_tool: "render_metric",
+          render_options: { value: "v" },
+        },
+      ],
+    });
+  }
+  function liveLoaded(): DashboardData {
+    return {
+      namespace: "studioalpha",
+      usage: { monthly: { used_usd: 1, limit_usd: 10, period: "2026-06" } },
+      pins: [
+        {
+          pin_id: "p1",
+          title: "Headline metric",
+          render_tool: "render_metric",
+          render_options: { value: "v" },
+          render_output: {
+            chart_type: "metric",
+            data: { columns: [{ name: "v", type: "bigint" }], rows: [["42"]] },
+            options: { value: "v" },
+          },
+        },
+      ],
+    };
+  }
+
+  test("'Wider' PATCHes span+1 and applies it optimistically", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    renderDashboard(
+      el,
+      livePinMeta(),
+      makeBridge(liveLoaded(), calls),
+      "fullscreen",
+    );
+    await flush();
+
+    const grow = el.querySelector<HTMLButtonElement>(
+      '.renderer-dashboard-card[data-pin-id="p1"] .renderer-dashboard-card-grow',
+    );
+    assert.ok(grow, "expected a Wider item on a live card");
+    grow.click();
+    await flush();
+
+    const call = calls.find((c) => c.name === "update_pinned_query");
+    assert.ok(call, "expected an update_pinned_query call");
+    assert.equal(call.args?.pin_id, "p1");
+    assert.equal(call.args?.span, 5); // default span 4 → +1
+    const card = el.querySelector<HTMLElement>(
+      '.renderer-dashboard-card[data-pin-id="p1"]',
+    );
+    assert.equal(card?.style.gridColumn, "span 5");
+  });
+
+  test("inline title edit PATCHes the trimmed title on Enter", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    renderDashboard(
+      el,
+      livePinMeta(),
+      makeBridge(liveLoaded(), calls),
+      "fullscreen",
+    );
+    await flush();
+
+    const title = el.querySelector<HTMLElement>(
+      '.renderer-dashboard-card[data-pin-id="p1"] .renderer-dashboard-card-title-editable',
+    );
+    assert.ok(title, "expected an editable title on a live card");
+    title.click();
+    const input = el.querySelector<HTMLInputElement>(
+      '.renderer-dashboard-card[data-pin-id="p1"] .renderer-dashboard-card-title-input',
+    );
+    assert.ok(input, "expected the inline title input");
+    input.value = "  Revenue  ";
+    // KeyboardEvent isn't a Node global; use the jsdom window's constructor.
+    const KeyboardEventCtor = input.ownerDocument.defaultView!.KeyboardEvent;
+    input.dispatchEvent(new KeyboardEventCtor("keydown", { key: "Enter" }));
+    await flush();
+
+    const call = calls.find((c) => c.name === "update_pinned_query");
+    assert.ok(call, "expected an update_pinned_query call");
+    assert.equal(call.args?.title, "Revenue"); // trimmed
+  });
+
+  test("static/snapshot pins get no resize items and a read-only title", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    const staticMeta = DashboardOutputSchema.parse({
+      chart_type: "dashboard",
+      namespace: "studioalpha",
+      pins: [
+        {
+          pin_id: "s1",
+          title: "Snapshot",
+          render_tool: "render_table",
+          render_options: {},
+          data_columns: [{ name: "c", type: "varchar" }],
+          data_rows: [["x"]],
+        },
+      ],
+    });
+    renderDashboard(el, staticMeta, makeBridge(null, calls), "fullscreen");
+    await flush();
+
+    const card = el.querySelector('.renderer-dashboard-card[data-pin-id="s1"]');
+    assert.ok(card, "expected the static card");
+    assert.equal(card.querySelector(".renderer-dashboard-card-grow"), null);
+    assert.equal(card.querySelector(".renderer-dashboard-card-shrink"), null);
+    assert.equal(
+      card.querySelector(".renderer-dashboard-card-title-editable"),
+      null,
+      "a snapshot title must not be editable",
+    );
+  });
+
+  // ---- failure / guard / reconcile coverage ----
+
+  type UpdateResult = {
+    isError?: boolean;
+    structuredContent?: unknown;
+    content?: Array<{ type?: string; text?: string }>;
+    _meta?: Record<string, unknown>;
+  };
+
+  /** A bridge whose `update_pinned_query` returns a caller-chosen result. */
+  function editBridge(
+    updateResult: UpdateResult,
+    calls: Array<{ name: string; args?: Record<string, unknown> }>,
+  ): DashboardHostBridge {
+    return {
+      getHostContext: () => ({
+        displayMode: "fullscreen",
+        availableDisplayModes: ["inline", "fullscreen"],
+        containerDimensions: { height: 600, width: 800 },
+      }),
+      getHostCapabilities: () => ({ serverTools: {} }),
+      async callServerTool({ name, arguments: args }) {
+        calls.push({ name, args });
+        if (name === "load_dashboard") {
+          return { structuredContent: liveLoaded() };
+        }
+        if (name === "update_pinned_query") {
+          return updateResult;
+        }
+        return { structuredContent: { namespace: "studioalpha", pins: [] } };
+      },
+      async requestDisplayMode({ mode }) {
+        return { mode };
+      },
+      async updateModelContext() {
+        return {};
+      },
+    };
+  }
+
+  /** A bridge whose `load_dashboard` never resolves until `release()` — holds `session.loading`. */
+  function hangingLoadBridge(
+    calls: Array<{ name: string; args?: Record<string, unknown> }>,
+  ): { bridge: DashboardHostBridge; release: () => void } {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const bridge: DashboardHostBridge = {
+      getHostContext: () => ({
+        displayMode: "fullscreen",
+        availableDisplayModes: ["inline", "fullscreen"],
+        containerDimensions: { height: 600, width: 800 },
+      }),
+      getHostCapabilities: () => ({ serverTools: {} }),
+      async callServerTool({ name, arguments: args }) {
+        calls.push({ name, args });
+        if (name === "load_dashboard") {
+          await gate;
+          return { structuredContent: liveLoaded() };
+        }
+        return { structuredContent: { namespace: "studioalpha", pins: [] } };
+      },
+      async requestDisplayMode({ mode }) {
+        return { mode };
+      },
+      async updateModelContext() {
+        return {};
+      },
+    };
+    return { bridge, release };
+  }
+
+  function pressKey(input: HTMLInputElement, key: string): void {
+    const KeyboardEventCtor = input.ownerDocument.defaultView!.KeyboardEvent;
+    input.dispatchEvent(new KeyboardEventCtor("keydown", { key }));
+  }
+
+  function editableTitle(el: HTMLElement): HTMLElement {
+    const title = el.querySelector<HTMLElement>(
+      '.renderer-dashboard-card[data-pin-id="p1"] .renderer-dashboard-card-title-editable',
+    );
+    assert.ok(title, "expected an editable title on a live card");
+    return title;
+  }
+
+  test("a failed resize rolls back the optimistic width and surfaces a hint", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    const bridge = editBridge(
+      { isError: true, content: [{ type: "text", text: "boom" }], _meta: {} },
+      calls,
+    );
+    renderDashboard(el, livePinMeta(), bridge, "fullscreen");
+    await flush();
+
+    el.querySelector<HTMLButtonElement>(
+      '.renderer-dashboard-card[data-pin-id="p1"] .renderer-dashboard-card-grow',
+    )!.click();
+    await flush();
+
+    assert.ok(
+      calls.some((c) => c.name === "update_pinned_query"),
+      "expected the PATCH to be attempted",
+    );
+    const card = el.querySelector<HTMLElement>(
+      '.renderer-dashboard-card[data-pin-id="p1"]',
+    );
+    assert.equal(card?.style.gridColumn, "span 4", "width reverted to default");
+    const hint = el.querySelector(".renderer-dashboard-hint");
+    assert.ok(hint?.textContent?.includes("reverted"), "expected a revert hint");
+  });
+
+  test("a failed rename rolls back the title and surfaces a hint", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    renderDashboard(
+      el,
+      livePinMeta(),
+      editBridge({ isError: true, content: [{ type: "text", text: "no" }] }, calls),
+      "fullscreen",
+    );
+    await flush();
+
+    editableTitle(el).click();
+    const input = el.querySelector<HTMLInputElement>(
+      ".renderer-dashboard-card-title-input",
+    )!;
+    input.value = "Revenue";
+    pressKey(input, "Enter");
+    await flush();
+
+    const titleText = el.querySelector<HTMLElement>(
+      '.renderer-dashboard-card[data-pin-id="p1"] .renderer-dashboard-card-title',
+    )?.textContent;
+    assert.equal(titleText, "Headline metric", "title reverted");
+    assert.ok(
+      el.querySelector(".renderer-dashboard-hint")?.textContent?.includes("reverted"),
+    );
+  });
+
+  test("a successful resize reconciles to the server's authoritative span", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    // Optimistic step is 4→5, but the server reports 7 — the card must adopt 7.
+    renderDashboard(
+      el,
+      livePinMeta(),
+      editBridge({ structuredContent: { pin_id: "p1", span: 7 } }, calls),
+      "fullscreen",
+    );
+    await flush();
+
+    el.querySelector<HTMLButtonElement>(
+      '.renderer-dashboard-card[data-pin-id="p1"] .renderer-dashboard-card-grow',
+    )!.click();
+    await flush();
+
+    const card = el.querySelector<HTMLElement>(
+      '.renderer-dashboard-card[data-pin-id="p1"]',
+    );
+    assert.equal(card?.style.gridColumn, "span 7");
+  });
+
+  test("an edit is not dropped silently while a load is in flight", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    const { bridge, release } = hangingLoadBridge(calls);
+    renderDashboard(el, livePinMeta(), bridge, "fullscreen");
+    await flush(); // load_dashboard is now pending → session.loading === true
+
+    el.querySelector<HTMLButtonElement>(
+      '.renderer-dashboard-card[data-pin-id="p1"] .renderer-dashboard-card-grow',
+    )!.click();
+    await flush();
+
+    assert.ok(
+      !calls.some((c) => c.name === "update_pinned_query"),
+      "no PATCH while a load holds the guard",
+    );
+    assert.ok(
+      el.querySelector(".renderer-dashboard-hint")?.textContent?.includes("busy"),
+      "the dropped click is surfaced as a hint",
+    );
+    release();
+    await flush();
+  });
+
+  test("Escape cancels the title edit without a PATCH", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    renderDashboard(
+      el,
+      livePinMeta(),
+      editBridge({ structuredContent: { pin_id: "p1" } }, calls),
+      "fullscreen",
+    );
+    await flush();
+
+    editableTitle(el).click();
+    const input = el.querySelector<HTMLInputElement>(
+      ".renderer-dashboard-card-title-input",
+    )!;
+    input.value = "Discarded";
+    pressKey(input, "Escape");
+    await flush();
+
+    assert.ok(
+      !calls.some((c) => c.name === "update_pinned_query"),
+      "Escape must not persist",
+    );
+    assert.equal(
+      el.querySelector<HTMLElement>(
+        '.renderer-dashboard-card[data-pin-id="p1"] .renderer-dashboard-card-title',
+      )?.textContent,
+      "Headline metric",
+    );
+  });
+
+  test("Enter then blur commits exactly once (settled guard)", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    renderDashboard(
+      el,
+      livePinMeta(),
+      editBridge({ structuredContent: { pin_id: "p1", title: "Revenue" } }, calls),
+      "fullscreen",
+    );
+    await flush();
+
+    editableTitle(el).click();
+    const input = el.querySelector<HTMLInputElement>(
+      ".renderer-dashboard-card-title-input",
+    )!;
+    input.value = "Revenue";
+    pressKey(input, "Enter");
+    input.dispatchEvent(new (input.ownerDocument.defaultView!.Event)("blur"));
+    await flush();
+
+    assert.equal(
+      calls.filter((c) => c.name === "update_pinned_query").length,
+      1,
+      "Enter-then-blur must not double-PATCH",
+    );
+  });
+
+  test("committing an unchanged or blank title is a no-op (no PATCH)", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    renderDashboard(
+      el,
+      livePinMeta(),
+      editBridge({ structuredContent: { pin_id: "p1" } }, calls),
+      "fullscreen",
+    );
+    await flush();
+
+    for (const value of ["Headline metric", "   "]) {
+      editableTitle(el).click();
+      const input = el.querySelector<HTMLInputElement>(
+        ".renderer-dashboard-card-title-input",
+      )!;
+      input.value = value;
+      pressKey(input, "Enter");
+      await flush();
+    }
+
+    assert.ok(
+      !calls.some((c) => c.name === "update_pinned_query"),
+      "an unchanged/blank title must not PATCH",
+    );
+  });
+
+  test("'Wider' at the max span is disabled and does not PATCH", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    const wideMeta = DashboardOutputSchema.parse({
+      chart_type: "dashboard",
+      namespace: "studioalpha",
+      pins: [
+        {
+          pin_id: "p1",
+          title: "Wide",
+          render_tool: "render_metric",
+          render_options: { value: "v" },
+          span: 12,
+        },
+      ],
+    });
+    // Loaded card carries span 12 too, so the reload doesn't reset the width.
+    const bridge: DashboardHostBridge = {
+      getHostContext: () => ({
+        displayMode: "fullscreen",
+        availableDisplayModes: ["inline", "fullscreen"],
+        containerDimensions: { height: 600, width: 800 },
+      }),
+      getHostCapabilities: () => ({ serverTools: {} }),
+      async callServerTool({ name, arguments: args }) {
+        calls.push({ name, args });
+        if (name === "load_dashboard") {
+          return {
+            structuredContent: {
+              namespace: "studioalpha",
+              pins: [
+                {
+                  pin_id: "p1",
+                  title: "Wide",
+                  render_tool: "render_metric",
+                  render_options: { value: "v" },
+                  span: 12,
+                  render_output: {
+                    chart_type: "metric",
+                    data: {
+                      columns: [{ name: "v", type: "bigint" }],
+                      rows: [["42"]],
+                    },
+                    options: { value: "v" },
+                  },
+                },
+              ],
+            },
+          };
+        }
+        return { structuredContent: { namespace: "studioalpha", pins: [] } };
+      },
+      async requestDisplayMode({ mode }) {
+        return { mode };
+      },
+      async updateModelContext() {
+        return {};
+      },
+    };
+    renderDashboard(el, wideMeta, bridge, "fullscreen");
+    await flush();
+
+    const grow = el.querySelector<HTMLButtonElement>(
+      '.renderer-dashboard-card[data-pin-id="p1"] .renderer-dashboard-card-grow',
+    );
+    assert.ok(grow, "expected a Wider item");
+    assert.equal(grow.disabled, true, "Wider is disabled at span 12");
+    grow.click(); // a disabled button fires no click
+    await flush();
+
+    assert.ok(
+      !calls.some((c) => c.name === "update_pinned_query"),
+      "clicking a disabled Wider must not PATCH",
+    );
+    assert.equal(
+      el.querySelector<HTMLElement>(
+        '.renderer-dashboard-card[data-pin-id="p1"]',
+      )?.style.gridColumn,
+      "span 12",
+    );
+  });
+});

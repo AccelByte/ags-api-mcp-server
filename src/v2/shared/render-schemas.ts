@@ -4,14 +4,18 @@
 
 import { z } from "zod/v3";
 
-// Bumped to 1.6.0 for `query_id` on CommonEnvelopeFields (propagates to every
-// render output schema) — the pin-by-query_id source key. 1.5.0 added the
-// `notice` field on the load_dashboard payload (degraded pin-store load) + the
-// tightened 1–12 `span` constraint; 1.3.0 added static-pin inline data
-// (data_columns/data_rows) + per-pin `span`; 1.2.0 added chart_type:"dashboard"
-// + pinned-query metadata. The app-shell asserts host-advertised version ==
-// bundle version, so any change to a render payload schema MUST bump this.
-export const BUNDLE_VERSION = "1.6.0";
+// Bumped to 1.7.0 for the pin edit affordances (inline title rename + "Wider"/
+// "Narrower" resize via the new `update_pinned_query` tool → facade PATCH). No
+// render-payload schema field changed — the bump is the cache-bust convention on
+// any renderer change (advertised version and bundle both derive from this
+// constant, so they stay in lockstep when co-deployed). 1.6.0 added `query_id` on
+// CommonEnvelopeFields (the pin-by-query_id source key); 1.5.0 added the `notice`
+// field on the load_dashboard payload (degraded pin-store load) + the tightened
+// 1–12 `span` constraint; 1.3.0 added static-pin inline data (data_columns/
+// data_rows) + per-pin `span`; 1.2.0 added chart_type:"dashboard" + pinned-query
+// metadata. The app-shell asserts host-advertised version == bundle version, so
+// any change to a render payload schema MUST bump this.
+export const BUNDLE_VERSION = "1.7.0";
 
 export function strictObject<T extends z.ZodRawShape>(
   shape: T,
@@ -357,16 +361,26 @@ export function isStaticPin(pin: {
 }
 
 /**
+ * Layout span bounds for the fullscreen 12-column grid. The single source of
+ * truth for the 1–12/default-4 rule, shared by `clampSpan`, the pin schemas
+ * below, the `update_pinned_query` tool schema, and the resize chromes so those
+ * enforcement sites can't drift. (The Go store's `ClampSpan` mirrors these.)
+ */
+export const MIN_SPAN = 1;
+export const MAX_SPAN = 12;
+export const DEFAULT_SPAN = 4;
+
+/**
  * Resolve a layout span to the fullscreen 12-col grid. Only an explicit 1–12 is
  * honored; anything wider clamps to 12, and anything invalid (absent, ≤0, NaN,
  * garbage) falls back to the default 4 rather than an unreadable 1-col sliver.
  * Shared by the server tools and the webview bundle to keep layout identical.
  */
 export function clampSpan(span: number | undefined): number {
-  if (typeof span !== "number" || !Number.isFinite(span) || span < 1) {
-    return 4;
+  if (typeof span !== "number" || !Number.isFinite(span) || span < MIN_SPAN) {
+    return DEFAULT_SPAN;
   }
-  return Math.min(12, Math.floor(span));
+  return Math.min(MAX_SPAN, Math.floor(span));
 }
 
 /**
@@ -422,7 +436,13 @@ export const PinnedQueryMetaSchema = strictObject({
    * permissive on purpose — out-of-range/garbage never throws, it falls back to 4
    * (`clampSpan` is the matching pre-normalizer for untyped inputs).
    */
-  span: z.number().int().min(1).max(12).default(4).catch(4),
+  span: z
+    .number()
+    .int()
+    .min(MIN_SPAN)
+    .max(MAX_SPAN)
+    .default(DEFAULT_SPAN)
+    .catch(DEFAULT_SPAN),
 });
 export type PinnedQueryMeta = z.infer<typeof PinnedQueryMetaSchema>;
 
@@ -463,7 +483,13 @@ export const PinnedQueryCardSchema = strictObject({
   data_columns: z.array(ProviderColumnSchema).optional(),
   data_rows: z.array(z.array(z.string())).optional(),
   /** Layout width on the fullscreen 12-col grid (1–12); permissive, clamped in code. */
-  span: z.number().int().min(1).max(12).default(4).catch(4),
+  span: z
+    .number()
+    .int()
+    .min(MIN_SPAN)
+    .max(MAX_SPAN)
+    .default(DEFAULT_SPAN)
+    .catch(DEFAULT_SPAN),
 }).superRefine((card, ctx) => {
   // A card resolves to exactly one outcome: a rendered body, a stale marker, or
   // an error. Enforce the documented exclusivity so an illegal "render_output +

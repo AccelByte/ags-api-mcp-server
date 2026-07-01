@@ -14,6 +14,8 @@ import {
   DashboardOutputSchema,
   DIRECT_DATA_SOURCE,
   isStaticPin,
+  MAX_SPAN,
+  MIN_SPAN,
   PinnedQueryCardSchema,
   PinnedQueryMetaSchema,
   PinRenderToolSchema,
@@ -30,6 +32,7 @@ import {
   deletePin,
   listPins,
   refreshPin,
+  updatePin,
   type PinnedQueryRecord,
   type PinnedQueryResultRecord,
 } from "../providers/pinned-queries.js";
@@ -137,6 +140,15 @@ const RefreshPinnedQueryInputSchema = z.object({
 });
 const RefreshAllPinnedInputSchema = z.object({
   pins: z.array(PinInputSchema),
+  namespace: z.string().optional(),
+});
+const UpdatePinnedQueryInputSchema = z.object({
+  pin_id: z.string(),
+  // Rename: trimmed + non-empty (the backend also rejects a blank title).
+  title: z.string().trim().min(1).max(200).optional(),
+  // Grid width; the backend clamps out-of-range, but bound it here too.
+  span: z.number().int().min(MIN_SPAN).max(MAX_SPAN).optional(),
+  position: z.number().int().optional(),
   namespace: z.string().optional(),
 });
 
@@ -769,6 +781,58 @@ export function setupDashboardTools(
             { type: "text" as const, text: `Removed pin ${typed.pin_id}.` },
           ],
           structuredContent: { pin_id: typed.pin_id, removed: true },
+        };
+      } catch (error) {
+        return facadeErrorResult(error);
+      }
+    },
+  );
+
+  // ---------- App-only: update_pinned_query ----------
+
+  registerAppTool(
+    server,
+    "update_pinned_query",
+    {
+      title: "Update Pinned Query",
+      description:
+        "Internal: edit a pin's mutable layout/label metadata — title (rename), span (grid width 1–12), and/or position. Partial update; SQL, query_id and the render spec are immutable. At least one field must be supplied. Never re-runs SQL (not billable).",
+      inputSchema: UpdatePinnedQueryInputSchema.shape,
+      outputSchema: PinnedQueryMetaSchema.shape,
+      _meta: APP_ONLY_META,
+    },
+    async (
+      input: Record<string, unknown>,
+      extra: { authInfo?: { token?: string } },
+    ) => {
+      const typed = UpdatePinnedQueryInputSchema.parse(input);
+      try {
+        // Partial update, but an empty patch is a client error, not a no-op write
+        // (the backend also 400s it). Enforce here so the contract in the tool
+        // description holds and we skip a pointless round-trip.
+        if (
+          typed.title === undefined &&
+          typed.span === undefined &&
+          typed.position === undefined
+        ) {
+          throw new FacadeError(
+            "INVALID_ARGUMENT",
+            "Supply at least one of title, span, or position to update.",
+          );
+        }
+        const namespace = resolveNamespace(typed, defaultNamespace);
+        const record = await updatePin(
+          openApiTools,
+          namespace,
+          typed.pin_id,
+          { title: typed.title, span: typed.span, position: typed.position },
+          token(extra),
+        );
+        return {
+          content: [
+            { type: "text" as const, text: `Updated pin ${typed.pin_id}.` },
+          ],
+          structuredContent: recordToMeta(record, record.position ?? 0),
         };
       } catch (error) {
         return facadeErrorResult(error);

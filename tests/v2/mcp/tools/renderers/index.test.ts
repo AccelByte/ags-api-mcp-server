@@ -67,12 +67,13 @@ describe("setupRenderTools", () => {
       "get_quota_usage",
       "pin_query",
       "unpin_query",
+      "update_pinned_query",
       "refresh_pinned_query",
       "refresh_all_pinned",
     ];
 
-    assert.equal(firstServerTools.length, 24);
-    assert.equal(secondServerTools.length, 24);
+    assert.equal(firstServerTools.length, 25);
+    assert.equal(secondServerTools.length, 25);
     assert.deepEqual(
       firstServerTools.map((tool) => tool.name),
       expectedToolNames,

@@ -137,7 +137,7 @@ function httpError(status: number, data: unknown): FacadeError {
 async function callPinnedQueries(
   openApiTools: OpenApiTools,
   args: {
-    method: "GET" | "POST" | "PUT" | "DELETE";
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     path: string;
     pathParams: Record<string, string>;
     query?: Record<string, string | number | (string | number)[]>;
@@ -273,6 +273,40 @@ export async function createPin(
       path: PINNED_QUERIES_BASE,
       pathParams: { namespace },
       body: input,
+    },
+    token,
+  );
+  return parsePin(data);
+}
+
+/** The layout/label edits a pin update may carry. All optional — only supplied fields change. */
+export interface UpdatePinInput {
+  title?: string;
+  span?: number;
+  position?: number;
+}
+
+/**
+ * Edit a pin's mutable layout/label metadata → `PATCH .../pinned-queries/{id}`.
+ * Partial update: only the fields present in `patch` are changed (title/span/
+ * position); SQL, query_id and the render spec are immutable. Returns the updated
+ * record (its `span` may be clamped 1–12 by the backend). A missing pin surfaces
+ * as a `PIN_NOT_FOUND`/HTTP-404 `FacadeError`.
+ */
+export async function updatePin(
+  openApiTools: OpenApiTools,
+  namespace: string,
+  pinId: string,
+  patch: UpdatePinInput,
+  token: string,
+): Promise<PinnedQueryRecord> {
+  const { data } = await callPinnedQueries(
+    openApiTools,
+    {
+      method: "PATCH",
+      path: `${PINNED_QUERIES_BASE}/{id}`,
+      pathParams: { namespace, id: pinId },
+      body: patch,
     },
     token,
   );
