@@ -488,6 +488,46 @@ describe("update_pinned_query", () => {
     assert.equal((result._meta as { code?: string }).code, "INVALID_ARGUMENT");
   });
 
+  test("a title-only edit whose response omits position does not fabricate position 0", async () => {
+    // A facade PATCH response that echoes no position must not resolve to a
+    // hardcoded 0 — that would silently reorder a renamed pin to the front.
+    const { position: _dropped, ...UPDATED_NO_POSITION } = UPDATED;
+    void _dropped;
+    const tools = setupTools(
+      fakeRunApi({
+        pinnedQueries: () => ({
+          response: { status: 200, data: UPDATED_NO_POSITION },
+        }),
+      }),
+    );
+    const result = await tools.get("update_pinned_query")!.cb(
+      { pin_id: "p1", title: "Renamed", namespace: "studioalpha" },
+      EXTRA as never,
+    );
+    assert.notEqual(result.isError, true);
+    const meta = PinnedQueryMetaSchema.parse(result.structuredContent);
+    assert.equal(meta.position, undefined);
+  });
+
+  test("an explicit position edit is echoed back as the fallback when the response omits it", async () => {
+    const { position: _dropped, ...UPDATED_NO_POSITION } = UPDATED;
+    void _dropped;
+    const tools = setupTools(
+      fakeRunApi({
+        pinnedQueries: () => ({
+          response: { status: 200, data: UPDATED_NO_POSITION },
+        }),
+      }),
+    );
+    const result = await tools.get("update_pinned_query")!.cb(
+      { pin_id: "p1", position: 3, namespace: "studioalpha" },
+      EXTRA as never,
+    );
+    assert.notEqual(result.isError, true);
+    const meta = PinnedQueryMetaSchema.parse(result.structuredContent);
+    assert.equal(meta.position, 3);
+  });
+
   test("an empty patch (no mutable fields) → INVALID_ARGUMENT, no PATCH sent", async () => {
     const calls: string[] = [];
     const tools = setupTools(

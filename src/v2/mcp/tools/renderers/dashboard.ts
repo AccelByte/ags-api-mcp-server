@@ -148,6 +148,12 @@ const UpdatePinnedQueryInputSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   // Grid width; the backend clamps out-of-range, but bound it here too.
   span: z.number().int().min(MIN_SPAN).max(MAX_SPAN).optional(),
+  // Forward-looking / model-facing only: the backend accepts a position edit
+  // (author-controlled grid order), but no renderer chrome constructs an update
+  // intent carrying `position` yet — only title (rename) and span (resize) are
+  // wired to UI affordances. If a reorder UI is added later, give `position` the
+  // same optimistic-apply + rollback + server-reconcile handling span/title have
+  // (spanFromResult/titleFromResult) rather than assuming it's already exercised.
   position: z.number().int().optional(),
   namespace: z.string().optional(),
 });
@@ -191,10 +197,17 @@ function normalizePins(pins: PinInput[] | undefined): PinnedQueryMeta[] {
   );
 }
 
-/** Map a stored facade pin record into pin metadata (the authoritative list, post-M3). */
+/**
+ * Map a stored facade pin record into pin metadata (the authoritative list, post-M3).
+ * `fallbackPosition` supplies a position only when the record omits one — the
+ * list index in `buildDashboard`, or the caller-requested position in a single-pin
+ * edit. When it's also undefined (a stateless edit that didn't touch position and a
+ * response that didn't echo one), `position` is left unset rather than fabricated,
+ * so a title/span-only edit can't silently assert a position it never had.
+ */
 function recordToMeta(
   record: PinnedQueryRecord,
-  index: number,
+  fallbackPosition?: number,
 ): PinnedQueryMeta {
   return PinnedQueryMetaSchema.parse({
     pin_id: record.pin_id,
@@ -203,7 +216,7 @@ function recordToMeta(
     query_id: record.query_id ?? undefined,
     render_tool: record.render_tool,
     render_options: record.render_options ?? {},
-    position: record.position ?? index,
+    position: record.position ?? fallbackPosition,
     refreshed_at: record.refreshed_at ?? undefined,
     updated_at: record.updated_at,
     // The backend stores the authoritative flag (model-declared at submit);
@@ -832,7 +845,12 @@ export function setupDashboardTools(
           content: [
             { type: "text" as const, text: `Updated pin ${typed.pin_id}.` },
           ],
-          structuredContent: recordToMeta(record, record.position ?? 0),
+          // The backend echoes `position` on the updated record (0.7.0+), so
+          // recordToMeta uses that. The fallback is the *requested* position
+          // (undefined for a title/span-only edit) — never a hardcoded 0, which
+          // would silently reposition a renamed pin to the front if a facade
+          // ever omitted position from its PATCH response.
+          structuredContent: recordToMeta(record, typed.position),
         };
       } catch (error) {
         return facadeErrorResult(error);
