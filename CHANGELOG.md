@@ -1,5 +1,18 @@
 # Changelog
 
+## v2026.3.9 (2026-07-03)
+
+### Changed
+- **`afs.json` OpenAPI spec synced to athena-facade-api `0.7.0`** (build `7201785`), from `0.5.0`. This is what makes the v2026.3.8 pin-edit feature actually work: the bundled spec now defines `PATCH /afs/v1/admin/namespaces/{namespace}/pinned-queries/{id}` (`AdminUpdatePinnedQuery`) plus its `pinnedQueryUpdateBody`/`pinnedQueryResponse` schemas, so `update_pinned_query` → `updatePin` resolves via `runApi`/`findOperation` and issues a real `PATCH`. Previously the shipped bundle predated this op, so every resize/rename failed and rolled back with `PINNED_QUERIES_UNAVAILABLE` — the resize items and click-to-edit title rendered but could never succeed.
+
+### Added
+- **Spec-resolution guard test.** A new `pinned-queries.spec-resolution.test.ts` builds a real `OpenApiTools` over the actual bundled `openapi-specs/` and asserts every operation the pinned-queries provider issues — `GET`/`POST` list-create, `PATCH`/`DELETE` `{id}`, and `POST {id}/refresh` — resolves via `describeApi`/`findOperation` (and pins the PATCH `operationId` to `AdminUpdatePinnedQuery`). Every other pinned-queries test mocks at the `runApi` boundary and so can't catch provider↔spec drift; this test would have failed CI on the missing PATCH op instead of shipping a broken feature.
+
+### Fixed
+- **Click-to-edit pin title is now keyboard-accessible.** The editable `<h2>` gains `role="button"`, `tabindex="0"`, and an Enter/Space `keydown` handler that opens the same inline editor a click does (Space's default page-scroll is prevented) — previously rename was pointer-only, unreachable for keyboard/AT users, unlike the natively-operable Wider/Narrower `<button>`s.
+- **A pin edit no longer fabricates `position: 0`.** `update_pinned_query` fell back to a hardcoded `0` when a facade `PATCH` response omitted `position`, which could silently reorder a renamed pin to the front of the grid. It now falls back to the caller-requested `position` (undefined for a title/span-only edit) and leaves `position` unset otherwise, so an unrelated edit can't assert a position the pin never had. `recordToMeta`'s position argument is now an optional fallback rather than a required index. (The `0.7.0` facade does echo `position` on the happy path; this hardens the omitted-field case.)
+- **`position` on `update_pinned_query` documented as forward-looking.** The input field is accepted by the backend but wired to no renderer chrome yet (only title/span have UI affordances); a schema comment now flags it model-facing-only and notes a future reorder UI must give it the same optimistic-apply + rollback + server-reconcile handling span/title have.
+
 ## v2026.3.8 (2026-07-01)
 
 ### Added
