@@ -2,7 +2,7 @@
   "info": {
     "description": "Proof-of-concept facade with an asynchronous, polled query lifecycle.\nRoutes follow the AGS admin-endpoint convention: {SERVER_BASE_PATH}/v1/admin/namespaces/{namespace}/...\nThe MCP server is the only intended client and is responsible for the poll loop.",
     "title": "Athena Facade POC",
-    "version": "0.5.0"
+    "version": "0.7.0"
   },
   "schemes": [
     "https"
@@ -569,7 +569,7 @@
         "consumes": [
           "application/json"
         ],
-        "description": "Stores a dashboard pin (SQL + render spec + optional cache pointer). Result rows are never stored. `span` defaults to 4. Returns 409 PIN_COUNT_EXCEEDED when the per-namespace pin cap is reached.",
+        "description": "Stores a dashboard pin (render spec + cache pointer). Result rows are never stored. `span` defaults to 4. Prefer `query_id`: when present the facade sources `sql` + `database` from Athena and `namespace` + `moving_window` from the durable query record, so a hallucinated client `sql`/`database`/`namespace` cannot poison the pin (the client `sql` is ignored). The `sql`-only path (no `query_id`) is deprecated/transitional. Returns 409 PIN_COUNT_EXCEEDED when the per-namespace pin cap is reached.",
         "operationId": "AdminCreatePinnedQuery",
         "parameters": [
           {
@@ -600,7 +600,7 @@
             }
           },
           "400": {
-            "description": "Validation error (missing title/sql, INVALID_RENDER_TOOL, or malformed render_options).",
+            "description": "Validation error (missing title, neither query_id nor sql supplied, INVALID_RENDER_TOOL, malformed render_options, or QUERY_METADATA_EXPIRED when the query_id's Athena metadata has aged out — re-run and pin the new query_id).",
             "schema": {
               "$ref": "#/definitions/handler.errorBody"
             }
@@ -712,6 +712,101 @@
           }
         ],
         "summary": "Unpin a query from the namespace dashboard",
+        "tags": [
+          "pinned-queries"
+        ],
+        "x-errorCodes": {},
+        "x-security": [
+          {
+            "iamClientScopes": [
+              "analytics"
+            ]
+          },
+          {
+            "userPermissions": [
+              "ADMIN:NAMESPACE:{namespace}:ANALYTICS:QUERY [READ]"
+            ]
+          }
+        ]
+      },
+      "patch": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "Partial update of a pin&#39;s mutable metadata — `title`, `span` (grid width 1–12; out-of-range values are clamped), and/or `position`. Only the supplied fields change; `sql`, `query_id` and the render spec are immutable. An empty body (no updatable fields) is a 400.",
+        "operationId": "AdminUpdatePinnedQuery",
+        "parameters": [
+          {
+            "description": "Target namespace.",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Pin ID.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Fields to update (all optional; at least one required).",
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/handler.pinnedQueryUpdateBody"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated pin.",
+            "schema": {
+              "$ref": "#/definitions/handler.pinnedQueryResponse"
+            }
+          },
+          "400": {
+            "description": "Invalid JSON body, no updatable fields supplied, or a blank title.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "401": {
+            "description": "Missing or invalid AB IAM JWT.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "403": {
+            "description": "JWT valid but lacks the required permission, or invalid namespace.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "404": {
+            "description": "PIN_NOT_FOUND.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          },
+          "500": {
+            "description": "Pinned-query store unavailable or unexpected store error.",
+            "schema": {
+              "$ref": "#/definitions/handler.errorBody"
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Edit a pinned query's layout/label",
         "tags": [
           "pinned-queries"
         ],
@@ -2039,8 +2134,8 @@
           "type": "string"
         },
         "moving_window": {
-          "description": "Display-only: true when the query re-scans a sliding range on every refresh.",
-          "type": "boolean"
+          "type": "boolean",
+          "x-omitempty": false
         },
         "next_page_token": {
           "type": "string"
@@ -2179,7 +2274,8 @@
         },
         "moving_window": {
           "description": "Display-only: true when the query re-scans a sliding range on every refresh.",
-          "type": "boolean"
+          "type": "boolean",
+          "x-omitempty": false
         },
         "namespace": {
           "description": "Source namespace of the pinned query; the namespace its SQL re-runs against.",
@@ -2270,7 +2366,8 @@
         },
         "moving_window": {
           "description": "Display-only: true when the query re-scans a sliding range on every refresh.",
-          "type": "boolean"
+          "type": "boolean",
+          "x-omitempty": false
         },
         "namespace": {
           "description": "Source namespace of the pinned query.",
@@ -2317,6 +2414,25 @@
       },
       "type": "object"
     },
+    "handler.pinnedQueryUpdateBody": {
+      "properties": {
+        "position": {
+          "description": "New author-controlled grid order.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "span": {
+          "description": "New layout width on the 12-column grid (1–12); out-of-range values are clamped.",
+          "format": "int32",
+          "type": "integer"
+        },
+        "title": {
+          "description": "New card title. When present it must be non-empty after trimming.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "handler.queryErrorBody": {
       "description": "Failure detail on a terminal FAILED/CANCELLED run (the Athena state-change\nreason); absent on SUCCEEDED.",
       "properties": {
@@ -2350,7 +2466,8 @@
         },
         "moving_window": {
           "description": "MovingWindow is the model-declared intent that this query re-scans a sliding\nrange on every refresh (relative/rolling window). Display-only metadata; it\nis persisted on the durable query row and surfaced to the dashboard, but it\nchanges no storage or execution branch.",
-          "type": "boolean"
+          "type": "boolean",
+          "x-omitempty": false
         },
         "reasoning": {
           "type": "string"
@@ -2377,7 +2494,15 @@
     },
     "handler.usageMonthlyBody": {
       "properties": {
+        "effective_limit_usd": {
+          "description": "EffectiveLimitUSD is limit_usd + overage_grant_usd. Null when limit_usd is null.",
+          "type": "number"
+        },
         "limit_usd": {
+          "type": "number"
+        },
+        "overage_grant_usd": {
+          "description": "OverageGrantUSD is the additional spend headroom granted via facade-admin overage grant (E16).\nOmitted when zero.",
           "type": "number"
         },
         "period": {
@@ -2405,10 +2530,10 @@
     }
   },
   "x-version": {
-    "buildDate": "2026-06-24T04:24:04Z",
-    "gitHash": "bb3b0bb",
+    "buildDate": "2026-07-01T06:35:26Z",
+    "gitHash": "7201785",
     "name": "athena-facade-api",
-    "version": "0.5.0",
+    "version": "0.7.0",
     "version-roles-seeding": "1.2.130"
   }
 }
