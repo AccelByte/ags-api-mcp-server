@@ -1098,6 +1098,36 @@ describe("dashboard view — resize + rename (update_pinned_query)", () => {
     assert.equal(call.args?.title, "Revenue"); // trimmed
   });
 
+  test("editable title is keyboard-activatable (role, tabindex, Enter opens editor)", async () => {
+    const el = root();
+    const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];
+    renderDashboard(
+      el,
+      livePinMeta(),
+      makeBridge(liveLoaded(), calls),
+      "fullscreen",
+    );
+    await flush();
+
+    const title = el.querySelector<HTMLElement>(
+      '.renderer-dashboard-card[data-pin-id="p1"] .renderer-dashboard-card-title-editable',
+    );
+    assert.ok(title, "expected an editable title on a live card");
+    // Exposed to keyboard/AT users as a focusable button, not click-only.
+    assert.equal(title.getAttribute("role"), "button");
+    assert.equal(title.tabIndex, 0);
+
+    // Enter (no pointer) opens the same inline editor a click would.
+    const KeyboardEventCtor = title.ownerDocument.defaultView!.KeyboardEvent;
+    title.dispatchEvent(
+      new KeyboardEventCtor("keydown", { key: "Enter", bubbles: true }),
+    );
+    const input = el.querySelector<HTMLInputElement>(
+      '.renderer-dashboard-card[data-pin-id="p1"] .renderer-dashboard-card-title-input',
+    );
+    assert.ok(input, "expected Enter on the title to open the inline input");
+  });
+
   test("static/snapshot pins get no resize items and a read-only title", async () => {
     const el = root();
     const calls: Array<{ name: string; args?: Record<string, unknown> }> = [];

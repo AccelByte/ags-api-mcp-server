@@ -589,7 +589,18 @@ function buildCard(pin: PinnedQueryMeta): HTMLElement {
   if (interactive && !staticPin && Boolean(session?.bridge.callServerTool)) {
     title.classList.add("renderer-dashboard-card-title-editable");
     title.title = "Click to rename";
+    // Expose the same rename affordance to keyboard/AT users the pointer gets:
+    // make the <h2> a focusable button and open the editor on Enter/Space (the
+    // resize items are native <button>s and already keyboard-operable).
+    title.tabIndex = 0;
+    title.setAttribute("role", "button");
     title.addEventListener("click", () => beginTitleEdit(pin, title));
+    title.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault(); // Space would otherwise scroll the page
+        beginTitleEdit(pin, title);
+      }
+    });
   }
   header.append(title);
 
