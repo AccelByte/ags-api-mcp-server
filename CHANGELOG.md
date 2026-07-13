@@ -1,5 +1,15 @@
 # Changelog
 
+## v2026.4.0 (2026-07-13)
+
+### Added
+- **Registered with the MCP registry.** A `server.json` manifest (`io.github.AccelByte/ags-api-mcp-server`) declares the hosted Shared Cloud and Private Cloud streamable-http remotes, so the server is discoverable via `registry.modelcontextprotocol.io`.
+- **`server.json` version auto-syncs from `package.json`.** A `sync-server-version.js` step at the front of `pnpm build` rewrites the manifest version to match, and fails the build if `server.json`'s description is empty or exceeds the registry schema's 100-character cap — a version bump can no longer ship a stale or invalid manifest.
+
+### Changed
+- **OpenAPI specs refreshed from `justice-codegen-sdk-spec` (`095a09a127`).** All 21 bundled specs under `openapi-specs/` (including `iam`, `platform`, `social`, `inventory`, `session`, `csm`, `gdpr`) re-synced from the upstream codegen spec.
+- **Relicensed under Apache-2.0.** Added top-level `LICENSE` and `NOTICE`, plus SPDX headers across the source tree.
+
 ## v2026.3.9 (2026-07-03)
 
 ### Changed
