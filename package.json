@@ -40,7 +40,12 @@
     "openapi",
     "accelbyte"
   ],
-  "author": "",
+  "author": "AccelByte Inc.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AccelByte/ags-api-mcp-server.git"
+  },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.7.1",
     "@modelcontextprotocol/sdk": "^1.29.0",

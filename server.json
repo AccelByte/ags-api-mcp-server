@@ -1,0 +1,41 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.AccelByte/ags-api-mcp-server",
+  "title": "AGS API",
+  "description": "Stateless MCP server for AccelByte Gaming Services APIs with OpenAPI integration",
+  "version": "2026.3.9",
+  "repository": {
+    "url": "https://github.com/AccelByte/ags-api-mcp-server",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://{studio}-{game}.prod.gamingservices.accelbyte.io/mcp/{studio}-{game}",
+      "variables": {
+        "studio": {
+          "description": "Shared Cloud — your AccelByte studio namespace (studio portion of your studio-game identifier)",
+          "isRequired": true
+        },
+        "game": {
+          "description": "Shared Cloud — your AccelByte game namespace (game portion of your studio-game identifier)",
+          "isRequired": true
+        }
+      }
+    },
+    {
+      "type": "streamable-http",
+      "url": "https://{private_cloud_url}/mcp/{namespace}",
+      "variables": {
+        "private_cloud_url": {
+          "description": "Private Cloud — your Private Cloud base host only, e.g. mygame.accelbyte.io (no https:// prefix, no trailing slash)",
+          "isRequired": true
+        },
+        "namespace": {
+          "description": "Private Cloud — your AccelByte namespace (typically studio-game)",
+          "isRequired": true
+        }
+      }
+    }
+  ]
+}
