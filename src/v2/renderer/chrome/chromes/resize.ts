@@ -1,6 +1,5 @@
-// Copyright (c) 2025 AccelByte Inc. All Rights Reserved.
-// This is licensed software from AccelByte Inc, for limitations
-// and restrictions contact your company contract manager.
+// Copyright (c) 2025 AccelByte Inc.
+// SPDX-License-Identifier: Apache-2.0
 
 import { clampSpan, MAX_SPAN, MIN_SPAN } from "../../../shared/render-schemas.js";
 import { ICONS } from "../../views/icons.js";

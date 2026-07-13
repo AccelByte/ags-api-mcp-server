@@ -1,6 +1,5 @@
-// Copyright (c) 2025 AccelByte Inc. All Rights Reserved.
-// This is licensed software from AccelByte Inc, for limitations
-// and restrictions contact your company contract manager.
+// Copyright (c) 2025 AccelByte Inc.
+// SPDX-License-Identifier: Apache-2.0
 
 import type { RenderStats } from "../../../shared/render-schemas.js";
 import { defineChrome, type AnyChrome } from "../types.js";
