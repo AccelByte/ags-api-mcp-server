@@ -7,7 +7,8 @@
   "packageManager": "pnpm@10.17.0",
   "scripts": {
     "build:renderer": "tsc -p tsconfig.renderer.json --noEmit && vite build --config vite.config.ts",
-    "build": "pnpm run build:renderer && tsc && (cp -r assets dist/ 2>/dev/null || true)",
+    "sync:server-version": "node sync-server-version.js",
+    "build": "pnpm run sync:server-version && pnpm run build:renderer && tsc && (cp -r assets dist/ 2>/dev/null || true)",
     "build+": "pnpm run format && pnpm run lint && pnpm run build",
     "start": "node dist/v2/index.js",
     "start:v2": "node dist/v2/index.js",
