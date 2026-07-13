@@ -7,7 +7,7 @@
     },
     "description": "Justice Legal Service",
     "title": "justice-legal-service",
-    "version": "4.9.0"
+    "version": "4.9.2"
   },
   "schemes": [
     "https"
@@ -134,6 +134,9 @@
         "x-errorCodes": {
           "40047": "errors.net.accelbyte.platform.legal.user_agreement_not_found"
         },
+        "x-operationId": {
+          "value": "legal/admin/agreements/v1/update-consent"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [UPDATE]"
         }
@@ -187,6 +190,9 @@
           "Agreement With Namespace"
         ],
         "x-errorCodes": {},
+        "x-operationId": {
+          "value": "legal/admin/agreements/v1/bulk-get-accepted"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [READ]"
         }
@@ -245,6 +251,9 @@
           "Agreement With Namespace"
         ],
         "x-errorCodes": {},
+        "x-operationId": {
+          "value": "legal/admin/agreements/v1/list-accepted"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [READ]"
         }
@@ -332,6 +341,9 @@
         "x-errorCodes": {
           "40035": "errors.net.accelbyte.platform.legal.policy_version_not_found"
         },
+        "x-operationId": {
+          "value": "legal/admin/agreements/v1/list-users-by-version"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [READ]"
         }
@@ -385,6 +397,9 @@
         ],
         "x-errorCodes": {
           "40047": "Exported agreements for exportId [{exportId}] not found"
+        },
+        "x-operationId": {
+          "value": "legal/admin/agreements/v1/generate-exported-csv-download-url"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [READ]"
@@ -468,6 +483,9 @@
           "40045": "Policy version with id: [{policyVersionId}] not found on namespace [{namespace}]",
           "40071": "Previous export still running for namespace [{namespace}] with exportId [{exportId}]"
         },
+        "x-operationId": {
+          "value": "legal/admin/agreements/v1/start-csv-export"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [READ]"
         }
@@ -536,6 +554,9 @@
           "Base Legal Policies With Namespace"
         ],
         "x-errorCodes": {},
+        "x-operationId": {
+          "value": "legal/admin/base-policies/v1/list"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [READ]"
         }
@@ -607,6 +628,9 @@
           "40030": "errors.net.accelbyte.platform.legal.invalid_policy_type",
           "40032": "errors.net.accelbyte.platform.legal.base_policy_namespace_not_match"
         },
+        "x-operationId": {
+          "value": "legal/admin/base-policies/v1/create"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [CREATE]"
         }
@@ -660,6 +684,9 @@
           "40068": "errors.net.accelbyte.platform.legal.base_policy_have_published_policy_version_and_already_accepted_by_user",
           "40069": "errors.net.accelbyte.platform.legal.base_policy_already_have_published_policy_version"
         },
+        "x-operationId": {
+          "value": "legal/admin/base-policies/v1/delete"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [DELETE]"
         }
@@ -711,6 +738,9 @@
         ],
         "x-errorCodes": {
           "40041": "errors.net.accelbyte.platform.legal.policy_not_found"
+        },
+        "x-operationId": {
+          "value": "legal/admin/base-policies/v1/get"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [READ]"
@@ -775,6 +805,9 @@
         "x-errorCodes": {
           "40032": "errors.net.accelbyte.platform.legal.invalid_base_policy"
         },
+        "x-operationId": {
+          "value": "legal/admin/base-policies/v1/update"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [UPDATE]"
         }
@@ -836,6 +869,9 @@
         "x-errorCodes": {
           "40031": "errors.net.accelbyte.platform.legal.base_policy_not_found"
         },
+        "x-operationId": {
+          "value": "legal/admin/base-policies/v1/get-child"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [READ]"
         }
@@ -892,6 +928,9 @@
         ],
         "x-errorCodes": {
           "40041": "errors.net.accelbyte.platform.legal.policy_not_found"
+        },
+        "x-operationId": {
+          "value": "legal/admin/base-policies/v1/list-children"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [READ]"
@@ -956,6 +995,9 @@
         "x-errorCodes": {
           "40032": "errors.net.accelbyte.platform.legal.invalid_base_policy"
         },
+        "x-operationId": {
+          "value": "legal/admin/base-policies/v1/create-child"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [CREATE]"
         }
@@ -1008,6 +1050,9 @@
           "40075": "errors.net.accelbyte.platform.legal.localized_policy_version_is_published_and_already_accepted_by_user",
           "40076": "errors.net.accelbyte.platform.legal.localized_policy_version_is_active"
         },
+        "x-operationId": {
+          "value": "legal/admin/localized-versions/v1/delete"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [DELETE]"
         }
@@ -1057,6 +1102,9 @@
           "Localized Policy Versions With Namespace"
         ],
         "x-errorCodes": {},
+        "x-operationId": {
+          "value": "legal/admin/localized-versions/v1/list"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [READ]"
         }
@@ -1127,6 +1175,9 @@
           "40033": "errors.net.accelbyte.platform.legal.invalid_policy_version",
           "40044": "errors.net.accelbyte.platform.legal.localized_policy_version_already_exist"
         },
+        "x-operationId": {
+          "value": "legal/admin/localized-versions/v1/create"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [CREATE]"
         }
@@ -1180,6 +1231,9 @@
         ],
         "x-errorCodes": {
           "2912": "errors.net.accelbyte.platform.legal.policy_version_not_found"
+        },
+        "x-operationId": {
+          "value": "legal/admin/localized-versions/v1/get"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [READ]"
@@ -1243,6 +1297,9 @@
         ],
         "x-errorCodes": {
           "40035": "errors.net.accelbyte.platform.legal.invalid_policy_version"
+        },
+        "x-operationId": {
+          "value": "legal/admin/localized-versions/v1/update"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [UPDATE]"
@@ -1311,6 +1368,9 @@
           "40037": "errors.net.accelbyte.platform.legal.invalid_localized_policy_version",
           "40042": "errors.net.accelbyte.platform.legal.policy_version_freezed"
         },
+        "x-operationId": {
+          "value": "legal/admin/localized-versions/v1/generate-upload-url"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [CREATE]"
         }
@@ -1354,6 +1414,9 @@
           "Localized Policy Versions With Namespace"
         ],
         "x-errorCodes": {},
+        "x-operationId": {
+          "value": "legal/admin/localized-versions/v1/set-default"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [UPDATE]"
         }
@@ -1406,6 +1469,9 @@
           "40035": "errors.net.accelbyte.platform.legal.invalid_policy_version",
           "40070": "errors.net.accelbyte.platform.legal.policy_version_is_published_and_already_accepted_by_user",
           "40071": "errors.net.accelbyte.platform.legal.policy_version_is_active"
+        },
+        "x-operationId": {
+          "value": "legal/admin/versions/v1/delete"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [DELETE]"
@@ -1478,6 +1544,9 @@
           "40042": "errors.net.accelbyte.platform.legal.policy_version_freezed",
           "40043": "errors.net.accelbyte.platform.legal.localized_policy_version_already_exist"
         },
+        "x-operationId": {
+          "value": "legal/admin/versions/v1/update"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:*:LEGAL [UPDATE]"
         }
@@ -1548,6 +1617,9 @@
           "40043": "errors.net.accelbyte.platform.legal.localized_policy_version_already_publish",
           "40046": "errors.net.accelbyte.platform.legal.default_selection_not_provided"
         },
+        "x-operationId": {
+          "value": "legal/admin/versions/v1/publish"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:*:LEGAL [UPDATE]"
         }
@@ -1599,6 +1671,9 @@
         "x-errorCodes": {
           "40035": "errors.net.accelbyte.platform.legal.invalid_policy_version",
           "40070": "errors.net.accelbyte.platform.legal.policy_version_is_published_and_already_accepted_by_user"
+        },
+        "x-operationId": {
+          "value": "legal/admin/versions/v1/unpublish"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [UPDATE]"
@@ -1653,6 +1728,9 @@
           "40072": "errors.net.accelbyte.platform.legal.policy_have_published_policy_version",
           "40073": "errors.net.accelbyte.platform.legal.policy_have_published_policy_version_and_already_accepted_by_user",
           "40074": "errors.net.accelbyte.platform.legal.policy_is_default_policy"
+        },
+        "x-operationId": {
+          "value": "legal/admin/policies/v1/delete"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [DELETE]"
@@ -1714,6 +1792,9 @@
         "x-errorCodes": {
           "40033": "errors.net.accelbyte.platform.legal.invalid_policy_id"
         },
+        "x-operationId": {
+          "value": "legal/admin/policies/v1/update"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [UPDATE]"
         }
@@ -1764,6 +1845,9 @@
         ],
         "x-errorCodes": {
           "40033": "errors.net.accelbyte.platform.legal.invalid_policy_id"
+        },
+        "x-operationId": {
+          "value": "legal/admin/policies/v1/set-default"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [UPDATE]"
@@ -1829,6 +1913,9 @@
         "x-errorCodes": {
           "40036": "errors.net.accelbyte.platform.legal.policy_version_id_not_found"
         },
+        "x-operationId": {
+          "value": "legal/admin/versions/v1/list"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:*:LEGAL [READ]"
         }
@@ -1892,6 +1979,9 @@
         "x-errorCodes": {
           "40033": "errors.net.accelbyte.platform.legal.invalid_policy"
         },
+        "x-operationId": {
+          "value": "legal/admin/versions/v1/create"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:*:LEGAL [CREATE]"
         }
@@ -1950,6 +2040,9 @@
           "Base Legal Policies With Namespace"
         ],
         "x-errorCodes": {},
+        "x-operationId": {
+          "value": "legal/admin/base-policies/v1/list-types"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:LEGAL [READ]"
         }
@@ -2031,6 +2124,9 @@
           "Admin User Agreement"
         ],
         "x-errorCodes": {},
+        "x-operationId": {
+          "value": "legal/admin/agreements/v1/bulk-accept-on-behalf"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:LEGAL [CREATE]"
         }
@@ -2106,6 +2202,9 @@
         "x-errorCodes": {
           "40045": "errors.net.accelbyte.platform.legal.user_id_needed"
         },
+        "x-operationId": {
+          "value": "legal/admin/eligibilities/v1/get-on-behalf"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:LEGAL [READ]"
         }
@@ -2152,6 +2251,9 @@
         ],
         "x-errorCodes": {
           "40045": "errors.net.accelbyte.platform.legal.user_agreement_not_found"
+        },
+        "x-operationId": {
+          "value": "legal/admin/internal/v1/anonymize-user-agreement"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:*:LEGAL [DELETE]"
@@ -2205,6 +2307,9 @@
           "40017": "Policy with id : [{policyId}] is not marketing preference",
           "40045": "errors.net.accelbyte.platform.legal.user_id_needed"
         },
+        "x-operationId": {
+          "value": "legal/public/agreements/v1/update-consent"
+        },
         "x-security": {
           "userPermissions": "-"
         }
@@ -2250,6 +2355,9 @@
           "40035": "errors.net.accelbyte.platform.legal.invalid_localize_policy_version_id",
           "40045": "errors.net.accelbyte.platform.legal.user_id_needed"
         },
+        "x-operationId": {
+          "value": "legal/public/agreements/v1/accept"
+        },
         "x-security": {
           "userPermissions": "-"
         }
@@ -2291,6 +2399,9 @@
         ],
         "x-errorCodes": {
           "40045": "errors.net.accelbyte.platform.legal.user_id_needed"
+        },
+        "x-operationId": {
+          "value": "legal/public/agreements/v1/list-my-accepted"
         },
         "x-security": {
           "userPermissions": "-"
@@ -2344,6 +2455,9 @@
         "x-errorCodes": {
           "40035": "errors.net.accelbyte.platform.legal.invalid_localize_policy_version_id",
           "40045": "errors.net.accelbyte.platform.legal.user_id_needed"
+        },
+        "x-operationId": {
+          "value": "legal/public/agreements/v1/bulk-accept"
         },
         "x-security": {
           "userPermissions": "-"
@@ -2401,6 +2515,9 @@
         "x-errorCodes": {
           "40041": "errors.net.accelbyte.platform.legal.policy_not_found",
           "40045": "errors.net.accelbyte.platform.legal.user_id_needed"
+        },
+        "x-operationId": {
+          "value": "legal/public/eligibilities/v1/list"
         },
         "x-security": {
           "userPermissions": "-"
@@ -2470,6 +2587,9 @@
         "x-errorCodes": {
           "40045": "errors.net.accelbyte.platform.legal.user_id_needed"
         },
+        "x-operationId": {
+          "value": "legal/public/eligibilities/v1/get"
+        },
         "x-security": {
           "userPermissions": "-"
         }
@@ -2518,6 +2638,9 @@
         "x-errorCodes": {
           "40038": "errors.net.accelbyte.platform.legal.localized_policy_version_not_found",
           "40081": "errors.net.accelbyte.platform.legal.policy_not_accessible"
+        },
+        "x-operationId": {
+          "value": "legal/public/localized-versions/v1/get-global"
         }
       }
     },
@@ -2571,6 +2694,9 @@
         "x-errorCodes": {
           "40038": "errors.net.accelbyte.platform.legal.localized_policy_version_not_found",
           "40081": "errors.net.accelbyte.platform.legal.policy_not_accessible"
+        },
+        "x-operationId": {
+          "value": "legal/public/localized-versions/v1/get"
         }
       }
     },
@@ -2597,7 +2723,10 @@
         "tags": [
           "Policies"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationId": {
+          "value": "legal/public/policies/v1/list-countries"
+        }
       }
     },
     "/agreement/public/policies/countries/{countryCode}": {
@@ -2665,7 +2794,10 @@
         "tags": [
           "Policies"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationId": {
+          "value": "legal/public/policies/v1/list-all"
+        }
       }
     },
     "/agreement/public/policies/namespaces/{namespace}": {
@@ -2755,6 +2887,9 @@
         "x-errorCodes": {
           "40040": "errors.net.accelbyte.platform.legal.user_has_no_country"
         },
+        "x-operationId": {
+          "value": "legal/public/policies/v1/list-my-country"
+        },
         "x-security": {
           "userPermissions": "-"
         }
@@ -2840,7 +2975,10 @@
         "tags": [
           "Policies"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationId": {
+          "value": "legal/public/policies/v1/list"
+        }
       }
     },
     "/agreement/public/readiness": {
@@ -2869,6 +3007,9 @@
           "Utility"
         ],
         "x-errorCodes": {},
+        "x-operationId": {
+          "value": "legal/public/utility/v1/check-readiness"
+        },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:LEGAL [READ]"
         }
@@ -2919,7 +3060,10 @@
         "tags": [
           "Policies With Namespace V2"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationId": {
+          "value": "legal/public/policies/v2/list"
+        }
       }
     }
   },
@@ -5036,15 +5180,15 @@
   },
   "x-version": {
     "buildBy": "Gradle 8.5",
-    "buildDate": "2026-05-11T09:01:56+00:00",
-    "buildID": "4.9.0",
+    "buildDate": "2026-07-03T00:16:38+00:00",
+    "buildID": "4.9.2",
     "buildJDK": "21.0.6 (Amazon.com Inc. 21.0.6+7-LTS)",
     "buildOS": "Linux amd64 6.1.144-170.251.amzn2023.x86_64",
     "gitBranchName": "release-candidate",
-    "gitHash": "68556d62f8",
-    "gitTag": "4.9.0",
+    "gitHash": "f53260db86",
+    "gitTag": "4.9.2",
     "name": "justice-legal-service",
-    "version": "4.9.0",
+    "version": "4.9.2",
     "version-roles-seeding": "0.0.3"
   }
 }

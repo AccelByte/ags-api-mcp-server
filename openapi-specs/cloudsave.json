@@ -7,7 +7,7 @@
     },
     "description": "Justice Cloudsave Service",
     "title": "justice-cloudsave-service",
-    "version": "3.32.0"
+    "version": "3.32.2"
   },
   "schemes": [
     "https"
@@ -117,6 +117,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records-protected/v1/list",
         "x-security": [
           {
             "iamClientScopes": [
@@ -214,6 +215,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records-protected/v1/bulk-get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -298,6 +300,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records-protected/v1/delete",
         "x-security": [
           {
             "iamClientScopes": [
@@ -384,6 +387,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records-protected/v1/get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -483,6 +487,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records-protected/v1/create",
         "x-security": [
           {
             "iamClientScopes": [
@@ -582,6 +587,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records-protected/v1/update",
         "x-security": [
           {
             "iamClientScopes": [
@@ -674,6 +680,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records-protected/v1/delete-ttl",
         "x-security": [
           {
             "iamClientScopes": [
@@ -784,6 +791,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-files/v1/list",
         "x-security": [
           {
             "iamClientScopes": [
@@ -879,6 +887,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-files/v1/create",
         "x-security": [
           {
             "iamClientScopes": [
@@ -970,6 +979,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-files/v1/delete",
         "x-security": [
           {
             "iamClientScopes": [
@@ -1055,6 +1065,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-files/v1/get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -1156,6 +1167,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-files/v1/update",
         "x-security": [
           {
             "iamClientScopes": [
@@ -1258,6 +1270,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-files/v1/update-metadata",
         "x-security": [
           {
             "iamClientScopes": [
@@ -1362,6 +1375,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-files/v1/generate-upload-url",
         "x-security": [
           {
             "iamClientScopes": [
@@ -1454,6 +1468,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-files/v1/delete-ttl",
         "x-security": [
           {
             "iamClientScopes": [
@@ -1557,6 +1572,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records-protected/v1/update-concurrent",
         "x-security": [
           {
             "iamClientScopes": [
@@ -1661,6 +1677,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records/v1/update-concurrent",
         "x-security": [
           {
             "iamClientScopes": [
@@ -1738,6 +1755,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/plugin-config/v1/delete",
         "x-security": [
           {
             "iamClientScopes": [
@@ -1816,6 +1834,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/plugin-config/v1/get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -1910,6 +1929,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/plugin-config/v1/update",
         "x-security": [
           {
             "iamClientScopes": [
@@ -2004,6 +2024,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/plugin-config/v1/create",
         "x-security": [
           {
             "iamClientScopes": [
@@ -2116,6 +2137,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records/v1/list",
         "x-security": [
           {
             "iamClientScopes": [
@@ -2201,6 +2223,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records/v1/delete",
         "x-security": [
           {
             "iamClientScopes": [
@@ -2287,6 +2310,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records/v1/get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -2386,6 +2410,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records/v1/create",
         "x-security": [
           {
             "iamClientScopes": [
@@ -2485,6 +2510,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records/v1/update",
         "x-security": [
           {
             "iamClientScopes": [
@@ -2577,6 +2603,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/game-records/v1/delete-ttl",
         "x-security": [
           {
             "iamClientScopes": [
@@ -2671,6 +2698,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/tags/v1/list",
         "x-security": [
           {
             "iamClientScopes": [
@@ -2764,6 +2792,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/tags/v1/create",
         "x-security": [
           {
             "iamClientScopes": [
@@ -2848,6 +2877,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/tags/v1/delete",
         "x-security": [
           {
             "iamClientScopes": [
@@ -2951,6 +2981,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records-protected/v1/bulk-get-by-key",
         "x-security": [
           {
             "iamClientScopes": [
@@ -3039,6 +3070,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/bulk-get-size",
         "x-security": [
           {
             "iamClientScopes": [
@@ -3136,6 +3168,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/bulk-get-by-key",
         "x-security": [
           {
             "iamClientScopes": [
@@ -3235,6 +3268,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/bulk-update-by-key",
         "x-security": [
           {
             "iamClientScopes": [
@@ -3352,6 +3386,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records-protected/v1/list",
         "x-security": [
           {
             "iamClientScopes": [
@@ -3456,6 +3491,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records-protected/v1/bulk-get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -3547,6 +3583,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records-protected/v1/delete",
         "x-security": [
           {
             "iamClientScopes": [
@@ -3640,6 +3677,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records-protected/v1/get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -3744,6 +3782,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records-protected/v1/create",
         "x-security": [
           {
             "iamClientScopes": [
@@ -3848,6 +3887,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records-protected/v1/update",
         "x-security": [
           {
             "iamClientScopes": [
@@ -3965,6 +4005,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-files/v1/list",
         "x-security": [
           {
             "iamClientScopes": [
@@ -4067,6 +4108,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-files/v1/create",
         "x-security": [
           {
             "iamClientScopes": [
@@ -4158,6 +4200,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-files/v1/delete",
         "x-security": [
           {
             "iamClientScopes": [
@@ -4250,6 +4293,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-files/v1/get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -4357,6 +4401,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-files/v1/update",
         "x-security": [
           {
             "iamClientScopes": [
@@ -4466,6 +4511,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-files/v1/update-metadata",
         "x-security": [
           {
             "iamClientScopes": [
@@ -4576,6 +4622,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-files/v1/generate-upload-url",
         "x-security": [
           {
             "iamClientScopes": [
@@ -4698,6 +4745,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records-protected/v1/update-concurrent",
         "x-security": [
           {
             "iamClientScopes": [
@@ -4822,6 +4870,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/update-concurrent",
         "x-security": [
           {
             "iamClientScopes": [
@@ -4945,6 +4994,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/update-concurrent-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -5062,6 +5112,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/list-by-user-id",
         "x-security": [
           {
             "iamClientScopes": [
@@ -5166,6 +5217,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/bulk-get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -5258,6 +5310,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/bulk-update",
         "x-security": [
           {
             "iamClientScopes": [
@@ -5342,6 +5395,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/delete",
         "x-security": [
           {
             "iamClientScopes": [
@@ -5435,6 +5489,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -5539,6 +5594,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/create",
         "x-security": [
           {
             "iamClientScopes": [
@@ -5643,6 +5699,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/update",
         "x-security": [
           {
             "iamClientScopes": [
@@ -5741,6 +5798,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/delete-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -5834,6 +5892,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/get-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -5938,6 +5997,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/create-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -6042,6 +6102,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/update-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -6136,6 +6197,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/admin/user-records/v1/get-size",
         "x-security": [
           {
             "iamClientScopes": [
@@ -6246,6 +6308,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/game-files/v1/list",
         "x-security": [
           {
             "iamClientScopes": [
@@ -6341,6 +6404,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/game-files/v1/create",
         "x-security": [
           {
             "iamClientScopes": [
@@ -6430,6 +6494,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/game-files/v1/bulk-get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -6516,6 +6581,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/game-files/v1/delete",
         "x-security": [
           {
             "iamClientScopes": [
@@ -6601,6 +6667,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/game-files/v1/get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -6702,6 +6769,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/game-files/v1/update",
         "x-security": [
           {
             "iamClientScopes": [
@@ -6806,6 +6874,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/game-files/v1/generate-upload-url",
         "x-security": [
           {
             "iamClientScopes": [
@@ -6910,6 +6979,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/game-records/v1/update-concurrent",
         "x-security": [
           {
             "iamClientScopes": [
@@ -7008,6 +7078,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/game-records/v1/bulk-get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -7093,6 +7164,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/game-records/v1/delete",
         "x-security": [
           {
             "iamClientScopes": [
@@ -7187,6 +7259,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/game-records/v1/get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -7287,6 +7360,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/game-records/v1/create",
         "x-security": [
           {
             "iamClientScopes": [
@@ -7387,6 +7461,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/game-records/v1/update",
         "x-security": [
           {
             "iamClientScopes": [
@@ -7481,6 +7556,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/tags/v1/list",
         "x-security": [
           {
             "iamClientScopes": [
@@ -7576,6 +7652,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-files/v1/bulk-get-public-by-key",
         "x-security": [
           {
             "iamClientScopes": [
@@ -7673,6 +7750,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/bulk-get-public-by-key",
         "x-security": [
           {
             "iamClientScopes": [
@@ -7784,6 +7862,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-files/v1/list",
         "x-security": [
           {
             "iamClientScopes": [
@@ -7868,6 +7947,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-files/v1/bulk-get-my",
         "x-security": [
           {
             "iamClientScopes": [
@@ -7967,6 +8047,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/list-my",
         "x-security": [
           {
             "iamClientScopes": [
@@ -8053,6 +8134,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/bulk-get-my",
         "x-security": [
           {
             "iamClientScopes": [
@@ -8139,6 +8221,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/delete-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -8238,6 +8321,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-files/v1/create",
         "x-security": [
           {
             "iamClientScopes": [
@@ -8349,6 +8433,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-files/v1/list-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -8444,6 +8529,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-files/v1/bulk-get-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -8542,6 +8628,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-files/v1/delete",
         "x-security": [
           {
             "iamClientScopes": [
@@ -8634,6 +8721,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-files/v1/get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -8742,6 +8830,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-files/v1/update",
         "x-security": [
           {
             "iamClientScopes": [
@@ -8852,6 +8941,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-files/v1/update-metadata",
         "x-security": [
           {
             "iamClientScopes": [
@@ -8963,6 +9053,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-files/v1/generate-upload-url",
         "x-security": [
           {
             "iamClientScopes": [
@@ -9057,6 +9148,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-files/v1/get-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -9181,6 +9273,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/update-concurrent",
         "x-security": [
           {
             "iamClientScopes": [
@@ -9304,6 +9397,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/update-concurrent-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -9415,6 +9509,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/list-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -9513,6 +9608,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/bulk-get-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -9605,6 +9701,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/delete",
         "x-security": [
           {
             "iamClientScopes": [
@@ -9707,6 +9804,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/get",
         "x-security": [
           {
             "iamClientScopes": [
@@ -9814,6 +9912,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/create",
         "x-security": [
           {
             "iamClientScopes": [
@@ -9920,6 +10019,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/update",
         "x-security": [
           {
             "iamClientScopes": [
@@ -10023,6 +10123,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/get-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -10128,6 +10229,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/create-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -10233,6 +10335,7 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationid": "cloud-save/public/user-records/v1/update-public",
         "x-security": [
           {
             "iamClientScopes": [
@@ -11798,11 +11901,11 @@
     }
   },
   "x-version": {
-    "buildDate": "2026-05-11T08:59:56+00:00",
-    "gitHash": "1d24b866d0598fe1ae0b7a931e64e0be36cd4856",
+    "buildDate": "2026-07-02T23:18:16+00:00",
+    "gitHash": "b3f265c529dd71129be16a98d3c3f23cc8a65eaa",
     "name": "justice-cloudsave-service",
-    "revisionID": "3.32.0",
-    "version": "3.32.0",
+    "revisionID": "3.32.2",
+    "version": "3.32.2",
     "version-roles-seeding": "0.0.46"
   }
 }

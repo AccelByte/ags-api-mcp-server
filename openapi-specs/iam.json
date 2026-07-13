@@ -7,7 +7,7 @@
     },
     "description": "Justice IAM Service",
     "title": "justice-iam-service",
-    "version": "7.39.1"
+    "version": "7.40.1"
   },
   "schemes": [
     "https"
@@ -65,7 +65,8 @@
         "tags": [
           "OAuth2.0"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v1/get-authorization-server-metadata-by-namespace"
       }
     },
     "/iam/v3/admin/bans": {
@@ -115,6 +116,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/bans/v3/list",
         "x-security": [
           {
             "userPermissions": [
@@ -171,6 +173,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/bans/v3/list-reasons",
         "x-security": [
           {
             "userPermissions": [
@@ -198,7 +201,7 @@
             }
           },
           {
-            "description": "If the targeted group or module is selected by any client, the deletion will fail by default. Set this flag to true to force the deletion.",
+            "description": "If the targeted group or module is currently selected by any client, the deletion will fail by default. Set to 'true' to first unselect that group from affected clients and then proceed.",
             "in": "query",
             "name": "forceDelete",
             "type": "boolean",
@@ -238,6 +241,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/client-config/v3/delete-permission",
         "x-security": [
           {
             "userPermissions": [
@@ -295,17 +299,18 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/client-config/v3/list-permissions",
         "x-security": {}
       },
       "put": {
         "consumes": [
           "application/json"
         ],
-        "description": "Updates client available permissions. If the specified module or group does not exist, it will be automatically created.",
+        "description": "Upserts client available permissions at the module level.\nOnly the modules listed in the request are processed - any other existing module is left untouched, so *callers do not need to include unchanged modules*. \n\n## Groups update behavior\n\nFor each module in the request, the &#39;groups&#39; array is the *full desired state* of that module&#39;s groups - any existing group whose &#39;groupId&#39; is omitted is treated as ***removed***.\nIf a removed group is currently used by any client, the request will fails with 400 and nothing is saved, unless &#39;forceDelete=true&#39; query param is passed.\n",
         "operationId": "AdminUpdateAvailablePermissionsByModule",
         "parameters": [
           {
-            "description": "Permission modules upsert request body.",
+            "description": "Permission modules upsert request body. Omitted groups will be removed.",
             "in": "body",
             "name": "body",
             "required": true,
@@ -314,7 +319,8 @@
             }
           },
           {
-            "description": "If this update includes a delete action and the targeted group or module is selected by any client, the operation will fail by default. Set this flag to true to force the operation.",
+            "default": false,
+            "description": "If the update would remove a group that is currently selected by any client, the request will fail by default. Set to 'true' to first unselect that group from affected clients and then proceed.",
             "in": "query",
             "name": "forceDelete",
             "type": "boolean",
@@ -354,6 +360,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/client-config/v3/upsert-permissions",
         "x-security": [
           {
             "userPermissions": [
@@ -414,6 +421,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/clients-config/v3/update-module-package",
         "x-security": [
           {
             "userPermissions": [
@@ -463,6 +471,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/client-config/v3/list-templates",
         "x-security": {}
       }
     },
@@ -564,6 +573,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/list-admins",
         "x-security": [
           {
             "userPermissions": [
@@ -643,6 +653,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/age-restrictions/v3/list",
         "x-security": [
           {
             "userPermissions": [
@@ -725,6 +736,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/age-restrictions/v3/update",
         "x-security": [
           {
             "userPermissions": [
@@ -800,6 +812,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/age-restrictions/v3/list-countries",
         "x-security": [
           {
             "userPermissions": [
@@ -899,6 +912,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/age-restrictions/v3/update-country",
         "x-security": [
           {
             "userPermissions": [
@@ -989,6 +1003,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/bans/v3/list-banned-users",
         "x-security": [
           {
             "userPermissions": [
@@ -1081,6 +1096,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/bans/v3/bulk-ban-users",
         "x-security": [
           {
             "userPermissions": [
@@ -1175,6 +1191,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/bans/v3/bulk-unban-users",
         "x-security": [
           {
             "userPermissions": [
@@ -1240,6 +1257,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/bans/v3/list-types",
         "x-security": [
           {
             "userPermissions": [
@@ -1342,6 +1360,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/clients/v3/list",
         "x-security": [
           {
             "userPermissions": [
@@ -1425,6 +1444,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/clients/v3/create",
         "x-security": [
           {
             "userPermissions": [
@@ -1505,6 +1525,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/clients/v3/bulk-update",
         "x-security": [
           {
             "userPermissions": [
@@ -1588,6 +1609,7 @@
           "20009": "request_conflict",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/clients/v3/delete",
         "x-security": [
           {
             "userPermissions": [
@@ -1665,6 +1687,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/clients/v3/get",
         "x-security": [
           {
             "userPermissions": [
@@ -1755,6 +1778,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/clients/v3/update",
         "x-security": [
           {
             "userPermissions": [
@@ -1844,6 +1868,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/clients/v3/add-permissions",
         "x-security": [
           {
             "userPermissions": [
@@ -1931,6 +1956,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/clients/v3/update-permissions",
         "x-security": [
           {
             "userPermissions": [
@@ -2021,6 +2047,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/clients/v3/delete-permission",
         "x-security": [
           {
             "userPermissions": [
@@ -2085,7 +2112,8 @@
         "x-errorCodes": {
           "20000": "internal server error",
           "20002": "validation error"
-        }
+        },
+        "x-operationid": "iam/admin/config/v3/get"
       }
     },
     "/iam/v3/admin/namespaces/{namespace}/countries": {
@@ -2154,7 +2182,8 @@
           "20000": "internal server error",
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
-        }
+        },
+        "x-operationid": "iam/admin/countries/v3/list"
       }
     },
     "/iam/v3/admin/namespaces/{namespace}/countries/blacklist": {
@@ -2213,6 +2242,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/countries/v3/get-deny-list",
         "x-security": [
           {
             "userPermissions": [
@@ -2292,6 +2322,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/countries/v3/update-deny-list",
         "x-security": [
           {
             "userPermissions": [
@@ -2350,6 +2381,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/input-validations/v3/list-by-namespace",
         "x-security": [
           {
             "userPermissions": [
@@ -2425,6 +2457,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/input-validations/v3/update-by-namespace",
         "x-security": [
           {
             "userPermissions": [
@@ -2494,6 +2527,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/input-validations/v3/reset-by-namespace",
         "x-security": [
           {
             "userPermissions": [
@@ -2559,6 +2593,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/allow-list/v3/get",
         "x-security": [
           {
             "userPermissions": [
@@ -2640,6 +2675,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/allow-list/v3/update",
         "x-security": [
           {
             "userPermissions": [
@@ -2715,6 +2751,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/platform-credentials/v3/list",
         "x-security": [
           {
             "userPermissions": [
@@ -2790,6 +2827,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/platform-credentials/v3/list-active",
         "x-security": [
           {
             "userPermissions": [
@@ -2877,6 +2915,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/sso-credentials/v3/list",
         "x-security": [
           {
             "userPermissions": [
@@ -2953,6 +2992,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/platform-credentials/v3/delete",
         "x-security": [
           {
             "userPermissions": [
@@ -3030,6 +3070,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/platform-credentials/v3/get",
         "x-security": [
           {
             "userPermissions": [
@@ -3125,6 +3166,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/platform-credentials/v3/update",
         "x-security": [
           {
             "userPermissions": [
@@ -3214,6 +3256,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/platform-credentials/v3/create",
         "x-security": [
           {
             "userPermissions": [
@@ -3308,6 +3351,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/platform-credentials/v3/delete-domain",
         "x-security": [
           {
             "userPermissions": [
@@ -3403,6 +3447,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/platform-credentials/v3/update-domain",
         "x-security": [
           {
             "userPermissions": [
@@ -3498,6 +3543,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/platform-credentials/v3/set-domain",
         "x-security": [
           {
             "userPermissions": [
@@ -3580,6 +3626,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/sso-credentials/v3/delete",
         "x-security": [
           {
             "userPermissions": [
@@ -3662,6 +3709,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/sso-credentials/v3/get",
         "x-security": [
           {
             "userPermissions": [
@@ -3757,6 +3805,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/sso-credentials/v3/update",
         "x-security": [
           {
             "userPermissions": [
@@ -3845,6 +3894,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/sso-credentials/v3/create",
         "x-security": [
           {
             "userPermissions": [
@@ -3952,6 +4002,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/list-by-platform-id",
         "x-security": [
           {
             "userPermissions": [
@@ -4045,6 +4096,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/get-by-platform-user-id",
         "x-security": [
           {
             "userPermissions": [
@@ -4129,6 +4181,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/profile-update-strategies/v3/list",
         "x-security": [
           {
             "userPermissions": [
@@ -4224,6 +4277,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/profile-update-strategies/v3/update",
         "x-security": [
           {
             "userPermissions": [
@@ -4302,6 +4356,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/role-override/v3/get",
         "x-security": [
           {
             "userPermissions": [
@@ -4398,6 +4453,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/role-override/v3/update",
         "x-security": [
           {
             "userPermissions": [
@@ -4490,6 +4546,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/role-override/v3/get-source",
         "x-security": [
           {
             "userPermissions": [
@@ -4587,6 +4644,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/role-override/v3/update-status",
         "x-security": [
           {
             "userPermissions": [
@@ -4666,6 +4724,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/role-override/v3/get-permissions",
         "x-security": [
           {
             "userPermissions": [
@@ -4771,6 +4830,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v3/list-assigned-users",
         "x-security": [
           {
             "userPermissions": [
@@ -4842,6 +4902,7 @@
         "x-errorCodes": {
           "20000": "internal server error"
         },
+        "x-operationid": "iam/admin/tags/v3/list",
         "x-security": [
           {
             "userPermissions": [
@@ -4917,6 +4978,7 @@
           "20002": "validation error",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/tags/v3/create",
         "x-security": [
           {
             "userPermissions": [
@@ -4978,6 +5040,7 @@
         "x-errorCodes": {
           "20000": "internal server error"
         },
+        "x-operationid": "iam/admin/tags/v3/delete",
         "x-security": [
           {
             "userPermissions": [
@@ -5066,6 +5129,7 @@
           "20002": "validation error",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/tags/v3/update",
         "x-security": [
           {
             "userPermissions": [
@@ -5151,6 +5215,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/get-by-email",
         "x-security": [
           {
             "userPermissions": [
@@ -5238,6 +5303,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/bulk-update",
         "x-security": [
           {
             "userPermissions": [
@@ -5343,6 +5409,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/bulk-get-bans",
         "x-security": [
           {
             "userPermissions": [
@@ -5427,7 +5494,8 @@
           "20002": "validation error",
           "20013": "insufficient permissions",
           "20022": "token is not user token"
-        }
+        },
+        "x-operationid": "iam/admin/users/v3/bulk-get"
       }
     },
     "/iam/v3/admin/namespaces/{namespace}/users/bulk/platforms": {
@@ -5492,6 +5560,7 @@
           "20000": "internal server error",
           "20002": "validation error"
         },
+        "x-operationid": "iam/admin/users/v3/bulk-get-platforms",
         "x-security": [
           {
             "userPermissions": [
@@ -5576,6 +5645,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/list-by-cursor",
         "x-security": [
           {
             "userPermissions": [
@@ -5681,6 +5751,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/invite",
         "x-security": [
           {
             "userPermissions": [
@@ -5781,6 +5852,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/search-platform-linking-history",
         "x-security": [
           {
             "userPermissions": [
@@ -5865,6 +5937,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/list-users-with-accelbyte-account",
         "x-security": [
           {
             "userPermissions": [
@@ -6035,6 +6108,7 @@
           "20007": "too many requests",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/search",
         "x-security": [
           {
             "userPermissions": [
@@ -6126,6 +6200,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/bulk-get-by-email",
         "x-security": [
           {
             "userPermissions": [
@@ -6216,6 +6291,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/get",
         "x-security": [
           {
             "userPermissions": [
@@ -6324,6 +6400,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/update",
         "x-security": [
           {
             "userPermissions": [
@@ -6436,6 +6513,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/list-bans",
         "x-security": [
           {
             "userPermissions": [
@@ -6535,6 +6613,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/ban",
         "x-security": [
           {
             "userPermissions": [
@@ -6622,6 +6701,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/get-ban-summary",
         "x-security": [
           {
             "userPermissions": [
@@ -6730,6 +6810,7 @@
           "20008": "user not found",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/update-ban",
         "x-security": [
           {
             "userPermissions": [
@@ -6836,6 +6917,7 @@
           "20008": "user not found",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/send-verification-code",
         "x-security": [
           {
             "userPermissions": [
@@ -6938,6 +7020,7 @@
           "20008": "user not found",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/validate-code",
         "x-security": [
           {
             "userPermissions": [
@@ -7013,6 +7096,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/list-verification-codes",
         "x-security": [
           {
             "userPermissions": [
@@ -7092,6 +7176,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/get-deletion-status",
         "x-security": [
           {
             "userPermissions": [
@@ -7186,6 +7271,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/update-deletion-status",
         "x-security": [
           {
             "userPermissions": [
@@ -7272,6 +7358,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/list-distinct-active-platform-accounts",
         "x-security": [
           {
             "userPermissions": [
@@ -7391,6 +7478,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/upgrade-and-validate",
         "x-security": [
           {
             "userPermissions": [
@@ -7456,6 +7544,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/delete",
         "x-security": [
           {
             "userPermissions": [
@@ -7542,6 +7631,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/get-login-history",
         "x-security": [
           {
             "userPermissions": [
@@ -7634,6 +7724,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/update-password",
         "x-security": [
           {
             "userPermissions": [
@@ -7720,6 +7811,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/bulk-remove-permissions",
         "x-security": [
           {
             "userPermissions": [
@@ -7801,6 +7893,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/add-permission",
         "x-security": [
           {
             "userPermissions": [
@@ -7882,6 +7975,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/set-permissions",
         "x-security": [
           {
             "userPermissions": [
@@ -7967,6 +8061,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/remove-permission",
         "x-security": [
           {
             "userPermissions": [
@@ -8083,6 +8178,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/list-platform-accounts",
         "x-security": [
           {
             "userPermissions": [
@@ -8175,6 +8271,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/list-distinct-platform-accounts",
         "x-security": [
           {
             "userPermissions": [
@@ -8265,6 +8362,7 @@
           "20013": "insufficient permissions",
           "20025": "not a publisher user"
         },
+        "x-operationid": "iam/admin/users/v3/list-accelbyte-accounts",
         "x-security": [
           {
             "userPermissions": [
@@ -8354,6 +8452,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/get-mapping",
         "x-security": [
           {
             "userPermissions": [
@@ -8446,6 +8545,7 @@
           "20013": "insufficient permissions",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/admin/users/v3/create-from-publisher",
         "x-security": [
           {
             "userPermissions": [
@@ -8552,6 +8652,7 @@
           "20013": "insufficient permissions",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/admin/users/v3/link-platform-account-forced",
         "x-security": [
           {
             "userPermissions": [
@@ -8638,6 +8739,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/get-platform-linking-history",
         "x-security": [
           {
             "userPermissions": [
@@ -8725,6 +8827,7 @@
           "20008": "user not found",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/unlink-platform-all",
         "x-security": [
           {
             "userPermissions": [
@@ -8823,6 +8926,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/link-platform-account",
         "x-security": [
           {
             "userPermissions": [
@@ -8913,6 +9017,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/delete-platform-linking-restriction",
         "x-security": [
           {
             "userPermissions": [
@@ -9017,6 +9122,7 @@
           "20002": "validation error",
           "20003": "forbidden access"
         },
+        "x-operationid": "iam/admin/users/v3/get-platform-link-status",
         "x-security": [
           {
             "userPermissions": [
@@ -9119,6 +9225,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/get-platform-account-metadata",
         "x-security": [
           {
             "userPermissions": [
@@ -9226,6 +9333,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/set-roles",
         "x-security": [
           {
             "userPermissions": [
@@ -9316,6 +9424,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/get-state",
         "x-security": [
           {
             "userPermissions": [
@@ -9412,6 +9521,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/update-status",
         "x-security": [
           {
             "userPermissions": [
@@ -9516,6 +9626,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v3/update-trusted-identity",
         "x-security": [
           {
             "userPermissions": [
@@ -9606,6 +9717,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v3/force-verify",
         "x-security": [
           {
             "userPermissions": [
@@ -9689,6 +9801,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/clients/v3/update-secret",
         "x-security": [
           {
             "userPermissions": [
@@ -9754,6 +9867,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/platform-credentials/v3/check-availability",
         "x-security": [
           {
             "userPermissions": [
@@ -9797,6 +9911,7 @@
           "Third Party Credential"
         ],
         "x-errorCodes": {},
+        "x-operationid": "iam/admin/platform-credentials/v3/get-defaults",
         "x-security": {}
       }
     },
@@ -9881,6 +9996,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v3/list",
         "x-security": [
           {
             "userPermissions": [
@@ -9958,6 +10074,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/roles/v3/create",
         "x-security": [
           {
             "userPermissions": [
@@ -10041,6 +10158,7 @@
           "20009": "request_conflict",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v3/delete",
         "x-security": [
           {
             "userPermissions": [
@@ -10118,6 +10236,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v3/get",
         "x-security": [
           {
             "userPermissions": [
@@ -10208,6 +10327,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/roles/v3/update",
         "x-security": [
           {
             "userPermissions": [
@@ -10284,6 +10404,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v3/remove-admin-status",
         "x-security": [
           {
             "userPermissions": [
@@ -10361,6 +10482,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v3/get-admin-status",
         "x-security": [
           {
             "userPermissions": [
@@ -10436,6 +10558,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v3/update-admin-status",
         "x-security": [
           {
             "userPermissions": [
@@ -10525,6 +10648,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/internal/v3/remove-managers",
         "x-security": [
           {
             "userPermissions": [
@@ -10620,6 +10744,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v3/list-managers",
         "x-security": [
           {
             "userPermissions": [
@@ -10707,6 +10832,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/internal/v3/add-managers",
         "x-security": [
           {
             "userPermissions": [
@@ -10804,6 +10930,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v3/list-members",
         "x-security": [
           {
             "userPermissions": [
@@ -10901,6 +11028,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/internal/v3/add-members",
         "x-security": [
           {
             "userPermissions": [
@@ -10973,6 +11101,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v3/remove-permissions",
         "x-security": [
           {
             "userPermissions": [
@@ -11060,6 +11189,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/roles/v3/add-permissions",
         "x-security": [
           {
             "userPermissions": [
@@ -11147,6 +11277,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/roles/v3/update-permissions",
         "x-security": [
           {
             "userPermissions": [
@@ -11240,6 +11371,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v3/remove-permission",
         "x-security": [
           {
             "userPermissions": [
@@ -11290,6 +11422,7 @@
           "20001": "unauthorized access",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/admin/users/v3/get-my",
         "x-security": {}
       }
     },
@@ -11361,7 +11494,8 @@
           "OAuth2.0 - Extension"
         ],
         "x-errorCodes": {},
-        "x-location-query": "code"
+        "x-location-query": "code",
+        "x-operationid": "iam/public/oauth2/v3/authenticate"
       }
     },
     "/iam/v3/authenticateWithLink": {
@@ -11454,7 +11588,8 @@
         ],
         "x-errorCodes": {
           "10213": "country is blocked"
-        }
+        },
+        "x-operationid": "iam/public/oauth2/v3/authenticate-with-link"
       }
     },
     "/iam/v3/authenticateWithLink/forward": {
@@ -11524,7 +11659,8 @@
         "tags": [
           "OAuth2.0 - Extension"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/authenticate-with-link-forward"
       }
     },
     "/iam/v3/config/public": {
@@ -11558,7 +11694,8 @@
         ],
         "x-errorCodes": {
           "20000": "internal server error"
-        }
+        },
+        "x-operationid": "iam/public/config/v3/get-public"
       }
     },
     "/iam/v3/headless/token": {
@@ -11625,7 +11762,8 @@
         ],
         "x-errorCodes": {
           "10213": "country is blocked"
-        }
+        },
+        "x-operationid": "iam/public/oauth2/v3/generate-token-for-headless-account"
       }
     },
     "/iam/v3/link/code/request": {
@@ -11677,6 +11815,7 @@
           "OAuth2.0 - Extension"
         ],
         "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/request-one-time-linking-code",
         "x-security": {}
       }
     },
@@ -11712,7 +11851,8 @@
         "tags": [
           "OAuth2.0 - Extension"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/validate-one-time-linking-code"
       }
     },
     "/iam/v3/link/token/exchange": {
@@ -11768,7 +11908,8 @@
         "tags": [
           "OAuth2.0 - Extension"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/exchange-token-with-linking-code"
       }
     },
     "/iam/v3/location/country": {
@@ -11798,7 +11939,8 @@
         "tags": [
           "OAuth2.0 - Extension"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/get-country-location"
       }
     },
     "/iam/v3/logout": {
@@ -11826,6 +11968,7 @@
           "OAuth2.0 - Extension"
         ],
         "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/logout",
         "x-security": {}
       }
     },
@@ -11890,6 +12033,7 @@
           "OAuth2.0 - Extension"
         ],
         "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/request-token-exchange-code",
         "x-security": {}
       }
     },
@@ -11968,6 +12112,7 @@
           "OAuth2.0"
         ],
         "x-errorCodes": {},
+        "x-operationid": "iam/admin/oauth2/v3/get-platform-token",
         "x-security": [
           {
             "userPermissions": [
@@ -12044,6 +12189,7 @@
           "OAuth2.0"
         ],
         "x-errorCodes": {},
+        "x-operationid": "iam/admin/oauth2/v3/revoke-user",
         "x-security": [
           {
             "userPermissions": [
@@ -12183,7 +12329,8 @@
           "OAuth2.0"
         ],
         "x-errorCodes": {},
-        "x-location-query": "request_id"
+        "x-location-query": "request_id",
+        "x-operationid": "iam/public/oauth2/v3/authorize"
       }
     },
     "/iam/v3/oauth/introspect": {
@@ -12237,7 +12384,8 @@
         "tags": [
           "OAuth2.0"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/check-token"
       }
     },
     "/iam/v3/oauth/jwks": {
@@ -12267,7 +12415,8 @@
         "tags": [
           "OAuth2.0"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/get-jwks"
       }
     },
     "/iam/v3/oauth/mfa/code": {
@@ -12354,7 +12503,8 @@
           "20003": "forbidden access",
           "20007": "too many requests",
           "20008": "user not found"
-        }
+        },
+        "x-operationid": "iam/public/oauth2/v3/send-mfa-code"
       }
     },
     "/iam/v3/oauth/mfa/factor/change": {
@@ -12420,7 +12570,8 @@
           "20000": "internal server error",
           "20002": "validation error",
           "20007": "too many requests"
-        }
+        },
+        "x-operationid": "iam/public/oauth2/v3/change-mfa-method"
       }
     },
     "/iam/v3/oauth/mfa/verify": {
@@ -12487,7 +12638,8 @@
         "tags": [
           "OAuth2.0"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/verify-mfa-code"
       }
     },
     "/iam/v3/oauth/mfa/verify/forward": {
@@ -12570,7 +12722,8 @@
         "tags": [
           "OAuth2.0"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/verify-mfa-code-forward"
       }
     },
     "/iam/v3/oauth/namespace/{namespace}/register": {
@@ -12645,7 +12798,8 @@
         "x-errorCodes": {
           "20007": "too many requests",
           "20024": "not implemented"
-        }
+        },
+        "x-operationid": "iam/public/oauth2/v3/dynamic-client-register-by-namespace"
       }
     },
     "/iam/v3/oauth/namespaces/{namespace}/users/{userId}/platforms/{platformId}/platformToken": {
@@ -12717,6 +12871,7 @@
           "OAuth2.0"
         ],
         "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/get-platform-token",
         "x-security": {}
       }
     },
@@ -12779,7 +12934,8 @@
           "OAuth2.0"
         ],
         "x-errorCodes": {},
-        "x-location-query": "code"
+        "x-location-query": "code",
+        "x-operationid": "iam/public/oauth2/v3/authorize-platform"
       }
     },
     "/iam/v3/oauth/platforms/{platformId}/token": {
@@ -12889,7 +13045,8 @@
         "tags": [
           "OAuth2.0"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/grant-by-platform"
       }
     },
     "/iam/v3/oauth/revocationlist": {
@@ -12922,7 +13079,8 @@
         ],
         "x-errorCodes": {
           "20001": "unauthorized access"
-        }
+        },
+        "x-operationid": "iam/public/oauth2/v3/list-revocations"
       }
     },
     "/iam/v3/oauth/revoke": {
@@ -12965,7 +13123,8 @@
         "tags": [
           "OAuth2.0"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/revoke-token"
       }
     },
     "/iam/v3/oauth/simultaneousLogin": {
@@ -13061,7 +13220,8 @@
           "10221": "Simultaneous ticket's account linked AGS is already linked native but different with the input native ticket's",
           "20000": "internal server error",
           "20001": "unauthorized access"
-        }
+        },
+        "x-operationid": "iam/public/oauth2/v3/login-simultaneous"
       }
     },
     "/iam/v3/oauth/token": {
@@ -13213,7 +13373,8 @@
         "tags": [
           "OAuth2.0"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/grant-token"
       }
     },
     "/iam/v3/oauth/verify": {
@@ -13250,7 +13411,8 @@
         "tags": [
           "OAuth2.0"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/verify-token"
       }
     },
     "/iam/v3/platforms/{platformId}/authenticate": {
@@ -13372,7 +13534,8 @@
           "OAuth2.0 - Extension"
         ],
         "x-errorCodes": {},
-        "x-location-query": "PLACEHOLDER"
+        "x-location-query": "PLACEHOLDER",
+        "x-operationid": "iam/public/oauth2/v3/authenticate-platform"
       }
     },
     "/iam/v3/platforms/{platformId}/token/verify": {
@@ -13442,7 +13605,8 @@
         "tags": [
           "OAuth2.0 - Extension"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/verify-platform-token"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/agerestrictions/countries/{countryCode}": {
@@ -13496,7 +13660,8 @@
         ],
         "x-errorCodes": {
           "20001": "unauthorized access"
-        }
+        },
+        "x-operationid": "iam/public/age-restrictions/v3/get"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/config/{configKey}": {
@@ -13554,7 +13719,8 @@
         "x-errorCodes": {
           "20000": "internal server error",
           "20002": "validation error"
-        }
+        },
+        "x-operationid": "iam/public/config/v3/get"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/countries": {
@@ -13601,7 +13767,8 @@
         ],
         "x-errorCodes": {
           "20000": "internal server error"
-        }
+        },
+        "x-operationid": "iam/public/countries/v3/list"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/inputValidations": {
@@ -13662,7 +13829,8 @@
         ],
         "x-errorCodes": {
           "20000": "internal server error"
-        }
+        },
+        "x-operationid": "iam/public/input-validations/v3/list-by-namespace"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/inputValidations/{field}": {
@@ -13716,7 +13884,8 @@
         ],
         "x-errorCodes": {
           "20000": "internal server error"
-        }
+        },
+        "x-operationid": "iam/public/input-validations/v3/get-by-field"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/platforms/clients/active": {
@@ -13784,7 +13953,8 @@
           "20000": "internal server error",
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
-        }
+        },
+        "x-operationid": "iam/public/platform-credentials/v3/list-active-oidc"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/platforms/clients/oidc": {
@@ -13845,7 +14015,8 @@
         "x-errorCodes": {
           "10175": "third party credential not found",
           "20000": "internal server error"
-        }
+        },
+        "x-operationid": "iam/public/platform-credentials/v3/list-oidc"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/profileUpdateStrategies": {
@@ -13922,7 +14093,8 @@
           "20001": "unauthorized access",
           "20002": "validation error",
           "20013": "insufficient permissions"
-        }
+        },
+        "x-operationid": "iam/public/profile-update-strategies/v3/list"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/requests/{requestId}/async/status": {
@@ -13952,7 +14124,7 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/model.LinkRequest"
+              "$ref": "#/definitions/model.ReAuthRequest"
             }
           },
           "401": {
@@ -13989,6 +14161,7 @@
           "20013": "insufficient permissions",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/get-linking-status",
         "x-security": {}
       }
     },
@@ -14099,6 +14272,7 @@
           "20008": "user not found",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/search",
         "x-security": {}
       },
       "post": {
@@ -14193,7 +14367,8 @@
           "20003": "forbidden access",
           "20007": "too many requests",
           "20019": "unable to parse request body"
-        }
+        },
+        "x-operationid": "iam/public/users/v3/create"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/users/availability": {
@@ -14257,7 +14432,8 @@
         ],
         "x-errorCodes": {
           "20002": "validation error"
-        }
+        },
+        "x-operationid": "iam/public/users/v3/check-availability"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/users/code/request": {
@@ -14325,7 +14501,8 @@
           "20002": "validation error",
           "20007": "too many requests",
           "20019": "unable to parse request body"
-        }
+        },
+        "x-operationid": "iam/public/users/v3/send-verification-code"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/users/code/verify": {
@@ -14379,7 +14556,8 @@
         "x-errorCodes": {
           "10138": "code not match",
           "20019": "unable to parse request body"
-        }
+        },
+        "x-operationid": "iam/public/users/v3/validate-registration-code"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/users/forgot": {
@@ -14447,7 +14625,8 @@
           "20007": "too many requests",
           "20008": "user not found",
           "20019": "unable to parse request body"
-        }
+        },
+        "x-operationid": "iam/public/users/v3/request-password-reset"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/users/input/validation": {
@@ -14503,7 +14682,8 @@
         ],
         "x-errorCodes": {
           "20000": "internal server error"
-        }
+        },
+        "x-operationid": "iam/public/users/v3/validate-input"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/users/invite/{invitationId}": {
@@ -14561,7 +14741,8 @@
         "x-errorCodes": {
           "10180": "admin invitation not found or expired",
           "20000": "internal server error"
-        }
+        },
+        "x-operationid": "iam/public/users/v3/get-invitation"
       },
       "post": {
         "consumes": [
@@ -14653,7 +14834,8 @@
           "20000": "internal server error",
           "20002": "validation error",
           "20003": "forbidden access"
-        }
+        },
+        "x-operationid": "iam/public/users/v3/create-from-invitation"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/users/me": {
@@ -14747,6 +14929,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/update-my",
         "x-security": {}
       },
       "put": {
@@ -14839,6 +15022,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/set-my",
         "x-security": {}
       }
     },
@@ -14932,6 +15116,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/send-my-verification-code",
         "x-security": {}
       }
     },
@@ -15014,6 +15199,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/validate-code",
         "x-security": {}
       }
     },
@@ -15119,6 +15305,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/upgrade-and-validate-my",
         "x-security": {}
       }
     },
@@ -15215,6 +15402,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/start-upgrade-my",
         "x-security": {}
       }
     },
@@ -15295,6 +15483,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/update-my-password",
         "x-security": {}
       }
     },
@@ -15376,6 +15565,7 @@
           "20013": "insufficient permissions",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/create-from-publisher",
         "x-security": {}
       }
     },
@@ -15474,6 +15664,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/link-platform-account",
         "x-security": {}
       }
     },
@@ -15549,6 +15740,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/unlink-platform-all",
         "x-security": {}
       }
     },
@@ -15639,12 +15831,13 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/force-link-platform",
         "x-security": {}
       }
     },
     "/iam/v3/public/namespaces/{namespace}/users/me/platforms/{platformId}/web/link": {
       "get": {
-        "description": "Generates a third party login page which will redirect to the establish API.\nSupported platforms:\n- ps4web\n- xblweb\n- steamopenid\n- epicgames\n- facebook\n- twitch\n- google\n- apple\n- snapchat\n- discord\n- amazon\n- oculusweb\n",
+        "description": "Generates a redirect to a third party login page for account linking authentication.\n\nSupported platforms:\n- ps4web\n- xblweb\n- steamopenid\n- epicgames\n- facebook\n- twitch\n- google\n- apple\n- snapchat\n- discord\n- amazon\n- oculusweb\n\n## New API version\n\nThis API remains fully functional, but &lt;code&gt;GET /users/me/platforms/{platformId}/web/reauth&lt;/code&gt; is recommended for new integrations.\n",
         "operationId": "PublicWebLinkPlatform",
         "parameters": [
           {
@@ -15697,7 +15890,13 @@
             }
           },
           "404": {
-            "description": "<table><tr><td>errorCode</td><td>errorMessage</td></tr><tr><td>10365</td><td>client not found</td></tr><tr><td>20008</td><td>user not found</td></tr></table>",
+            "description": "<table><tr><td>errorCode</td><td>errorMessage</td></tr><tr><td>10365</td><td>client not found</td></tr><tr><td>10174</td><td>platform client not found</td></tr><tr><td>20008</td><td>user not found</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/rest.ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "<table><tr><td>errorCode</td><td>errorMessage</td></tr><tr><td>20000</td><td>internal server error</td></tr></table>",
             "schema": {
               "$ref": "#/definitions/rest.ErrorResponse"
             }
@@ -15708,23 +15907,26 @@
             "authorization": []
           }
         ],
-        "summary": "Create Public Web Linking",
+        "summary": "Initiate Platform Web Linking",
         "tags": [
           "Users"
         ],
         "x-errorCodes": {
+          "10174": "platform client not found",
           "10365": "client not found",
+          "20000": "internal server error",
           "20001": "unauthorized access",
           "20002": "validation error",
           "20008": "user not found",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/get-platform-web-link",
         "x-security": {}
       }
     },
     "/iam/v3/public/namespaces/{namespace}/users/me/platforms/{platformId}/web/link/establish": {
       "get": {
-        "description": "Used by a third party to redirect the code for the purpose of linking the third party account to an IAM account.\nSupported platforms:\n- ps4web\n- xblweb\n- steamopenid\n- epicgames\n- facebook\n- twitch\n- google\n- apple\n- snapchat\n- discord\n- amazon\n- oculusweb\n",
+        "description": "Callback endpoint for the third party to redirect to after authentication to complete the linking process for the IAM account.\nAfter successfully perform the account linking, it will redirect to the **redirectUri** defined when calling the &lt;code&gt;GET /users/me/platforms/{platformId}/web/link&lt;/code&gt; endpoint.\n\nSupported platforms:\n- ps4web\n- xblweb\n- steamopenid\n- epicgames\n- facebook\n- twitch\n- google\n- apple\n- snapchat\n- discord\n- amazon\n- oculusweb\n\n## New API version\n\nThis API remains fully functional, but &lt;code&gt;GET /users/me/platforms/{platformId}/web/reauth/establish&lt;/code&gt; is recommended for new integrations.\n",
         "operationId": "PublicWebLinkPlatformEstablish",
         "parameters": [
           {
@@ -15774,12 +15976,13 @@
             "authorization": []
           }
         ],
-        "summary": "Establish Link Progress ",
+        "summary": "Platform Web Link Callback",
         "tags": [
           "Users"
         ],
         "x-errorCodes": {},
-        "x-location-query": "PLACEHOLDER"
+        "x-location-query": "PLACEHOLDER",
+        "x-operationid": "iam/public/users/v3/handle-platform-web-link-callback"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/users/me/platforms/{platformId}/web/link/process": {
@@ -15787,11 +15990,11 @@
         "consumes": [
           "application/x-www-form-urlencoded"
         ],
-        "description": "Processes third party account link and returns the link status directly instead of redirecting to the original page.\nThe param **state** comes from the response of &lt;code&gt;/users/me/platforms/{platformId}/web/link&lt;/code&gt;\nSupported platforms:\n- ps4web\n- xblweb\n- steamopenid\n- epicgames\n- facebook\n- twitch\n- google\n- apple\n- snapchat\n- discord\n- amazon\n- oculusweb\n",
+        "description": "Completes the third party account link and returns the link status directly instead of redirecting to the **redirectUri** defined when calling the &lt;code&gt;GET /users/me/platforms/{platformId}/web/link&lt;/code&gt; endpoint.\n\nSupported platforms:\n- ps4web\n- xblweb\n- steamopenid\n- epicgames\n- facebook\n- twitch\n- google\n- apple\n- snapchat\n- discord\n- amazon\n- oculusweb\n\n## New API version\n\nThis API remains fully functional, but &lt;code&gt;POST /users/me/platforms/{platformId}/web/reauth/process&lt;/code&gt; is recommended for new integrations.\n",
         "operationId": "PublicProcessWebLinkPlatformV3",
         "parameters": [
           {
-            "description": "state",
+            "description": "state, comes from the response of <code>GET /users/me/platforms/{platformId}/web/link</code> endpoint",
             "in": "formData",
             "name": "state",
             "required": true,
@@ -15825,11 +16028,17 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/model.LinkRequest"
+              "$ref": "#/definitions/model.ReAuthRequest"
             }
           },
           "400": {
-            "description": "<table><tr><td>errorCode</td><td>errorMessage</td></tr><tr><td>20000</td><td>internal server error</td></tr><tr><td>20002</td><td>validation error</td></tr></table>",
+            "description": "<table><tr><td>errorCode</td><td>errorMessage</td></tr><tr><td>20002</td><td>validation error</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/rest.ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "<table><tr><td>errorCode</td><td>errorMessage</td></tr><tr><td>20000</td><td>internal server error</td></tr></table>",
             "schema": {
               "$ref": "#/definitions/rest.ErrorResponse"
             }
@@ -15840,14 +16049,243 @@
             "authorization": []
           }
         ],
-        "summary": "Process Link Progress ",
+        "summary": "Complete Platform Web Link",
         "tags": [
           "Users"
         ],
         "x-errorCodes": {
           "20000": "internal server error",
           "20002": "validation error"
-        }
+        },
+        "x-operationid": "iam/public/users/v3/resolve-platform-web-link-redirect"
+      }
+    },
+    "/iam/v3/public/namespaces/{namespace}/users/me/platforms/{platformId}/web/reauth": {
+      "get": {
+        "description": "Generates a redirect to a third party login page for re-authentication purpose.\n\nSupported platforms:\n- ps4web\n- xblweb\n- steamopenid\n- epicgames\n- facebook\n- twitch\n- google\n- apple\n- snapchat\n- discord\n- amazon\n- oculusweb\n",
+        "operationId": "PublicWebReauthPlatform",
+        "parameters": [
+          {
+            "description": "Accepts alphanumeric, with hyphens allowed between segments",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Platform ID",
+            "in": "path",
+            "name": "platformId",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Re-auth operation.\n\t\t\t**GDPR**: obtain a **gdpr_token** cookie after re-authentication completes. \n\t\t\t**LINK**: perform a platform account link.",
+            "enum": [
+              "GDPR",
+              "LINK"
+            ],
+            "in": "query",
+            "name": "operation",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Client ID",
+            "in": "query",
+            "name": "clientId",
+            "type": "string"
+          },
+          {
+            "description": "Redirect URI",
+            "in": "query",
+            "name": "redirectUri",
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/model.WebLinkingResponse"
+            }
+          },
+          "400": {
+            "description": "<table><tr><td>errorCode</td><td>errorMessage</td></tr><tr><td>20002</td><td>validation error</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/rest.ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "<table><tr><td>errorCode</td><td>errorMessage</td></tr><tr><td>20001</td><td>unauthorized access</td></tr><tr><td>20022</td><td>token is not user token</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/rest.ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "<table><tr><td>errorCode</td><td>errorMessage</td></tr><tr><td>10365</td><td>client not found</td></tr><tr><td>20008</td><td>user not found</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/rest.ErrorResponse"
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "Initiate Platform Web Re-authentication",
+        "tags": [
+          "Users"
+        ],
+        "x-errorCodes": {
+          "10365": "client not found",
+          "20001": "unauthorized access",
+          "20002": "validation error",
+          "20008": "user not found",
+          "20022": "token is not user token"
+        },
+        "x-operationid": "iam/public/users/v3/get-platform-web-reauth",
+        "x-security": {}
+      }
+    },
+    "/iam/v3/public/namespaces/{namespace}/users/me/platforms/{platformId}/web/reauth/establish": {
+      "get": {
+        "description": "Callback endpoint for the third party to redirect to after authentication to complete the re-auth flow on the IAM side.\n\nThe re-auth flow inside IAM depends on the **operation** parameter passed to &lt;code&gt;GET /users/me/platforms/{platformId}/web/reauth&lt;/code&gt; endpoint.\nFor **operation=GDPR**, the **gdpr_token** cookie is set in the response headers on success.\n\nAfter completing the re-auth flow, it will redirect to the **redirectUri** defined when calling the &lt;code&gt;GET /users/me/platforms/{platformId}/web/reauth&lt;/code&gt; endpoint.\n\nSupported platforms:\n- ps4web\n- xblweb\n- steamopenid\n- epicgames\n- facebook\n- twitch\n- google\n- apple\n- snapchat\n- discord\n- amazon\n- oculusweb\n",
+        "operationId": "PublicWebReauthPlatformEstablish",
+        "parameters": [
+          {
+            "description": "Accepts alphanumeric, with hyphens allowed between segments",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Platform ID",
+            "in": "path",
+            "name": "platformId",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "State from third party redirect",
+            "in": "query",
+            "name": "state",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Authorization code from third party",
+            "in": "query",
+            "name": "code",
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "302": {
+            "description": "Handle redirect from third party",
+            "headers": {
+              "Location": {
+                "description": "The Location header",
+                "type": "string"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "Platform Web Re-auth Callback",
+        "tags": [
+          "Users"
+        ],
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/users/v3/handle-platform-web-reauth-callback"
+      }
+    },
+    "/iam/v3/public/namespaces/{namespace}/users/me/platforms/{platformId}/web/reauth/process": {
+      "post": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "description": "Completes the re-auth flow on the IAM side and returns the result directly instead of redirecting to the **redirectUri** defined when calling the &lt;code&gt;GET /users/me/platforms/{platformId}/web/reauth&lt;/code&gt; endpoint.\n\nThe re-auth flow inside IAM depends on the **operation** parameter passed to &lt;code&gt;GET /users/me/platforms/{platformId}/web/reauth&lt;/code&gt; endpoint.\nFor **operation=GDPR**, the **gdpr_token** cookie is set in the response headers on success.\n\nSupported platforms:\n- ps4web\n- xblweb\n- steamopenid\n- epicgames\n- facebook\n- twitch\n- google\n- apple\n- snapchat\n- discord\n- amazon\n- oculusweb\n",
+        "operationId": "PublicWebReauthPlatformProcess",
+        "parameters": [
+          {
+            "description": "State, comes from the response of <code>GET /users/me/platforms/{platformId}/web/reauth</code> endpoint",
+            "in": "formData",
+            "name": "state",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Accepts alphanumeric, with hyphens allowed between segments",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Platform ID",
+            "in": "path",
+            "name": "platformId",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "description": "Authorization code from third party",
+            "in": "formData",
+            "name": "code",
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/model.WebReauthProcessResponse"
+            }
+          },
+          "400": {
+            "description": "<table><tr><td>errorCode</td><td>errorMessage</td></tr><tr><td>20002</td><td>validation error</td></tr><tr><td>10249</td><td>platform re-authentication failed</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/rest.ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "<table><tr><td>errorCode</td><td>errorMessage</td></tr><tr><td>20000</td><td>internal server error</td></tr></table>",
+            "schema": {
+              "$ref": "#/definitions/rest.ErrorResponse"
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "Complete Platform Web Re-auth",
+        "tags": [
+          "Users"
+        ],
+        "x-errorCodes": {
+          "10249": "platform re-authentication failed",
+          "20000": "internal server error",
+          "20002": "validation error"
+        },
+        "x-operationid": "iam/public/users/v3/resolve-platform-web-reauth-redirect"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/users/platforms": {
@@ -15920,6 +16358,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/list-linked-platforms",
         "x-security": {}
       }
     },
@@ -15992,7 +16431,8 @@
           "20002": "validation error",
           "20008": "user not found",
           "20019": "unable to parse request body"
-        }
+        },
+        "x-operationid": "iam/public/users/v3/reset-password"
       }
     },
     "/iam/v3/public/namespaces/{namespace}/users/{userId}/bans": {
@@ -16092,6 +16532,7 @@
           "20013": "insufficient permissions",
           "20021": "invalid pagination parameter"
         },
+        "x-operationid": "iam/public/users/v3/list-bans",
         "x-security": {}
       }
     },
@@ -16173,6 +16614,7 @@
           "20013": "insufficient permissions",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/list-distinct-active-platform-accounts",
         "x-security": {}
       }
     },
@@ -16247,6 +16689,7 @@
           "20013": "insufficient permissions",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/get-information",
         "x-security": {}
       }
     },
@@ -16327,6 +16770,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/public/users/v3/get-login-history",
         "x-security": {}
       }
     },
@@ -16432,6 +16876,7 @@
           "20013": "insufficient permissions",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/list-platform-accounts",
         "x-security": {}
       }
     },
@@ -16516,6 +16961,7 @@
           "20013": "insufficient permissions",
           "20025": "not a publisher user"
         },
+        "x-operationid": "iam/public/users/v3/list-accelbyte-accounts",
         "x-security": {}
       }
     },
@@ -16599,6 +17045,7 @@
           "20013": "insufficient permissions",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/force-link-platform-with-progression",
         "x-security": {}
       }
     },
@@ -16667,6 +17114,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/public/users/v3/get-publisher",
         "x-security": [
           {
             "userPermissions": [
@@ -16761,6 +17209,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/public/users/v3/validate-password",
         "x-security": {}
       }
     },
@@ -16826,7 +17275,8 @@
         ],
         "x-errorCodes": {
           "20002": "validation error"
-        }
+        },
+        "x-operationid": "iam/public/roles/v3/list"
       }
     },
     "/iam/v3/public/roles/{roleId}": {
@@ -16880,7 +17330,8 @@
         "x-errorCodes": {
           "10456": "role not found",
           "20002": "validation error"
-        }
+        },
+        "x-operationid": "iam/public/roles/v3/get"
       }
     },
     "/iam/v3/public/users/forgot": {
@@ -16936,7 +17387,8 @@
         "x-errorCodes": {
           "20000": "internal server error",
           "20002": "validation error"
-        }
+        },
+        "x-operationid": "iam/public/users/v3/request-password-reset-global"
       }
     },
     "/iam/v3/public/users/me": {
@@ -16990,6 +17442,7 @@
           "20001": "unauthorized access",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/get-my",
         "x-security": {}
       }
     },
@@ -17034,7 +17487,8 @@
         "tags": [
           "Users"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/users/v3/send-verification-code-forward"
       }
     },
     "/iam/v3/public/users/me/headless/link/conflict": {
@@ -17101,6 +17555,7 @@
           "20013": "insufficient permissions",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/get-my-linking-conflict",
         "x-security": {}
       }
     },
@@ -17169,6 +17624,7 @@
           "20013": "insufficient permissions",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/link-my-headless-account",
         "x-security": {}
       }
     },
@@ -17225,6 +17681,7 @@
           "20001": "unauthorized access",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/get-my-link-redirection",
         "x-security": {}
       }
     },
@@ -17282,6 +17739,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/public/users/v3/get-my-profile-update-policy",
         "x-security": {}
       }
     },
@@ -17352,6 +17810,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/send-verification-link",
         "x-security": {}
       }
     },
@@ -17396,6 +17855,7 @@
           "20001": "unauthorized access",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v3/get-openid-info",
         "x-security": {}
       }
     },
@@ -17433,7 +17893,8 @@
         "tags": [
           "Users"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/users/v3/verify-email"
       }
     },
     "/iam/v3/sso/saml/platforms/{platformId}/authenticate": {
@@ -17492,7 +17953,8 @@
           "SSO SAML 2.0"
         ],
         "x-errorCodes": {},
-        "x-location-query": "PLACEHOLDER"
+        "x-location-query": "PLACEHOLDER",
+        "x-operationid": "iam/public/sso/v3/authenticate-with-saml"
       }
     },
     "/iam/v3/sso/{platformId}": {
@@ -17531,7 +17993,8 @@
         "tags": [
           "SSO"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/sso/v3/login-client"
       }
     },
     "/iam/v3/sso/{platformId}/logout": {
@@ -17585,6 +18048,7 @@
         "x-errorCodes": {
           "20000": "internal server error"
         },
+        "x-operationid": "iam/public/sso/v3/logout-client",
         "x-security": {}
       }
     },
@@ -17625,7 +18089,8 @@
         "tags": [
           "OAuth2.0 - Extension"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/exchange-token"
       }
     },
     "/iam/v3/upgrade/forward": {
@@ -17674,7 +18139,8 @@
         "tags": [
           "OAuth2.0 - Extension"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v3/handle-web-upgrade-forward"
       }
     },
     "/iam/v4/admin/invitationHistories": {
@@ -17758,6 +18224,7 @@
           "20013": "insufficient permissions",
           "20024": "not implemented"
         },
+        "x-operationid": "iam/admin/users/v4/list-invitation-histories",
         "x-security": [
           {
             "userPermissions": [
@@ -17847,6 +18314,7 @@
           "20013": "insufficient permissions",
           "20021": "invalid pagination parameter"
         },
+        "x-operationid": "iam/admin/devices/v4/list",
         "x-security": [
           {
             "userPermissions": [
@@ -17945,6 +18413,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/devices/v4/list-banned-all",
         "x-security": [
           {
             "userPermissions": [
@@ -18027,6 +18496,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/devices/v4/list-banned-user",
         "x-security": [
           {
             "userPermissions": [
@@ -18115,6 +18585,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/devices/v4/ban",
         "x-security": [
           {
             "userPermissions": [
@@ -18204,6 +18675,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/devices/v4/get-banned",
         "x-security": [
           {
             "userPermissions": [
@@ -18305,6 +18777,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/devices/v4/update-banned",
         "x-security": [
           {
             "userPermissions": [
@@ -18405,6 +18878,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/devices/v4/generate-report",
         "x-security": [
           {
             "userPermissions": [
@@ -18473,6 +18947,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/devices/v4/list-types",
         "x-security": [
           {
             "userPermissions": [
@@ -18555,6 +19030,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/devices/v4/list-banned",
         "x-security": [
           {
             "userPermissions": [
@@ -18632,6 +19108,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/devices/v4/unban",
         "x-security": [
           {
             "userPermissions": [
@@ -18714,6 +19191,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/devices/v4/list-users",
         "x-security": [
           {
             "userPermissions": [
@@ -18792,6 +19270,7 @@
           "20013": "insufficient permissions",
           "20024": "not implemented"
         },
+        "x-operationid": "iam/admin/users/v4/get-invitation-history",
         "x-security": [
           {
             "userPermissions": [
@@ -18883,6 +19362,7 @@
           "20013": "insufficient permissions",
           "20024": "not implemented"
         },
+        "x-operationid": "iam/admin/users/v4/get-user-invitation-history",
         "x-security": [
           {
             "userPermissions": [
@@ -18961,6 +19441,7 @@
           "20019": "unable to parse request body",
           "20024": "not implemented"
         },
+        "x-operationid": "iam/admin/users/v4/create-test",
         "x-security": [
           {
             "userPermissions": [
@@ -19064,6 +19545,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v4/create",
         "x-security": [
           {
             "userPermissions": [
@@ -19153,6 +19635,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v4/bulk-update-account-type",
         "x-security": [
           {
             "userPermissions": [
@@ -19237,6 +19720,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v4/bulk-check-valid",
         "x-security": [
           {
             "userPermissions": [
@@ -19348,6 +19832,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/admin/users/v4/update",
         "x-security": [
           {
             "userPermissions": [
@@ -19445,6 +19930,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/admin/users/v4/update-email",
         "x-security": [
           {
             "userPermissions": [
@@ -19545,6 +20031,7 @@
           "20013": "insufficient permissions",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/disable",
         "x-security": [
           {
             "userPermissions": [
@@ -19625,6 +20112,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v4/get-mfa-status",
         "x-security": [
           {
             "userPermissions": [
@@ -19728,6 +20216,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v4/revoke-role",
         "x-security": [
           {
             "userPermissions": [
@@ -19805,6 +20294,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/users/v4/list-roles",
         "x-security": [
           {
             "userPermissions": [
@@ -19910,6 +20400,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v4/assign-role",
         "x-security": [
           {
             "userPermissions": [
@@ -20015,6 +20506,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v4/set-roles",
         "x-security": [
           {
             "userPermissions": [
@@ -20106,6 +20598,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v4/list",
         "x-security": [
           {
             "userPermissions": [
@@ -20183,6 +20676,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/roles/v4/create",
         "x-security": [
           {
             "userPermissions": [
@@ -20259,6 +20753,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v4/delete",
         "x-security": [
           {
             "userPermissions": [
@@ -20336,6 +20831,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v4/get",
         "x-security": [
           {
             "userPermissions": [
@@ -20419,6 +20915,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/roles/v4/update",
         "x-security": [
           {
             "userPermissions": [
@@ -20491,6 +20988,7 @@
           "20001": "unauthorized access",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v4/remove-permissions",
         "x-security": [
           {
             "userPermissions": [
@@ -20574,6 +21072,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/roles/v4/add-permissions",
         "x-security": [
           {
             "userPermissions": [
@@ -20657,6 +21156,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/roles/v4/update-permissions",
         "x-security": [
           {
             "userPermissions": [
@@ -20741,6 +21241,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/roles/v4/revoke-users",
         "x-security": [
           {
             "userPermissions": [
@@ -20829,6 +21330,7 @@
           "20002": "validation error",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/roles/v4/list-assigned-users",
         "x-security": [
           {
             "userPermissions": [
@@ -20930,6 +21432,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/roles/v4/assign-user",
         "x-security": [
           {
             "userPermissions": [
@@ -21028,6 +21531,7 @@
           "20013": "insufficient permissions",
           "20019": "unable to parse request body"
         },
+        "x-operationid": "iam/admin/users/v4/invite",
         "x-security": [
           {
             "userPermissions": [
@@ -21110,6 +21614,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/admin/users/v4/update-my",
         "x-security": {}
       }
     },
@@ -21188,6 +21693,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/disable-my-authenticator",
         "x-security": {}
       }
     },
@@ -21272,6 +21778,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/enable-my-authenticator",
         "x-security": {}
       }
     },
@@ -21338,6 +21845,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/generate-my-authenticator-key",
         "x-security": {}
       }
     },
@@ -21416,6 +21924,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/disable-my-backup-codes",
         "x-security": {}
       }
     },
@@ -21488,6 +21997,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/list-my-backup-codes",
         "x-security": {}
       },
       "post": {
@@ -21558,6 +22068,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/generate-my-backup-codes",
         "x-security": {}
       }
     },
@@ -21636,6 +22147,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/enable-my-backup-codes",
         "x-security": {}
       }
     },
@@ -21722,6 +22234,7 @@
           "20003": "forbidden access",
           "20008": "user not found"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/verify-my-challenge",
         "x-security": {}
       }
     },
@@ -21809,6 +22322,7 @@
           "20007": "too many requests",
           "20008": "user not found"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/send-my-mfa-email",
         "x-security": {}
       }
     },
@@ -21887,6 +22401,7 @@
           "20003": "forbidden access",
           "20008": "user not found"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/disable-my-email",
         "x-security": {}
       }
     },
@@ -21971,6 +22486,7 @@
           "20003": "forbidden access",
           "20008": "user not found"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/enable-my-email",
         "x-security": {}
       }
     },
@@ -22038,6 +22554,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/list-my-enabled",
         "x-security": {}
       },
       "post": {
@@ -22113,6 +22630,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/set-default",
         "x-security": {}
       }
     },
@@ -22171,6 +22689,7 @@
           "20003": "forbidden access",
           "20008": "user not found"
         },
+        "x-operationid": "iam/admin/user-mfa/v4/get-my-status",
         "x-security": {}
       }
     },
@@ -22270,7 +22789,8 @@
         ],
         "x-errorCodes": {
           "10213": "country is blocked"
-        }
+        },
+        "x-operationid": "iam/public/oauth2/v4/authenticate-with-link"
       }
     },
     "/iam/v4/oauth/headless/token": {
@@ -22348,7 +22868,8 @@
         ],
         "x-errorCodes": {
           "10213": "country is blocked"
-        }
+        },
+        "x-operationid": "iam/public/oauth2/v4/generate-token-for-headless-account"
       }
     },
     "/iam/v4/oauth/mfa/verify": {
@@ -22421,7 +22942,8 @@
         "tags": [
           "OAuth2.0 V4"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v4/verify-mfa-code"
       }
     },
     "/iam/v4/oauth/platforms/{platformId}/token": {
@@ -22554,7 +23076,8 @@
         "tags": [
           "OAuth2.0 V4"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v4/grant-by-platform"
       }
     },
     "/iam/v4/oauth/simultaneousLogin": {
@@ -22673,7 +23196,8 @@
           "10221": "Simultaneous ticket's account linked AGS is already linked native but different with the input native ticket's",
           "20000": "internal server error",
           "20001": "unauthorized access"
-        }
+        },
+        "x-operationid": "iam/public/oauth2/v4/login-simultaneous"
       }
     },
     "/iam/v4/oauth/token": {
@@ -22855,7 +23379,8 @@
         "tags": [
           "OAuth2.0 V4"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v4/grant-token"
       }
     },
     "/iam/v4/oauth/token/exchange": {
@@ -22906,7 +23431,8 @@
         "tags": [
           "OAuth2.0 V4"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/oauth2/v4/exchange-token"
       }
     },
     "/iam/v4/public/namespaces/{namespace}/platforms/{platformId}/users": {
@@ -23001,6 +23527,7 @@
           "20013": "insufficient permissions",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v4/list-by-platform-id",
         "x-security": {}
       }
     },
@@ -23081,6 +23608,7 @@
           "20003": "forbidden access",
           "20008": "user not found"
         },
+        "x-operationid": "iam/public/users/v4/get-by-platform-user-id",
         "x-security": {}
       }
     },
@@ -23161,7 +23689,8 @@
           "20000": "internal server error",
           "20002": "validation error",
           "20019": "unable to parse request body"
-        }
+        },
+        "x-operationid": "iam/public/users/v4/create-test"
       }
     },
     "/iam/v4/public/namespaces/{namespace}/users": {
@@ -23258,7 +23787,8 @@
           "20003": "forbidden access",
           "20007": "too many requests",
           "20019": "unable to parse request body"
-        }
+        },
+        "x-operationid": "iam/public/users/v4/create"
       }
     },
     "/iam/v4/public/namespaces/{namespace}/users/invite/{invitationId}": {
@@ -23352,7 +23882,8 @@
           "20000": "internal server error",
           "20002": "validation error",
           "20003": "forbidden access"
-        }
+        },
+        "x-operationid": "iam/public/users/v4/create-from-invitation"
       }
     },
     "/iam/v4/public/namespaces/{namespace}/users/me": {
@@ -23446,6 +23977,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v4/update-my",
         "x-security": {}
       }
     },
@@ -23530,6 +24062,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v4/update-my-email",
         "x-security": {}
       }
     },
@@ -23635,6 +24168,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v4/upgrade-and-validate",
         "x-security": {}
       }
     },
@@ -23725,6 +24259,7 @@
           "20019": "unable to parse request body",
           "20022": "token is not user token"
         },
+        "x-operationid": "iam/public/users/v4/start-upgrade-my",
         "x-security": {}
       }
     },
@@ -23810,6 +24345,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/public/user-mfa/v4/disable-my-authenticator",
         "x-security": {}
       }
     },
@@ -23901,6 +24437,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/public/user-mfa/v4/enable-my-authenticator",
         "x-security": {}
       }
     },
@@ -23976,6 +24513,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/public/user-mfa/v4/generate-my-authenticator-key",
         "x-security": {}
       }
     },
@@ -24061,6 +24599,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/public/user-mfa/v4/disable-my-backup-codes",
         "x-security": {}
       }
     },
@@ -24140,6 +24679,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/public/user-mfa/v4/list-my-backup-codes",
         "x-security": {}
       },
       "post": {
@@ -24217,6 +24757,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/public/user-mfa/v4/generate-my-backup-codes",
         "x-security": {}
       }
     },
@@ -24302,6 +24843,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/public/user-mfa/v4/enable-my-backup-codes",
         "x-security": {}
       }
     },
@@ -24395,6 +24937,7 @@
           "20003": "forbidden access",
           "20008": "user not found"
         },
+        "x-operationid": "iam/public/user-mfa/v4/verify-my-challenge",
         "x-security": {}
       }
     },
@@ -24479,6 +25022,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/public/users/v4/revoke-trusted-device",
         "x-security": {}
       }
     },
@@ -24573,6 +25117,7 @@
           "20007": "too many requests",
           "20008": "user not found"
         },
+        "x-operationid": "iam/public/user-mfa/v4/send-my-mfa-email",
         "x-security": {}
       }
     },
@@ -24658,6 +25203,7 @@
           "20003": "forbidden access",
           "20008": "user not found"
         },
+        "x-operationid": "iam/public/user-mfa/v4/disable-my-email",
         "x-security": {}
       }
     },
@@ -24749,6 +25295,7 @@
           "20003": "forbidden access",
           "20008": "user not found"
         },
+        "x-operationid": "iam/public/user-mfa/v4/enable-my-email",
         "x-security": {}
       }
     },
@@ -24825,6 +25372,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/public/user-mfa/v4/list-my-enabled",
         "x-security": {}
       },
       "post": {
@@ -24907,6 +25455,7 @@
           "20008": "user not found",
           "20013": "insufficient permissions"
         },
+        "x-operationid": "iam/public/user-mfa/v4/set-my-default",
         "x-security": {}
       }
     },
@@ -24974,6 +25523,7 @@
           "20003": "forbidden access",
           "20008": "user not found"
         },
+        "x-operationid": "iam/public/user-mfa/v4/get-my-status",
         "x-security": {}
       }
     },
@@ -25041,6 +25591,7 @@
           "20002": "validation error",
           "20008": "user not found"
         },
+        "x-operationid": "iam/public/users/v4/get",
         "x-security": {}
       }
     },
@@ -25120,7 +25671,8 @@
           "20002": "validation error",
           "20007": "too many requests",
           "20019": "unable to parse request body"
-        }
+        },
+        "x-operationid": "iam/public/users/v4/invite-admin"
       }
     },
     "/iam/v4/public/users/me/headless/code/verify/forward": {
@@ -25164,7 +25716,8 @@
         "tags": [
           "Users V4"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationid": "iam/public/users/v4/upgrade-and-validate-forward"
       }
     }
   },
@@ -29718,21 +30271,21 @@
         "requestId"
       ]
     },
-    "model.LinkRequest": {
+    "model.LinkRequestResponse": {
       "properties": {
-        "client_id": {
+        "clientId": {
           "type": "string"
         },
-        "conflict_publisher_user_id": {
+        "conflictPublisherUserId": {
           "type": "string"
         },
-        "conflict_user_linked_games": {
+        "conflictUserLinkedGames": {
           "items": {
             "type": "string"
           },
           "type": "array"
         },
-        "current_user_linked_games": {
+        "currentUserLinkedGames": {
           "items": {
             "type": "string"
           },
@@ -29748,44 +30301,38 @@
         "namespace": {
           "type": "string"
         },
-        "operation_name": {
-          "type": "string"
-        },
         "payload": {
           "type": "object"
         },
         "platformDisplayName": {
           "type": "string"
         },
-        "platformID": {
+        "platformId": {
           "type": "string"
         },
-        "platform_user_id": {
+        "platformUserId": {
           "type": "string"
         },
-        "redirect_uri": {
+        "redirectUri": {
           "type": "string"
         },
-        "refreshToken": {
-          "type": "string"
-        },
-        "request_id": {
+        "requestId": {
           "type": "string"
         },
         "status": {
+          "description": "Enum: SUCCESS, PENDING, FAILED",
           "type": "string"
         },
-        "userID": {
+        "userId": {
           "type": "string"
         }
       },
       "required": [
-        "client_id",
+        "clientId",
         "namespace",
-        "operation_name",
         "payload",
-        "redirect_uri",
-        "request_id",
+        "redirectUri",
+        "requestId",
         "status"
       ]
     },
@@ -30721,6 +31268,77 @@
           "type": "array"
         }
       }
+    },
+    "model.ReAuthRequest": {
+      "properties": {
+        "client_id": {
+          "type": "string"
+        },
+        "conflict_publisher_user_id": {
+          "type": "string"
+        },
+        "conflict_user_linked_games": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "current_user_linked_games": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "error": {
+          "$ref": "#/definitions/rest.ErrorResponseWithConflictedUserPlatformAccounts"
+        },
+        "expiration": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "operation_name": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "object"
+        },
+        "platformDisplayName": {
+          "type": "string"
+        },
+        "platformID": {
+          "type": "string"
+        },
+        "platform_user_id": {
+          "type": "string"
+        },
+        "redirect_uri": {
+          "type": "string"
+        },
+        "refreshToken": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "userID": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "client_id",
+        "namespace",
+        "operation_name",
+        "payload",
+        "redirect_uri",
+        "request_id",
+        "status"
+      ]
     },
     "model.RemoveUserRoleV4Request": {
       "properties": {
@@ -34148,6 +34766,26 @@
         "third_party_url"
       ]
     },
+    "model.WebReauthProcessResponse": {
+      "properties": {
+        "linkResponse": {
+          "$ref": "#/definitions/model.LinkRequestResponse",
+          "description": "Populated only for operation=LINK. Contains platform linking details."
+        },
+        "operation": {
+          "description": "Operation type for this re-auth request. Enum: LINK, GDPR",
+          "type": "string"
+        },
+        "status": {
+          "description": "Enum: SUCCESS, PENDING, FAILED",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation",
+        "status"
+      ]
+    },
     "model.userUnbanCreateRequestV3": {
       "properties": {
         "banId": {
@@ -34544,7 +35182,7 @@
           "type": "string"
         },
         "oneTimeLinkUrl": {
-          "example": "https://example.com/link?code=ABCD1234",
+          "example": "https://example.com/link",
           "type": "string"
         }
       },
@@ -35133,10 +35771,10 @@
     }
   },
   "x-version": {
-    "buildDate": "2026-05-15T06:22:42+00:00",
-    "gitHash": "2e245ab767cfe626b47e3d96f79fed9b60399f68",
+    "buildDate": "2026-07-03T03:59:28+00:00",
+    "gitHash": "64831c48c3dbacbd7125858d31c3d7a16c02c025",
     "name": "justice-iam-service",
-    "version": "7.39.1",
+    "version": "7.40.1",
     "version-roles-seeding": "1.2.132"
   }
 }

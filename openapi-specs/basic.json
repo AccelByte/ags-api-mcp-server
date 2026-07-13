@@ -7,7 +7,7 @@
     },
     "description": "Justice Basic Service",
     "title": "justice-basic-service",
-    "version": "4.4.0"
+    "version": "4.4.2"
   },
   "schemes": [
     "https"
@@ -103,6 +103,9 @@
           "20001": "unauthorized",
           "20013": "insufficient permission"
         },
+        "x-operationId": {
+          "value": "basic/admin/namespaces/v1/list"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE [READ]"
         }
@@ -176,6 +179,9 @@
           "20002": "validation error",
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
+        },
+        "x-operationId": {
+          "value": "basic/admin/namespaces/v1/create"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE [CREATE]"
@@ -252,6 +258,9 @@
           "20006": "optimistic lock",
           "20013": "insufficient permission"
         },
+        "x-operationId": {
+          "value": "basic/admin/namespaces/v1/delete"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:NAMESPACE [DELETE]"
         }
@@ -326,6 +335,9 @@
           "20001": "unauthorized",
           "20002": "validation error",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/admin/namespaces/v1/get"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:NAMESPACE [READ]"
@@ -414,6 +426,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/admin/namespaces/v1/update"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:NAMESPACE [UPDATE]"
         }
@@ -478,6 +493,9 @@
         "x-errorCodes": {
           "20001": "unauthorized",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/admin/namespaces/v1/list-children"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:NAMESPACE [READ]"
@@ -558,6 +576,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/admin/config/v1/create"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:BASIC:CONFIG [CREATE]"
         }
@@ -632,6 +653,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/admin/config/v1/delete"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:BASIC:CONFIG [DELETE]"
         }
@@ -703,6 +727,9 @@
           "20001": "unauthorized",
           "20002": "validation error",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/admin/config/v1/get"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:BASIC:CONFIG [READ]"
@@ -787,6 +814,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/admin/config/v1/update"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:BASIC:CONFIG [UPDATE]"
         }
@@ -846,6 +876,9 @@
         "x-errorCodes": {
           "20001": "unauthorized",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/admin/namespaces/v1/get-context"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:NAMESPACE [READ]"
@@ -930,6 +963,9 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationId": {
+          "value": "basic/admin/files/v1/generate-upload-url"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:FILEUPLOAD [CREATE]"
         }
@@ -994,6 +1030,9 @@
         "x-errorCodes": {
           "20001": "unauthorized",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/admin/namespaces/v1/list-games"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:NAMESPACE [READ]"
@@ -1072,6 +1111,9 @@
           "20001": "unauthorized",
           "20002": "validation error",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/admin/locale/v1/list-country-groups"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:MISC [READ]"
@@ -1152,6 +1194,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/admin/locale/v1/add-country-group"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:MISC [CREATE]"
         }
@@ -1223,6 +1268,9 @@
           "20001": "unauthorized",
           "20002": "validation error",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/admin/locale/v1/delete-country-group"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:MISC [DELETE]"
@@ -1310,6 +1358,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/admin/locale/v1/update-country-group"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:MISC [UPDATE]"
         }
@@ -1367,6 +1418,9 @@
           "20001": "unauthorized",
           "20002": "validation error"
         },
+        "x-operationId": {
+          "value": "basic/admin/locale/v1/list-languages"
+        },
         "x-security": {
           "userPermissions": "-"
         }
@@ -1423,6 +1477,9 @@
         "x-errorCodes": {
           "20001": "unauthorized",
           "20002": "validation error"
+        },
+        "x-operationId": {
+          "value": "basic/admin/locale/v1/list-time-zones"
         },
         "x-security": {
           "userPermissions": "-"
@@ -1499,6 +1556,9 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationId": {
+          "value": "basic/admin/profiles/v1/get-by-public-id"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:PROFILE [READ]"
         }
@@ -1559,6 +1619,9 @@
         ],
         "x-errorCodes": {
           "20002": "validation error"
+        },
+        "x-operationId": {
+          "value": "basic/admin/profiles/v1/bulk-get-public"
         }
       }
     },
@@ -1627,6 +1690,9 @@
           "20001": "unauthorized",
           "20002": "validation error",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/admin/namespaces/v1/list-publisher"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:NAMESPACE [READ]"
@@ -1701,6 +1767,9 @@
           "20001": "unauthorized",
           "20002": "validation error",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/admin/config/v1/get-publisher"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:BASIC:CONFIG [READ]"
@@ -1789,6 +1858,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/admin/namespaces/v1/update-status"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:NAMESPACE [UPDATE]"
         }
@@ -1876,6 +1948,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/admin/namespace/v1/update-testing-flag"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:NAMESPACE:TESTINGFLAG [UPDATE]"
         }
@@ -1943,6 +2018,9 @@
           "20001": "unauthorized access",
           "20002": "validation error",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/admin/internal/v1/anonymize-user-profile"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:ANONYMIZATION [DELETE]"
@@ -2043,6 +2121,9 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationId": {
+          "value": "basic/admin/files/v1/generate-user-upload-url"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:FILEUPLOAD [CREATE]"
         }
@@ -2121,6 +2202,9 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationId": {
+          "value": "basic/admin/profiles/v1/delete"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:PROFILE [DELETE]"
         }
@@ -2193,6 +2277,9 @@
           "20001": "unauthorized",
           "20002": "validation error",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/admin/profiles/v1/get"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:PROFILE [READ]"
@@ -2279,6 +2366,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/admin/profiles/v1/update"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:PROFILE [UPDATE]"
         }
@@ -2349,6 +2439,9 @@
           "11440": "Unable to {action}: User profile not found in namespace [{namespace}]",
           "20001": "unauthorized",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/admin/profiles/v1/get-custom-attributes"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:PROFILE [READ]"
@@ -2441,6 +2534,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/admin/profiles/v1/update-custom-attributes"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:PROFILE [UPDATE]"
         }
@@ -2511,6 +2607,9 @@
           "11440": "Unable to {action}: User profile not found in namespace [{namespace}]",
           "20001": "unauthorized",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/admin/profiles/v1/get-private-custom-attributes"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:PROFILE [READ]"
@@ -2603,6 +2702,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/admin/profiles/v1/update-private-custom-attributes"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:PROFILE [UPDATE]"
         }
@@ -2690,6 +2792,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/admin/profiles/v1/update-status"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:PROFILE [UPDATE]"
         }
@@ -2715,7 +2820,10 @@
         "tags": [
           "Misc"
         ],
-        "x-errorCodes": {}
+        "x-errorCodes": {},
+        "x-operationId": {
+          "value": "basic/public/locale/v1/get-time"
+        }
       }
     },
     "/basic/v1/public/namespaces": {
@@ -2765,6 +2873,9 @@
         "x-errorCodes": {
           "20001": "unauthorized"
         },
+        "x-operationId": {
+          "value": "basic/public/namespaces/v1/list"
+        },
         "x-security": {
           "userPermissions": "-"
         }
@@ -2806,6 +2917,9 @@
         ],
         "x-errorCodes": {
           "11337": "Unable to {action}: Namespace not found"
+        },
+        "x-operationId": {
+          "value": "basic/public/namespaces/v1/get"
         }
       }
     },
@@ -2887,6 +3001,9 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationId": {
+          "value": "basic/public/files/v1/generate-upload-url"
+        },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:FILEUPLOAD [CREATE]"
         }
@@ -2931,6 +3048,9 @@
         ],
         "x-errorCodes": {
           "20002": "validation error"
+        },
+        "x-operationId": {
+          "value": "basic/public/locale/v1/list-languages"
         }
       }
     },
@@ -2973,6 +3093,9 @@
         ],
         "x-errorCodes": {
           "20002": "validation error"
+        },
+        "x-operationId": {
+          "value": "basic/public/locale/v1/list-time-zones"
         }
       }
     },
@@ -3022,6 +3145,9 @@
         ],
         "x-errorCodes": {
           "20002": "validation error"
+        },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/bulk-get-public-by-user-ids"
         }
       },
       "post": {
@@ -3073,6 +3199,9 @@
         ],
         "x-errorCodes": {
           "20002": "validation error"
+        },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/bulk-get-public"
         }
       }
     },
@@ -3126,6 +3255,9 @@
         "x-errorCodes": {
           "11469": "User profile with publicId [{publicId}] not found in namespace [{namespace}]",
           "20002": "validation error"
+        },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/get-by-public-id"
         }
       }
     },
@@ -3194,6 +3326,9 @@
           "20001": "unauthorized",
           "20002": "validation error",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/public/namespaces/v1/list-publisher"
         },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:NAMESPACE [READ]"
@@ -3264,6 +3399,9 @@
           "20008": "user not found",
           "20013": "insufficient permission",
           "20017": "user not linked"
+        },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/get-my"
         },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:PROFILE [READ]"
@@ -3351,6 +3489,9 @@
           "20017": "user not linked",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/create-my"
+        },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:PROFILE [CREATE]"
         }
@@ -3431,6 +3572,9 @@
           "20017": "user not linked",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/update-my"
+        },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:PROFILE [UPDATE]"
         }
@@ -3494,6 +3638,9 @@
           "11440": "Unable to {action}: User profile not found in namespace [{namespace}]",
           "20001": "unauthorized",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/get-my-private-custom-attributes"
         },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:PROFILE [READ]"
@@ -3579,6 +3726,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/update-my-private-custom-attributes"
+        },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:PROFILE [UPDATE]"
         }
@@ -3635,6 +3785,9 @@
         "x-errorCodes": {
           "20001": "unauthorized",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/get-my-zip-code"
         },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:PROFILE [READ]"
@@ -3706,6 +3859,9 @@
           "20002": "validation error",
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
+        },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/update-my-zip-code"
         },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:PROFILE [UPDATE]"
@@ -3806,6 +3962,9 @@
           "20002": "validation error",
           "20013": "insufficient permission"
         },
+        "x-operationId": {
+          "value": "basic/public/files/v1/generate-user-upload-url"
+        },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:USER:{userId}:FILEUPLOAD [CREATE]"
         }
@@ -3880,6 +4039,9 @@
           "20001": "unauthorized",
           "20002": "validation error",
           "20013": "insufficient permission"
+        },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/get"
         },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:USER:{userId}:PROFILE [READ]"
@@ -3966,6 +4128,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/create"
+        },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:USER:{userId}:PROFILE [CREATE]"
         }
@@ -4051,6 +4216,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/update"
+        },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:USER:{userId}:PROFILE [UPDATE]"
         }
@@ -4102,6 +4270,9 @@
         ],
         "x-errorCodes": {
           "11440": "Unable to {action}: User profile not found in namespace [{namespace}]"
+        },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/get-custom-attributes"
         }
       },
       "put": {
@@ -4191,6 +4362,9 @@
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
         },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/update-custom-attributes"
+        },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:USER:{userId}:PROFILE [UPDATE]"
         }
@@ -4246,6 +4420,9 @@
         "x-errorCodes": {
           "11440": "Unable to {action}: User profile not found in namespace [{namespace}]",
           "20002": "validation error"
+        },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/get-public"
         }
       }
     },
@@ -4330,6 +4507,9 @@
           "20002": "validation error",
           "20013": "insufficient permission",
           "20019": "unable to parse request body"
+        },
+        "x-operationId": {
+          "value": "basic/public/profiles/v1/update-status"
         },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:USER:{userId}:PROFILE [UPDATE]"
@@ -5203,15 +5383,15 @@
   },
   "x-version": {
     "buildBy": "Gradle 8.5",
-    "buildDate": "2026-05-11T09:17:57+00:00",
-    "buildID": "4.4.0",
+    "buildDate": "2026-07-02T23:18:31+00:00",
+    "buildID": "4.4.2",
     "buildJDK": "21.0.6 (Amazon.com Inc. 21.0.6+7-LTS)",
     "buildOS": "Linux amd64 6.1.144-170.251.amzn2023.x86_64",
     "gitBranchName": "release-candidate",
-    "gitHash": "03e2405298",
-    "gitTag": "4.4.0",
+    "gitHash": "ebc4f18fc0",
+    "gitTag": "4.4.2",
     "name": "justice-basic-service",
-    "version": "4.4.0",
+    "version": "4.4.2",
     "version-roles-seeding": "1.2.125"
   }
 }

@@ -7,7 +7,7 @@
     },
     "description": "Justice SeasonPass Service",
     "title": "justice-seasonpass-service",
-    "version": "1.27.1"
+    "version": "1.27.3"
   },
   "schemes": [
     "https"
@@ -82,6 +82,9 @@
         ],
         "x-errorCodes": {
           "49143": "Season [{seasonId}] does not exist in namespace [{namespace}]"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/seasons/v1/export"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [READ]"
@@ -162,6 +165,9 @@
         "x-errorCodes": {
           "20026": "publisher namespace not allowed"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/seasons/v1/list"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [READ]"
         }
@@ -236,6 +242,9 @@
           "49122": "Invalid time range",
           "49141": "Tier item does not exist in the store of namespace [{namespace}]"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/seasons/v1/create"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [CREATE]"
         }
@@ -289,6 +298,9 @@
         "x-errorCodes": {
           "20026": "publisher namespace not allowed",
           "49147": "Published season does not exist"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/seasons/v1/get-current"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [READ]"
@@ -358,6 +370,9 @@
           "20026": "publisher namespace not allowed",
           "49147": "Published season does not exist"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/progress/v1/get-bulk"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [READ]"
         }
@@ -412,6 +427,9 @@
         "x-errorCodes": {
           "20002": "validation error",
           "20026": "publisher namespace not allowed"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/utilities/v1/list-item-references"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [READ]"
@@ -477,6 +495,9 @@
           "49143": "Season [{seasonId}] does not exist in namespace [{namespace}]",
           "49171": "Invalid season status [{status}]"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/seasons/v1/delete"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [DELETE]"
         }
@@ -534,6 +555,9 @@
         "x-errorCodes": {
           "20026": "publisher namespace not allowed",
           "49143": "Season [{seasonId}] does not exist in namespace [{namespace}]"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/seasons/v1/get"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [READ]"
@@ -622,6 +646,9 @@
           "49143": "Season [{seasonId}] does not exist in namespace [{namespace}]",
           "49171": "Invalid season status [{status}]"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/seasons/v1/update"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [UPDATE]"
         }
@@ -700,6 +727,9 @@
           "49122": "Invalid time range",
           "49143": "Season [{seasonId}] does not exist in namespace [{namespace}]"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/seasons/v1/clone"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [CREATE]"
         }
@@ -759,6 +789,9 @@
         "x-errorCodes": {
           "20026": "publisher namespace not allowed",
           "49143": "Season [{seasonId}] does not exist in namespace [{namespace}]"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/seasons/v1/get-full"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [READ]"
@@ -821,6 +854,9 @@
         "x-errorCodes": {
           "20026": "publisher namespace not allowed",
           "49143": "Season [{seasonId}] does not exist in namespace [{namespace}]"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/passes/v1/list"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [READ]"
@@ -909,6 +945,9 @@
           "49171": "Invalid season status [{status}]",
           "49174": "Pass [{code}] already exists in the season"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/passes/v1/create"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [CREATE]"
         }
@@ -980,6 +1019,9 @@
           "49145": "Pass [{code}] does not exist",
           "49171": "Season is not updatable in status [{status}]"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/passes/v1/delete"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [DELETE]"
         }
@@ -1044,6 +1086,9 @@
           "20026": "publisher namespace not allowed",
           "49143": "Season [{seasonId}] does not exist in namespace [{namespace}]",
           "49145": "Pass [{code}] does not exist"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/passes/v1/get"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [READ]"
@@ -1137,6 +1182,9 @@
           "49145": "Pass [{code}] does not exist",
           "49171": "Invalid season status [{status}]"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/passes/v1/update"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [UPDATE]"
         }
@@ -1219,6 +1267,9 @@
           "49178": "Tiers are not provided",
           "49189": "Duplicate season name [{name}] for publishing in namespace [{namespace}]"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/seasons/v1/publish"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [UPDATE]"
         }
@@ -1297,6 +1348,9 @@
           "49171": "Invalid season status [{status}]",
           "49181": "Season has not ended"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/seasons/v1/retire"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [UPDATE]"
         }
@@ -1364,6 +1418,9 @@
         "x-errorCodes": {
           "20026": "publisher namespace not allowed",
           "49143": "Season [{seasonId}] does not exist in namespace [{namespace}]"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/rewards/v1/list"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [READ]"
@@ -1452,6 +1509,9 @@
           "49171": "Invalid season status [{status}]",
           "49173": "Reward [{code}] already exists in the season"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/rewards/v1/create"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [CREATE]"
         }
@@ -1524,6 +1584,9 @@
           "49171": "Season is not updatable in status [{status}]",
           "49179": "Reward [{code}] is in use"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/rewards/v1/delete"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [DELETE]"
         }
@@ -1588,6 +1651,9 @@
           "20026": "publisher namespace not allowed",
           "49143": "Season [{seasonId}] does not exist in namespace [{namespace}]",
           "49144": "Reward [{code}] does not exist"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/rewards/v1/get"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [READ]"
@@ -1681,6 +1747,9 @@
           "49144": "Reward [{code}] does not exist",
           "49171": "Invalid season status [{status}]"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/rewards/v1/update"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [UPDATE]"
         }
@@ -1757,6 +1826,9 @@
         "x-errorCodes": {
           "20026": "publisher namespace not allowed",
           "49143": "Season [{seasonId}] does not exist in namespace [{namespace}]"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/tiers/v1/list"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [READ]"
@@ -1846,6 +1918,9 @@
           "49145": "Pass [{code}] does not exist",
           "49171": "Invalid season status [{status}]"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/tiers/v1/create"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [CREATE]"
         }
@@ -1915,6 +1990,9 @@
           "20026": "publisher namespace not allowed",
           "49143": "Season [{seasonId}] does not exist in namespace [{namespace}]",
           "49171": "Invalid season status [{status}]"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/tiers/v1/delete"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [DELETE]"
@@ -2007,6 +2085,9 @@
           "49146": "Tier does not exist",
           "49171": "Invalid season status [{status}]"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/tiers/v1/update"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [UPDATE]"
         }
@@ -2098,6 +2179,9 @@
           "49146": "Tier does not exist",
           "49171": "Invalid season status [{status}]"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/tiers/v1/reorder"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [UPDATE]"
         }
@@ -2176,6 +2260,9 @@
           "49171": "Invalid season status [{status}]",
           "49180": "Season is already started"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/seasons/v1/unpublish"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:SEASONPASS [UPDATE]"
         }
@@ -2247,6 +2334,9 @@
         "x-errorCodes": {
           "20026": "publisher namespace not allowed"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/progress/v1/list-participated-seasons"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [READ]"
         }
@@ -2310,6 +2400,9 @@
         ],
         "x-errorCodes": {
           "20026": "publisher namespace not allowed"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/progress/v1/grant-experience"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [UPDATE]"
@@ -2375,6 +2468,9 @@
         "x-errorCodes": {
           "20026": "publisher namespace not allowed"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/passes/v1/grant"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [UPDATE]"
         }
@@ -2438,6 +2534,9 @@
         "x-errorCodes": {
           "20026": "publisher namespace not allowed"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/progress/v1/check-season-ownership"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [READ]"
         }
@@ -2498,6 +2597,9 @@
           "20026": "publisher namespace not allowed",
           "49147": "Published season does not exist",
           "49148": "User season does not exist"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/progress/v1/get"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [READ]"
@@ -2578,6 +2680,9 @@
           "49186": "Pass already owned",
           "49187": "Exceed max tier count"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/seasons/v1/check-purchaseable"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [READ]"
         }
@@ -2627,6 +2732,9 @@
         ],
         "x-errorCodes": {
           "20026": "publisher namespace not allowed"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/progress/v1/reset"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [DELETE]"
@@ -2698,6 +2806,9 @@
         "x-errorCodes": {
           "20026": "publisher namespace not allowed",
           "49148": "User season does not exist"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/tiers/v1/grant"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [UPDATE]"
@@ -2813,6 +2924,9 @@
         "x-errorCodes": {
           "20026": "publisher namespace not allowed"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/progress/v1/get-experience-history"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [READ]"
         }
@@ -2872,6 +2986,9 @@
         ],
         "x-errorCodes": {
           "20026": "publisher namespace not allowed"
+        },
+        "x-operationId": {
+          "value": "season-pass/admin/progress/v1/list-experience-history-tags"
         },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [READ]"
@@ -2939,6 +3056,9 @@
           "20026": "publisher namespace not allowed",
           "49148": "User season does not exist"
         },
+        "x-operationId": {
+          "value": "season-pass/admin/progress/v1/get-season"
+        },
         "x-security": {
           "userPermissions": "ADMIN:NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [READ]"
         }
@@ -3005,6 +3125,9 @@
           "20001": "Unauthorized",
           "20026": "publisher namespace not allowed",
           "49147": "Published season does not exist"
+        },
+        "x-operationId": {
+          "value": "season-pass/public/seasons/v1/get-current"
         }
       }
     },
@@ -3063,6 +3186,9 @@
           "20026": "publisher namespace not allowed",
           "49147": "Published season does not exist",
           "49148": "User season does not exist"
+        },
+        "x-operationId": {
+          "value": "season-pass/public/progress/v1/get-current-season"
         },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [READ]"
@@ -3146,6 +3272,9 @@
           "49182": "Reward is already claimed",
           "49188": "Reward is claiming"
         },
+        "x-operationId": {
+          "value": "season-pass/public/progress/v1/claim-rewards"
+        },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [UPDATE]"
         }
@@ -3207,6 +3336,9 @@
           "49124": "Manual claim not supported",
           "49147": "Published season does not exist",
           "49148": "User season does not exist"
+        },
+        "x-operationId": {
+          "value": "season-pass/public/progress/v1/bulk-claim-rewards"
         },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [UPDATE]"
@@ -3273,6 +3405,9 @@
         "x-errorCodes": {
           "20026": "publisher namespace not allowed",
           "49148": "User season does not exist"
+        },
+        "x-operationId": {
+          "value": "season-pass/public/progress/v1/get-season"
         },
         "x-security": {
           "userPermissions": "NAMESPACE:{namespace}:USER:{userId}:SEASONPASS [READ]"
@@ -5190,15 +5325,15 @@
   },
   "x-version": {
     "buildBy": "Gradle 8.5",
-    "buildDate": "2026-05-12T07:39:40+00:00",
-    "buildID": "1.27.1",
+    "buildDate": "2026-07-03T02:31:49+00:00",
+    "buildID": "1.27.3",
     "buildJDK": "21.0.6 (Amazon.com Inc. 21.0.6+7-LTS)",
     "buildOS": "Linux amd64 6.1.144-170.251.amzn2023.x86_64",
     "gitBranchName": "release-candidate",
-    "gitHash": "568c6f38bf",
-    "gitTag": "1.27.1",
+    "gitHash": "220229ee35",
+    "gitTag": "1.27.3",
     "name": "justice-seasonpass-service",
-    "version": "1.27.1",
+    "version": "1.27.3",
     "version-roles-seeding": "1.2.37"
   }
 }
