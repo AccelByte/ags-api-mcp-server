@@ -109,8 +109,8 @@ function logError(
  *     **only honored when Express `trust proxy` is configured**, so an
  *     untrusted client cannot spoof them.
  *  2. Plain `host` header **only** when accompanied by `x-forwarded-port`
- *     and `trust proxy` is set (indicates a known reverse proxy in front).
- *  3. `req.ags.baseUrl` (hosted mode)
+ *     and the connecting proxy is trusted.
+ *  3. `req.ags.baseUrl` (hosted mode, when explicitly allowed)
  *  4. `fallbackUrl`
  *
  * Without this guard, any client could send a crafted `X-Forwarded-Host`
@@ -125,19 +125,26 @@ function deriveBaseUrl(
     protocol: string;
     ags?: { baseUrl: string };
     app?: { get: (setting: string) => unknown };
+    socket?: { remoteAddress?: string };
   },
   fallbackUrl?: string,
+  options: { allowHostedContext?: boolean } = {},
 ): string {
+  const { allowHostedContext = true } = options;
   const forwardedHost = req.get("x-forwarded-host");
   const forwardedPort = req.get("x-forwarded-port");
   const host = req.get("host");
   const forwardedProto = req.get("x-forwarded-proto");
 
-  // Express stores the configured `trust proxy` setting. Falsy (false / 0 /
-  // undefined) means no proxy is trusted — in that case ignore forwarded
-  // headers entirely so a malicious client can't drive URL construction.
-  const trustProxy = req.app?.get?.("trust proxy");
-  const proxyTrusted = !!trustProxy;
+  // Express compiles the configured `trust proxy` value into a function.
+  // Check the immediate peer with that function instead of treating any
+  // non-empty setting as permission to trust every caller.
+  const trustProxy = req.app?.get?.("trust proxy fn");
+  const remoteAddress = req.socket?.remoteAddress;
+  const proxyTrusted =
+    typeof trustProxy === "function" &&
+    typeof remoteAddress === "string" &&
+    (trustProxy as (address: string, hop: number) => boolean)(remoteAddress, 0);
 
   if (proxyTrusted && (forwardedHost || (host && forwardedPort))) {
     const protocol = forwardedProto || req.protocol || "http";
@@ -154,8 +161,10 @@ function deriveBaseUrl(
     }
   }
 
-  // Hosted mode
-  if (req.ags?.baseUrl) {
+  // `req.ags.baseUrl` can be derived from raw Host / X-Forwarded-Host values.
+  // Resource-server URLs disable this fallback so untrusted hosted requests
+  // cannot steer OAuth clients to an attacker-controlled origin.
+  if (allowHostedContext && req.ags?.baseUrl) {
     return req.ags.baseUrl;
   }
 

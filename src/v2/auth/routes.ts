@@ -100,20 +100,19 @@ function registerOAuthRoutes(
     ? `/.well-known/oauth-authorization-server${mcpPath}`
     : null;
 
-  // In hosted mode the MCP server's public URL must come from the configured
-  // resourceServerUrl, not from request-derived headers: X-Forwarded-Host is
-  // overloaded to select the upstream AGS environment, so deriveBaseUrl would
-  // return the AGS host (where this metadata document does not exist). The
-  // authorization server URL still derives from the forwarded host because
-  // each AGS env hosts its own authorization server.
+  // Protected-resource metadata must describe the same public resource URL
+  // the client requested. Trusted reverse-proxy headers take precedence over
+  // the configured fallback; raw hosted request context does not.
 
   app.get(
     "/.well-known/oauth-protected-resource",
     (req: Request, res: Response) => {
-      const effectiveAuthServer = deriveBaseUrl(req, authorizationServerUrl);
-      const resourceBaseUrl = hostedMode
-        ? resourceServerUrl
-        : deriveBaseUrl(req, resourceServerUrl);
+      const effectiveAuthServer = deriveBaseUrl(req, authorizationServerUrl, {
+        allowHostedContext: !hostedMode,
+      });
+      const resourceBaseUrl = deriveBaseUrl(req, resourceServerUrl, {
+        allowHostedContext: !hostedMode,
+      });
       const protectedResourceUrl = `${resourceBaseUrl}${mcpPath}`;
 
       const metadata: OAuthProtectedResourceMetadata = {
@@ -132,10 +131,12 @@ function registerOAuthRoutes(
   // misinterpreted as namespace="mcp", producing resource="/mcp/mcp".
   if (pathAwareProtectedResourceRoute) {
     app.get(pathAwareProtectedResourceRoute, (req: Request, res: Response) => {
-      const effectiveAuthServer = deriveBaseUrl(req, authorizationServerUrl);
-      const resourceBaseUrl = hostedMode
-        ? resourceServerUrl
-        : deriveBaseUrl(req, resourceServerUrl);
+      const effectiveAuthServer = deriveBaseUrl(req, authorizationServerUrl, {
+        allowHostedContext: !hostedMode,
+      });
+      const resourceBaseUrl = deriveBaseUrl(req, resourceServerUrl, {
+        allowHostedContext: !hostedMode,
+      });
       const protectedResourceUrl = `${resourceBaseUrl}${mcpPath}`;
 
       const metadata: OAuthProtectedResourceMetadata = {
@@ -152,34 +153,46 @@ function registerOAuthRoutes(
   // as a path component so that MCP clients discover the namespace-specific
   // authorization server. This is a custom convention (not defined by RFC 9728)
   // to support multi-tenant namespace routing.
+  const namespaceProtectedResourceHandler = (req: Request, res: Response) => {
+    const { namespace } = req.params;
+
+    // Validate namespace to prevent path traversal / URL injection
+    if (!namespace || !/^[a-zA-Z0-9_-]+$/.test(namespace)) {
+      res.status(400).json({
+        error: "Bad Request",
+        message: "Invalid namespace",
+      });
+      return;
+    }
+
+    const effectiveAuthServer = deriveBaseUrl(req, authorizationServerUrl, {
+      allowHostedContext: !hostedMode,
+    });
+    const resourceBaseUrl = deriveBaseUrl(req, resourceServerUrl, {
+      allowHostedContext: !hostedMode,
+    });
+    const protectedResourceUrl = `${resourceBaseUrl}${mcpPath}/${namespace}`;
+
+    const metadata: OAuthProtectedResourceMetadata = {
+      resource: protectedResourceUrl,
+      authorization_servers: [`${effectiveAuthServer}/${namespace}`],
+      bearer_methods_supported: ["header"],
+    };
+    res.status(200).json(metadata);
+  };
+
+  // Keep the short route as the target for reverse proxies that strip the MCP
+  // path, and also serve the full RFC 9728 path for direct deployments.
   app.get(
     "/.well-known/oauth-protected-resource/:namespace",
-    (req: Request, res: Response) => {
-      const { namespace } = req.params;
-
-      // Validate namespace to prevent path traversal / URL injection
-      if (!namespace || !/^[a-zA-Z0-9_-]+$/.test(namespace)) {
-        res.status(400).json({
-          error: "Bad Request",
-          message: "Invalid namespace",
-        });
-        return;
-      }
-
-      const effectiveAuthServer = deriveBaseUrl(req, authorizationServerUrl);
-      const resourceBaseUrl = hostedMode
-        ? resourceServerUrl
-        : deriveBaseUrl(req, resourceServerUrl);
-      const protectedResourceUrl = `${resourceBaseUrl}${mcpPath}/${namespace}`;
-
-      const metadata: OAuthProtectedResourceMetadata = {
-        resource: protectedResourceUrl,
-        authorization_servers: [`${effectiveAuthServer}/${namespace}`],
-        bearer_methods_supported: ["header"],
-      };
-      res.status(200).json(metadata);
-    },
+    namespaceProtectedResourceHandler,
   );
+  if (pathAwareProtectedResourceRoute) {
+    app.get(
+      `${pathAwareProtectedResourceRoute}/:namespace`,
+      namespaceProtectedResourceHandler,
+    );
+  }
 
   if (isDiscoveryWorkaroundEnabled) {
     const oauthAuthServerHandler = async (

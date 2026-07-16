@@ -258,7 +258,7 @@ export MCP_VALIDATE_TOKEN_ISSUER=true
 export ALLOW_PARENT_DOMAIN_ISSUER=true
 ```
 
-> **Hosted mode and `MCP_SERVER_URL`:** When `MCP_HOSTED=true` you should set `MCP_SERVER_URL` to the public URL at which clients reach the MCP server (e.g. `http://localhost:3030` for a local Docker container, or `https://mcp.example.com` behind a public reverse proxy). It is used to construct the `resource_metadata` URL in the `WWW-Authenticate` header so that OAuth-discovering clients fetch `/.well-known/oauth-protected-resource` from this server, not from the AGS host carried in `X-Forwarded-Host`.
+> **Hosted mode and `MCP_SERVER_URL`:** When `MCP_HOSTED=true` you should set `MCP_SERVER_URL` to a safe public fallback URL for the MCP server (e.g. `http://localhost:3030` for a local Docker container, or `https://mcp.example.com` behind a public reverse proxy). When trusted proxy headers identify the client-facing origin, OAuth discovery uses that origin and inserts `/.well-known/oauth-protected-resource` before the full MCP resource path. Untrusted hosted request headers cannot override `MCP_SERVER_URL`. For example, `/mcp/foundations` advertises `/.well-known/oauth-protected-resource/mcp/foundations` as required by RFC 9728.
 
 ---
 
