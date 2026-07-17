@@ -150,8 +150,12 @@ function deriveBaseUrl(
     const protocol = forwardedProto || req.protocol || "http";
     let requestHost = forwardedHost || host || "";
 
-    if (requestHost && !requestHost.includes(":")) {
-      if (forwardedPort && forwardedPort !== "80" && forwardedPort !== "443") {
+    // Omit the port only when it is the default for the resolved scheme —
+    // https on 80 (or http on 443) is non-default and must stay explicit for
+    // the published URL to be reachable.
+    if (requestHost && !requestHost.includes(":") && forwardedPort) {
+      const defaultPort = protocol === "https" ? "443" : "80";
+      if (forwardedPort !== defaultPort) {
         requestHost = `${requestHost}:${forwardedPort}`;
       }
     }
