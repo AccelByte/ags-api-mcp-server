@@ -3,7 +3,7 @@
   "name": "io.github.AccelByte/ags-api-mcp-server",
   "title": "AGS API",
   "description": "Stateless MCP server for AccelByte Gaming Services APIs with OpenAPI integration",
-  "version": "2026.4.0",
+  "version": "2026.4.1",
   "repository": {
     "url": "https://github.com/AccelByte/ags-api-mcp-server",
     "source": "github"
