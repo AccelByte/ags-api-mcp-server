@@ -108,6 +108,13 @@ function registerMcpRoutes(
     );
   }
 
+  // A root MCP path ("/") contributes no path segment when building derived
+  // paths. Without this, `${path}/:namespace` registers the unreachable
+  // route `//:namespace` and the advertised resource_metadata URL gains a
+  // double slash. auth/routes.ts applies the same rule to its path-aware
+  // well-known routes.
+  const mcpBasePath = path === "/" ? "" : path;
+
   const postHandler = async (req: Request, res: Response) => {
     const { namespace }: { namespace?: string } = req.params;
 
@@ -139,7 +146,9 @@ function registerMcpRoutes(
       const baseUrl = deriveBaseUrl(req, mcpServerUrl || defaultAgsBaseUrl, {
         allowHostedContext: !hostedMode,
       });
-      const resourcePath = namespace ? `${path}/${namespace}` : path;
+      const resourcePath = namespace
+        ? `${mcpBasePath}/${namespace}`
+        : mcpBasePath;
       const resourceMetadataPath = `/.well-known/oauth-protected-resource${resourcePath}`;
 
       res.set(
@@ -181,7 +190,7 @@ function registerMcpRoutes(
   };
 
   // Register routes for both the base path and the namespace-parameterized path
-  const routePatterns = [path, `${path}/:namespace`];
+  const routePatterns = [path, `${mcpBasePath}/:namespace`];
 
   routePatterns.forEach((routePattern) => {
     if (enableAuth) {

@@ -594,3 +594,117 @@ describe("WWW-Authenticate header in standalone mode without mcpServerUrl", () =
     );
   });
 });
+
+describe("MCP mounted at the web root (MCP_PATH='/')", () => {
+  // Guards the root-path configuration: a namespaced request must be served
+  // at /:namespace (not the unreachable //:namespace pattern), and the
+  // advertised resource_metadata URL must not contain a double slash —
+  // otherwise OAuth discovery 404s for root-mounted deployments.
+  let s: http.Server;
+  let url: string;
+
+  before(async () => {
+    const app = express();
+    app.use(express.json());
+    registerOAuthRoutes(app, MCP_SERVER_URL, AGS_BASE_URL, {
+      hostedMode: false,
+      mcpPath: "/",
+    });
+    registerMcpRoutes(
+      app,
+      async () => {
+        throw new Error("factory should not be called for unauthenticated 401");
+      },
+      {
+        path: "/",
+        enableAuth: true,
+        defaultAgsBaseUrl: AGS_BASE_URL,
+        mcpServerUrl: MCP_SERVER_URL,
+        hostedMode: false,
+      },
+    );
+    return new Promise<void>((resolve) => {
+      s = app.listen(0, "127.0.0.1", () => {
+        const addr = s.address() as { port: number };
+        url = `http://127.0.0.1:${addr.port}`;
+        resolve();
+      });
+    });
+  });
+
+  after(async () => new Promise<void>((resolve) => s.close(() => resolve())));
+
+  function initializeBody(): string {
+    return JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "t", version: "0" },
+      },
+    });
+  }
+
+  test("namespaced request is routed and advertises a single-slash metadata URL", async () => {
+    const res = await fetch(`${url}/myns`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      body: initializeBody(),
+    });
+
+    assert.equal(res.status, 401);
+    const wwwAuth = res.headers.get("www-authenticate");
+    const match = wwwAuth!.match(/resource_metadata="([^"]+)"/);
+    assert.ok(match, `resource_metadata not found in: ${wwwAuth}`);
+    assert.equal(
+      match![1],
+      `${MCP_SERVER_URL}/.well-known/oauth-protected-resource/myns`,
+    );
+    assert.ok(
+      !match![1].includes("//myns"),
+      `advertised URL must not contain a double slash, got: ${match![1]}`,
+    );
+  });
+
+  test("advertised namespaced metadata URL is actually served", async () => {
+    const res = await fetch(`${url}/.well-known/oauth-protected-resource/myns`);
+
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as {
+      resource: string;
+      authorization_servers: string[];
+    };
+    assert.equal(body.resource, `${MCP_SERVER_URL}/myns`);
+    assert.deepEqual(body.authorization_servers, [`${AGS_BASE_URL}/myns`]);
+  });
+
+  test("non-namespaced request advertises the root well-known document", async () => {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      body: initializeBody(),
+    });
+
+    assert.equal(res.status, 401);
+    const match = res.headers
+      .get("www-authenticate")!
+      .match(/resource_metadata="([^"]+)"/);
+    assert.equal(
+      match![1],
+      `${MCP_SERVER_URL}/.well-known/oauth-protected-resource`,
+    );
+
+    const metadataRes = await fetch(match![1].replace(MCP_SERVER_URL, url));
+    assert.equal(metadataRes.status, 200);
+    const body = (await metadataRes.json()) as { resource: string };
+    assert.equal(body.resource, MCP_SERVER_URL);
+  });
+});

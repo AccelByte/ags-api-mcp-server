@@ -93,6 +93,10 @@ function registerOAuthRoutes(
   const isDiscoveryWorkaroundEnabled =
     authorizationServerDiscoveryMode !== AuthorizationServerDiscoveryMode.None;
   const hasPathAwareMcpRoute = mcpPath !== "/";
+  // A root MCP path contributes no path segment to advertised resource URLs,
+  // mirroring registerMcpRoutes — otherwise a namespaced resource would be
+  // advertised as e.g. "https://host//myns".
+  const mcpBasePath = hasPathAwareMcpRoute ? mcpPath : "";
   const pathAwareProtectedResourceRoute = hasPathAwareMcpRoute
     ? `/.well-known/oauth-protected-resource${mcpPath}`
     : null;
@@ -113,7 +117,7 @@ function registerOAuthRoutes(
       const resourceBaseUrl = deriveBaseUrl(req, resourceServerUrl, {
         allowHostedContext: !hostedMode,
       });
-      const protectedResourceUrl = `${resourceBaseUrl}${mcpPath}`;
+      const protectedResourceUrl = `${resourceBaseUrl}${mcpBasePath}`;
 
       const metadata: OAuthProtectedResourceMetadata = {
         resource: protectedResourceUrl,
@@ -137,7 +141,7 @@ function registerOAuthRoutes(
       const resourceBaseUrl = deriveBaseUrl(req, resourceServerUrl, {
         allowHostedContext: !hostedMode,
       });
-      const protectedResourceUrl = `${resourceBaseUrl}${mcpPath}`;
+      const protectedResourceUrl = `${resourceBaseUrl}${mcpBasePath}`;
 
       const metadata: OAuthProtectedResourceMetadata = {
         resource: protectedResourceUrl,
@@ -171,7 +175,7 @@ function registerOAuthRoutes(
     const resourceBaseUrl = deriveBaseUrl(req, resourceServerUrl, {
       allowHostedContext: !hostedMode,
     });
-    const protectedResourceUrl = `${resourceBaseUrl}${mcpPath}/${namespace}`;
+    const protectedResourceUrl = `${resourceBaseUrl}${mcpBasePath}/${namespace}`;
 
     const metadata: OAuthProtectedResourceMetadata = {
       resource: protectedResourceUrl,
