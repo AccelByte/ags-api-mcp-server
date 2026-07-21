@@ -246,6 +246,22 @@ Your client may not yet support Dynamic Client Registration. Switch to the `mcp-
 
 Your AccelByte user may not have permission for the operation you're calling. Check with your AGS administrator.
 
+### Authentication fails with "Invalid Request", "invalid client ID", or "client ID not found"
+
+If your client connected before but now fails at sign-in — often with a generic IAM **Invalid Request** page mentioning an invalid redirect URI, client ID, or target path, or an "invalid client ID" / "client ID not found" error — the cached Dynamic Client Registration (DCR) is likely stale.
+
+Clients that use DCR cache the IAM client ID they registered. If an administrator or an inactive-client cleanup job later removes that IAM client, the cached registration becomes invalid. The client keeps reusing the deleted client ID and authentication fails *before* a fresh DCR registration is ever attempted.
+
+**This is different from normal token expiry.** When only your access token has expired, the client silently refreshes it or reauthorizes against the *same* valid client ID and you may not notice. A deleted client can't be refreshed — you have to clear the cached registration so the client runs DCR again and registers a new one.
+
+**Recovery** — clear the cached authentication for the `ags-api` server, then sign in again:
+
+- **Claude Code:** run `/mcp`, select the `ags-api` server, and choose **Clear authentication**. Then reconnect (via `/mcp` or by restarting) to trigger a new sign-in.
+- **Codex:** run `codex mcp logout ags-api`, then `codex mcp login ags-api`.
+- **`mcp-remote` clients:** see [`mcp-remote` opens a browser every time](#mcp-remote-opens-a-browser-every-time) above for clearing the `~/.mcp-auth/` cache.
+
+Clearing authentication only removes the **local OAuth state** (the cached registration and tokens) for this one server and requires you to sign in again — it creates a fresh DCR registration and restores access. You do **not** need to remove and re-add the MCP server, and you should **not** wipe all MCP credentials globally unless your client offers no way to clear a single server on its own.
+
 ## Documentation
 
 - [Installation Guide](INSTALL.md) — followed by the Quick Install prompt; readable on its own
