@@ -47,6 +47,7 @@ export function validateUrlMatchesIssuer(
   // Match when:
   // 1. Exact host match (e.g. derived="example.com", issuer="example.com")
   // 2. Issuer has a sub-path under derived host (e.g. issuer="example.com/iam")
+  // 3. Issuer is the namespaced issuer for this tenant host (see below)
   //
   // Subdomain matching (derived is subdomain of issuer) is intentionally NOT
   // supported by default: a token issued for "accelbyte.io" must not be
@@ -55,6 +56,57 @@ export function validateUrlMatchesIssuer(
   if (
     normalizedIssuer === normalizedDerived ||
     normalizedIssuer.startsWith(`${normalizedDerived}/`)
+  ) {
+    return true;
+  }
+
+  // Namespaced issuer for a tenant-subdomain host.
+  //
+  // IAM's namespaced OAuth discovery document — the only entry point MCP
+  // clients use — identifies each namespace as its own authorization server
+  // with `issuer = {baseUri}/{namespace}`, where {baseUri} is the
+  // environment's public host root. Since the MCP 2026-07-28 RC authorization
+  // hardening, tokens from those grant chains carry that value in `iss`. A
+  // client that reaches this server at "{namespace}.{baseHost}" therefore
+  // presents a token whose issuer names the *parent* host and carries the
+  // namespace as a path — matching neither rule above, nor the
+  // parent-domain rule below (which excludes issuers with a path).
+  //
+  // Accept that pairing only when the issuer's single path segment is exactly
+  // the derived host's leading label, so a token minted for one namespace can
+  // never be presented on another tenant's host. Not gated on
+  // `allowParentDomainIssuer`: unlike the bare parent-domain case this match
+  // is self-verifying — the namespace must equal the subdomain label.
+  //
+  // This is a structural host↔issuer check, not proof of authenticity. The
+  // signature is verified separately in `setAuthFromToken`, against the JWKS
+  // advertised by the *derived host's* root discovery document — which in this
+  // topology points back at the parent host, so that stage additionally needs
+  // ALLOW_CROSS_DOMAIN_JWKS. Accepting here does not by itself authenticate.
+  //
+  // Case handling is deliberately asymmetric: the host halves are compared
+  // case-insensitively (DNS is), but the path segment must already be
+  // lowercase. JWT `iss` is not case-normalized (RFC 7519 §2), so folding case
+  // there would let "host/TENANT-A" match "tenant-a.host" and cross namespaces
+  // if IAM ever treats those as distinct. IAM's own `validateSubDomain` folds
+  // case; if an uppercase namespace with a tenant subdomain ever ships, this
+  // check fails closed with an issuer_host_mismatch and relaxing it here is
+  // the deliberate fix.
+  //
+  // A base-path issuer can collide with this rule only when the path segment
+  // and the subdomain label are the same string (issuer "example.com/iam"
+  // presented at host "iam.example.com"). That host exists only if a namespace
+  // of that name was provisioned, both names belong to the same environment,
+  // and the signature check is unchanged — so the collision is benign.
+  const strippedIssuer = issuer.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const [rawIssuerHost, ...issuerPathSegments] = strippedIssuer.split("/");
+  if (
+    issuerPathSegments.length === 1 &&
+    // IAM namespaces are alphanumeric with hyphens; "_" is not part of that
+    // contract, so it is excluded rather than inherited from route validation.
+    /^[a-z0-9-]+$/.test(issuerPathSegments[0]) &&
+    normalizedDerived ===
+      `${issuerPathSegments[0]}.${rawIssuerHost.toLowerCase()}`
   ) {
     return true;
   }

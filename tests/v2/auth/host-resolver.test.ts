@@ -273,6 +273,108 @@ test("validateUrlMatchesIssuer - flag honors deep subdomain (multiple labels)", 
   );
 });
 
+// --- Namespaced issuer at a tenant-subdomain host (MCP 2026-07-28 RC
+//     authorization hardening: IAM stamps `iss = {baseUri}/{namespace}` on
+//     tokens from the namespaced discovery chain). ---
+
+test("validateUrlMatchesIssuer - namespaced issuer accepted at its own tenant host", () => {
+  // The documented Shared Cloud URL form: the client reaches the MCP server at
+  // "{namespace}.{baseHost}" while IAM issues "{baseHost}/{namespace}".
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://teststudio-alpha.internal.gamingservices.accelbyte.io",
+      "https://internal.gamingservices.accelbyte.io/teststudio-alpha",
+    ),
+    true,
+  );
+});
+
+test("validateUrlMatchesIssuer - namespaced issuer accepted without allowParentDomainIssuer", () => {
+  // The match is self-verifying (namespace must equal the subdomain label), so
+  // it does not depend on the parent-domain opt-in being configured.
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://teststudio-alpha.gamingservices.accelbyte.io",
+      "https://gamingservices.accelbyte.io/teststudio-alpha",
+      false,
+    ),
+    true,
+  );
+});
+
+test("validateUrlMatchesIssuer - namespaced issuer rejected on another tenant's host", () => {
+  // A token minted for teststudio-alpha must not be accepted at teststudio-beta.
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://teststudio-beta.gamingservices.accelbyte.io",
+      "https://gamingservices.accelbyte.io/teststudio-alpha",
+      true,
+    ),
+    false,
+  );
+});
+
+test("validateUrlMatchesIssuer - namespaced issuer rejected on a deeper subdomain", () => {
+  // "evil.teststudio-alpha.host" is not the tenant host the issuer names.
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://evil.teststudio-alpha.gamingservices.accelbyte.io",
+      "https://gamingservices.accelbyte.io/teststudio-alpha",
+      true,
+    ),
+    false,
+  );
+});
+
+test("validateUrlMatchesIssuer - namespaced match requires exactly one path segment", () => {
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://teststudio-alpha.gamingservices.accelbyte.io",
+      "https://gamingservices.accelbyte.io/teststudio-alpha/extra",
+      true,
+    ),
+    false,
+  );
+});
+
+test("validateUrlMatchesIssuer - namespaced match folds host case but not the issuer path", () => {
+  // DNS labels are case-insensitive, so an uppercase host on either side still
+  // matches...
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://TestStudio-Alpha.GamingServices.AccelByte.io",
+      "https://GamingServices.AccelByte.io/teststudio-alpha",
+    ),
+    true,
+  );
+});
+
+test("validateUrlMatchesIssuer - namespaced match rejects an uppercase issuer path segment", () => {
+  // ...but `iss` is not case-normalized (RFC 7519 §2). Folding case in the
+  // path would let a token for "TESTSTUDIO-ALPHA" be presented at "teststudio-alpha.host",
+  // crossing namespaces if IAM treats those as distinct. Fail closed.
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://teststudio-alpha.gamingservices.accelbyte.io",
+      "https://gamingservices.accelbyte.io/TESTSTUDIO-ALPHA",
+    ),
+    false,
+  );
+});
+
+test("validateUrlMatchesIssuer - namespaced match rejects an underscore in the namespace", () => {
+  // IAM namespaces are alphanumeric with hyphens; "_" is accepted by the MCP
+  // route's syntax regex but is not a valid namespace, so it must not map to
+  // a tenant host here.
+  assert.equal(
+    validateUrlMatchesIssuer(
+      "https://teststudio_alpha.gamingservices.accelbyte.io",
+      "https://gamingservices.accelbyte.io/teststudio_alpha",
+    ),
+    false,
+  );
+});
+
 // --- resolveAgsHost: interaction between validateTokenIssuer and
 //     allowParentDomainIssuer (issue surfaced by code review on PR #48).
 //
@@ -363,6 +465,58 @@ describe("resolveAgsHost - allowParentDomainIssuer × validateTokenIssuer", () =
     try {
       const token = makeBearer({
         iss: "https://internal.gamingservices.accelbyte.io",
+      });
+      const res = await fetch(`${url}/probe`, {
+        headers: {
+          "X-Forwarded-Host":
+            "teststudio-beta.internal.gamingservices.accelbyte.io",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      assert.equal(res.status, 403);
+    } finally {
+      await close();
+    }
+  });
+
+  test("validateTokenIssuer=true: namespaced issuer is accepted at its tenant host with the parent-domain flag off", async () => {
+    // Regression guard for the MCP 2026-07-28 RC issuer shape: before the
+    // namespaced-issuer rule this returned 403, which surfaced to clients as
+    // "rejected them on reconnect" right after a successful browser login.
+    const { url, close } = await startApp({
+      enabled: true,
+      validateTokenIssuer: true,
+      allowParentDomainIssuer: false,
+    });
+    try {
+      const token = makeBearer({
+        iss: "https://internal.gamingservices.accelbyte.io/teststudio-alpha",
+      });
+      const res = await fetch(`${url}/probe`, {
+        headers: {
+          "X-Forwarded-Host":
+            "teststudio-alpha.internal.gamingservices.accelbyte.io",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      assert.equal(res.status, 200);
+      assert.deepEqual(await res.json(), {
+        baseUrl: "https://teststudio-alpha.internal.gamingservices.accelbyte.io",
+      });
+    } finally {
+      await close();
+    }
+  });
+
+  test("validateTokenIssuer=true: namespaced issuer from another tenant is rejected", async () => {
+    const { url, close } = await startApp({
+      enabled: true,
+      validateTokenIssuer: true,
+      allowParentDomainIssuer: true,
+    });
+    try {
+      const token = makeBearer({
+        iss: "https://internal.gamingservices.accelbyte.io/teststudio-alpha",
       });
       const res = await fetch(`${url}/probe`, {
         headers: {
