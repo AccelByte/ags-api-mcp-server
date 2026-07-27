@@ -74,7 +74,7 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
   after(async () => stopServer());
 
   test("advertises the path-aware URL on the client-facing origin", async () => {
-    const agsHost = "abtestdewa-pong.internal.gamingservices.accelbyte.io";
+    const agsHost = "teststudio-beta.internal.gamingservices.accelbyte.io";
 
     const res = await fetch(`${baseUrl}/mcp`, {
       method: "POST",
@@ -119,7 +119,7 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
   });
 
   test("namespace-aware WWW-Authenticate includes the full resource path", async () => {
-    const agsHost = "abtestdewa-pong.internal.gamingservices.accelbyte.io";
+    const agsHost = "teststudio-beta.internal.gamingservices.accelbyte.io";
 
     const res = await fetch(`${baseUrl}/mcp/myns`, {
       method: "POST",
@@ -151,7 +151,7 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
   });
 
   test("root compatibility URL identifies the public MCP resource", async () => {
-    const agsHost = "abtestdewa-pong.internal.gamingservices.accelbyte.io";
+    const agsHost = "teststudio-beta.internal.gamingservices.accelbyte.io";
     const protectedResourceUrl = `${baseUrl}/.well-known/oauth-protected-resource`;
 
     const res = await fetch(protectedResourceUrl, {
@@ -180,7 +180,7 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
   });
 
   test("path-aware protected resource doc for /mcp does not fall into namespace route", async () => {
-    const agsHost = "abtestdewa-pong.internal.gamingservices.accelbyte.io";
+    const agsHost = "teststudio-beta.internal.gamingservices.accelbyte.io";
 
     const res = await fetch(
       `${baseUrl}/.well-known/oauth-protected-resource/mcp`,
@@ -202,7 +202,7 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
   });
 
   test("short backend namespace route keeps the public resource identity", async () => {
-    const agsHost = "abtestdewa-pong.internal.gamingservices.accelbyte.io";
+    const agsHost = "teststudio-beta.internal.gamingservices.accelbyte.io";
     const res = await fetch(
       `${baseUrl}/.well-known/oauth-protected-resource/myns`,
       {
@@ -223,7 +223,7 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
   });
 
   test("full path-aware namespace route works without an ingress rewrite", async () => {
-    const agsHost = "abtestdewa-pong.internal.gamingservices.accelbyte.io";
+    const agsHost = "teststudio-beta.internal.gamingservices.accelbyte.io";
     const res = await fetch(
       `${baseUrl}/.well-known/oauth-protected-resource/mcp/myns`,
       {

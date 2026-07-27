@@ -192,12 +192,12 @@ test("validateUrlMatchesIssuer - rejects parent-domain issuer token at subdomain
 });
 
 test("validateUrlMatchesIssuer - rejects cross-tenant subdomain token reuse", () => {
-  // Tokens for tenant-a must not be accepted at tenant-b, even if they
-  // share the same parent domain.
+  // Tokens for teststudio-alpha must not be accepted at teststudio-beta,
+  // even if they share the same parent domain.
   assert.equal(
     validateUrlMatchesIssuer(
-      "https://tenant-b.gamingservices.accelbyte.io",
-      "https://tenant-a.gamingservices.accelbyte.io",
+      "https://teststudio-beta.gamingservices.accelbyte.io",
+      "https://teststudio-alpha.gamingservices.accelbyte.io",
     ),
     false,
   );
@@ -208,7 +208,7 @@ test("validateUrlMatchesIssuer - rejects cross-tenant subdomain token reuse", ()
 test("validateUrlMatchesIssuer - parent-domain issuer accepted when allowParentDomainIssuer=true", () => {
   assert.equal(
     validateUrlMatchesIssuer(
-      "https://abtestdewa-pong.internal.gamingservices.accelbyte.io",
+      "https://teststudio-beta.internal.gamingservices.accelbyte.io",
       "https://internal.gamingservices.accelbyte.io",
       true,
     ),
@@ -219,7 +219,7 @@ test("validateUrlMatchesIssuer - parent-domain issuer accepted when allowParentD
 test("validateUrlMatchesIssuer - parent-domain issuer still rejected when flag defaults to false", () => {
   assert.equal(
     validateUrlMatchesIssuer(
-      "https://abtestdewa-pong.internal.gamingservices.accelbyte.io",
+      "https://teststudio-beta.internal.gamingservices.accelbyte.io",
       "https://internal.gamingservices.accelbyte.io",
     ),
     false,
@@ -344,7 +344,7 @@ describe("resolveAgsHost - allowParentDomainIssuer × validateTokenIssuer", () =
       const res = await fetch(`${url}/probe`, {
         headers: {
           "X-Forwarded-Host":
-            "abtestdewa-pong.internal.gamingservices.accelbyte.io",
+            "teststudio-beta.internal.gamingservices.accelbyte.io",
           Authorization: `Bearer ${token}`,
         },
       });
@@ -367,7 +367,7 @@ describe("resolveAgsHost - allowParentDomainIssuer × validateTokenIssuer", () =
       const res = await fetch(`${url}/probe`, {
         headers: {
           "X-Forwarded-Host":
-            "abtestdewa-pong.internal.gamingservices.accelbyte.io",
+            "teststudio-beta.internal.gamingservices.accelbyte.io",
           Authorization: `Bearer ${token}`,
         },
       });
@@ -390,7 +390,7 @@ describe("resolveAgsHost - allowParentDomainIssuer × validateTokenIssuer", () =
       const res = await fetch(`${url}/probe`, {
         headers: {
           "X-Forwarded-Host":
-            "abtestdewa-pong.internal.gamingservices.accelbyte.io",
+            "teststudio-beta.internal.gamingservices.accelbyte.io",
           Authorization: `Bearer ${token}`,
         },
       });
