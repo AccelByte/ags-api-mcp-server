@@ -181,6 +181,7 @@ export MCP_AUTH=false
 - **Required**: No
 - **Options**: `true`, `false`
 - **Note**: By default, JWKS discovery rejects responses where the `jwks_uri` hostname doesn't match the authorization server. Set to `true` only if your JWKS is intentionally hosted on a different domain (e.g., CDN-backed key distribution).
+- **Required for tenant-subdomain hosted deployments.** When clients reach this server at `{namespace}.{baseHost}`, discovery fetches `https://{namespace}.{baseHost}/.well-known/oauth-authorization-server` and AGS answers with a `jwks_uri` on the *parent* host (`https://{baseHost}/iam/v3/oauth/jwks`), because IAM builds that URL from its configured base URI rather than the request host. Without this flag the hostname check throws and every request 401s at signature verification — including tokens that already passed the issuer check. Note the trade-off: the `jwks_uri` returned by discovery is not re-validated against the private-address guard once cross-domain fetches are permitted.
 
 ### `ALLOW_JWKS_COLD_START`
 - **Description**: Allow server to start even if JWKS cache pre-warming fails
