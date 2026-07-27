@@ -1,5 +1,15 @@
 # Changelog
 
+## v2026.4.2 (2026-07-27)
+
+### Fixed
+
+- **Namespaced issuers are accepted at their tenant-subdomain host.** IAM's namespaced OAuth discovery document identifies each namespace as its own authorization server with `issuer = {baseUri}/{namespace}`, and since the MCP 2026-07-28 RC authorization hardening the tokens from those grant chains carry that value in `iss`. A client connecting to the documented Shared Cloud URL (`https://{studio}-{game}.{env}/mcp/{studio}-{game}`) therefore presented an issuer naming the parent host with the namespace as a path — matching neither the exact-host rule, the sub-path rule, nor the `ALLOW_PARENT_DOMAIN_ISSUER` opt-in (which excludes issuers carrying a path). `resolveAgsHost` rejected it with `403`; with that pre-check disabled the same token was rejected with `401` by `setAuthFromToken`. MCP clients report either as credentials rejected on reconnect immediately after a successful browser login.
+
+  `validateUrlMatchesIssuer` now also matches when the issuer's single path segment is exactly the derived host's leading label. The match is not gated on `ALLOW_PARENT_DOMAIN_ISSUER` because the label equality is self-verifying — a token minted for one namespace cannot be presented on another tenant's host. Host halves are compared case-insensitively; the issuer path segment must already be lowercase and free of `_`, since JWT `iss` is not case-normalized (RFC 7519 §2) and IAM namespaces are alphanumeric with hyphens.
+
+  **This is a structural host↔issuer check, not authentication.** Completing a login on a tenant-subdomain host additionally requires `ALLOW_CROSS_DOMAIN_JWKS=true`: discovery against `{namespace}.{baseHost}` returns a `jwks_uri` on the parent host, and the default same-host check rejects it — so a deployment missing that flag still 401s at signature verification after this change. As of this release the namespaced issuer is live on internal environments only; production IAM has not picked up the hardening yet, so tokens there still carry the bare `{baseUri}` issuer and continue to rely on `ALLOW_PARENT_DOMAIN_ISSUER`.
+
 ## v2026.4.1 (2026-07-17)
 
 ### Fixed
