@@ -1,5 +1,13 @@
 # Changelog
 
+## v2026.4.3 (2026-07-29)
+
+### Fixed
+
+- **Protected-resource metadata advertises `scopes_supported`.** The RFC 9728 `/.well-known/oauth-protected-resource` document (and its path-aware and namespace-aware variants) never listed `scopes_supported`, so an OAuth client that resolves requested scope from that metadata (the MCP SDK's fallback when the `401` challenge carries no explicit `scope` param) had no signal to request `offline_access` alongside this server's other scopes. All three route variants now advertise the full scope set, and the same gap is fixed in the confirmed-dead v1 auth code path for consistency. Tracked as AFT-141.
+
+  **This does not resolve reports of Claude Code or Codex forcing full re-authentication roughly every hour.** A live end-to-end OAuth test against production IAM showed refresh_token issuance there is tied to the client's registered `grant_types`, not to whether `offline_access` was requested — so a client that never asked for `offline_access` could already receive a usable refresh_token. That symptom is a separately-documented, open bug class in both clients' own issue trackers, specific to the generic Dynamic Client Registration (DCR) + PKCE path this server is forced to use (see AFT-141 for the cited issues).
+
 ## v2026.4.2 (2026-07-27)
 
 ### Fixed
