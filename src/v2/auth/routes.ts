@@ -107,61 +107,32 @@ function registerOAuthRoutes(
   // Protected-resource metadata must describe the same public resource URL
   // the client requested. Trusted reverse-proxy headers take precedence over
   // the configured fallback; raw hosted request context does not.
+  //
+  // Advertised here (rather than left for the client to guess) so that MCP
+  // clients performing OAuth discovery know to request `offline_access` and
+  // get a refresh token back — without this, IAM issues access-token-only
+  // grants that expire with no way to silently renew.
+  const PROTECTED_RESOURCE_SCOPES_SUPPORTED = [
+    "openid",
+    "email",
+    "offline_access",
+    "account",
+    "commerce",
+    "social",
+    "publishing",
+    "analytics",
+  ];
 
-  app.get(
-    "/.well-known/oauth-protected-resource",
-    (req: Request, res: Response) => {
-      const effectiveAuthServer = deriveBaseUrl(req, authorizationServerUrl, {
-        allowHostedContext: !hostedMode,
-      });
-      const resourceBaseUrl = deriveBaseUrl(req, resourceServerUrl, {
-        allowHostedContext: !hostedMode,
-      });
-      const protectedResourceUrl = `${resourceBaseUrl}${mcpBasePath}`;
-
-      const metadata: OAuthProtectedResourceMetadata = {
-        resource: protectedResourceUrl,
-        authorization_servers: [effectiveAuthServer],
-        bearer_methods_supported: ["header"],
-      };
-      res.status(200).json(metadata);
-    },
-  );
-
-  // RFC 9728 path-aware discovery probes
-  // /.well-known/oauth-protected-resource<resource-path> before falling back to
-  // the root document. Without this exact route, a resource path like "/mcp"
-  // collides with the custom namespace-aware endpoint below and gets
-  // misinterpreted as namespace="mcp", producing resource="/mcp/mcp".
-  if (pathAwareProtectedResourceRoute) {
-    app.get(pathAwareProtectedResourceRoute, (req: Request, res: Response) => {
-      const effectiveAuthServer = deriveBaseUrl(req, authorizationServerUrl, {
-        allowHostedContext: !hostedMode,
-      });
-      const resourceBaseUrl = deriveBaseUrl(req, resourceServerUrl, {
-        allowHostedContext: !hostedMode,
-      });
-      const protectedResourceUrl = `${resourceBaseUrl}${mcpBasePath}`;
-
-      const metadata: OAuthProtectedResourceMetadata = {
-        resource: protectedResourceUrl,
-        authorization_servers: [effectiveAuthServer],
-        bearer_methods_supported: ["header"],
-      };
-      res.status(200).json(metadata);
-    });
-  }
-
-  // Namespace-aware protected resource metadata endpoint.
-  // When a namespace is present, authorization_servers includes the namespace
-  // as a path component so that MCP clients discover the namespace-specific
-  // authorization server. This is a custom convention (not defined by RFC 9728)
-  // to support multi-tenant namespace routing.
-  const namespaceProtectedResourceHandler = (req: Request, res: Response) => {
+  // Shared by all four route registrations below. The only thing that varies
+  // per route is whether `:namespace` is present in the URL — everything else
+  // (deriving the resource/auth-server base URLs, the metadata shape) is
+  // identical, so one handler serves the root, path-aware, and namespace-aware
+  // variants alike.
+  const protectedResourceHandler = (req: Request, res: Response) => {
     const { namespace } = req.params;
 
     // Validate namespace to prevent path traversal / URL injection
-    if (!namespace || !/^[a-zA-Z0-9_-]+$/.test(namespace)) {
+    if (namespace && !/^[a-zA-Z0-9_-]+$/.test(namespace)) {
       res.status(400).json({
         error: "Bad Request",
         message: "Invalid namespace",
@@ -175,26 +146,50 @@ function registerOAuthRoutes(
     const resourceBaseUrl = deriveBaseUrl(req, resourceServerUrl, {
       allowHostedContext: !hostedMode,
     });
-    const protectedResourceUrl = `${resourceBaseUrl}${mcpBasePath}/${namespace}`;
+
+    const protectedResourceUrl = namespace
+      ? `${resourceBaseUrl}${mcpBasePath}/${namespace}`
+      : `${resourceBaseUrl}${mcpBasePath}`;
+    const authorizationServers = namespace
+      ? [`${effectiveAuthServer}/${namespace}`]
+      : [effectiveAuthServer];
 
     const metadata: OAuthProtectedResourceMetadata = {
       resource: protectedResourceUrl,
-      authorization_servers: [`${effectiveAuthServer}/${namespace}`],
+      authorization_servers: authorizationServers,
       bearer_methods_supported: ["header"],
+      scopes_supported: PROTECTED_RESOURCE_SCOPES_SUPPORTED,
     };
     res.status(200).json(metadata);
   };
 
+  app.get("/.well-known/oauth-protected-resource", protectedResourceHandler);
+
+  // RFC 9728 path-aware discovery probes
+  // /.well-known/oauth-protected-resource<resource-path> before falling back to
+  // the root document. Without this exact route, a resource path like "/mcp"
+  // collides with the namespace-aware route below and gets misinterpreted as
+  // namespace="mcp", producing resource="/mcp/mcp".
+  if (pathAwareProtectedResourceRoute) {
+    app.get(pathAwareProtectedResourceRoute, protectedResourceHandler);
+  }
+
+  // Namespace-aware protected resource metadata. When a namespace is present,
+  // authorization_servers includes the namespace as a path component so that
+  // MCP clients discover the namespace-specific authorization server. This is
+  // a custom convention (not defined by RFC 9728) to support multi-tenant
+  // namespace routing.
+  //
   // Keep the short route as the target for reverse proxies that strip the MCP
   // path, and also serve the full RFC 9728 path for direct deployments.
   app.get(
     "/.well-known/oauth-protected-resource/:namespace",
-    namespaceProtectedResourceHandler,
+    protectedResourceHandler,
   );
   if (pathAwareProtectedResourceRoute) {
     app.get(
       `${pathAwareProtectedResourceRoute}/:namespace`,
-      namespaceProtectedResourceHandler,
+      protectedResourceHandler,
     );
   }
 

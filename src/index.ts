@@ -386,6 +386,41 @@ function startHttpServer(
     });
   } // End of if (!oauthOnly)
 
+  // Shared by all three discovery endpoints below (RFC 8414 authorization
+  // server metadata, RFC 8414 OpenID discovery, and the `authorization_servers`
+  // entry of the RFC 9728 protected-resource document). Kept as one source so
+  // `scopes_supported` — and any future grant/scope change — can't drift out
+  // of sync across the three responses the way it previously did (missing
+  // `offline_access` meant IAM never issued a refresh token, so sessions
+  // couldn't silently renew).
+  const AUTH_SERVER_SCOPES_SUPPORTED = [
+    "openid",
+    "email",
+    "offline_access",
+    "commerce",
+    "account",
+    "social",
+    "publishing",
+    "analytics",
+  ];
+
+  function buildAuthorizationServerMetadata() {
+    return {
+      issuer: oauthConfig.authorizationUrl.replace("/oauth/authorize", ""),
+      authorization_endpoint: oauthConfig.authorizationUrl,
+      token_endpoint: oauthConfig.tokenUrl,
+      jwks_uri: oidcConfig.jwksUri,
+      scopes_supported: AUTH_SERVER_SCOPES_SUPPORTED,
+      response_types_supported: ["code"],
+      grant_types_supported: ["authorization_code", "refresh_token"],
+      code_challenge_methods_supported: ["S256"],
+      token_endpoint_auth_methods_supported: [
+        "client_secret_basic",
+        "client_secret_post",
+      ],
+    };
+  }
+
   // OAuth 2.0 Authorization Server Metadata endpoint (RFC 8414)
   app.get("/.well-known/oauth-authorization-server", (req, res) => {
     logger.info(
@@ -404,24 +439,7 @@ function startHttpServer(
     );
 
     const metadata = {
-      issuer: oauthConfig.authorizationUrl.replace("/oauth/authorize", ""),
-      authorization_endpoint: oauthConfig.authorizationUrl,
-      token_endpoint: oauthConfig.tokenUrl,
-      jwks_uri: oidcConfig.jwksUri,
-      scopes_supported: [
-        "commerce",
-        "account",
-        "social",
-        "publishing",
-        "analytics",
-      ],
-      response_types_supported: ["code"],
-      grant_types_supported: ["authorization_code", "refresh_token"],
-      code_challenge_methods_supported: ["S256"],
-      token_endpoint_auth_methods_supported: [
-        "client_secret_basic",
-        "client_secret_post",
-      ],
+      ...buildAuthorizationServerMetadata(),
       redirect_uris: [oauthConfig.redirectUri],
     };
 
@@ -447,24 +465,7 @@ function startHttpServer(
     );
 
     const metadata = {
-      issuer: oauthConfig.authorizationUrl.replace("/oauth/authorize", ""),
-      authorization_endpoint: oauthConfig.authorizationUrl,
-      token_endpoint: oauthConfig.tokenUrl,
-      jwks_uri: oidcConfig.jwksUri,
-      scopes_supported: [
-        "commerce",
-        "account",
-        "social",
-        "publishing",
-        "analytics",
-      ],
-      response_types_supported: ["code"],
-      grant_types_supported: ["authorization_code", "refresh_token"],
-      code_challenge_methods_supported: ["S256"],
-      token_endpoint_auth_methods_supported: [
-        "client_secret_basic",
-        "client_secret_post",
-      ],
+      ...buildAuthorizationServerMetadata(),
       redirect_uris: [oauthConfig.redirectUri],
     };
 
@@ -492,35 +493,8 @@ function startHttpServer(
     const baseUrl = serverConfig.baseUrl;
     const metadata = {
       resource: baseUrl,
-      authorization_servers: [
-        {
-          issuer: oauthConfig.authorizationUrl.replace("/oauth/authorize", ""),
-          authorization_endpoint: oauthConfig.authorizationUrl,
-          token_endpoint: oauthConfig.tokenUrl,
-          jwks_uri: oidcConfig.jwksUri,
-          scopes_supported: [
-            "commerce",
-            "account",
-            "social",
-            "publishing",
-            "analytics",
-          ],
-          response_types_supported: ["code"],
-          grant_types_supported: ["authorization_code", "refresh_token"],
-          code_challenge_methods_supported: ["S256"],
-          token_endpoint_auth_methods_supported: [
-            "client_secret_basic",
-            "client_secret_post",
-          ],
-        },
-      ],
-      scopes_supported: [
-        "commerce",
-        "account",
-        "social",
-        "publishing",
-        "analytics",
-      ],
+      authorization_servers: [buildAuthorizationServerMetadata()],
+      scopes_supported: AUTH_SERVER_SCOPES_SUPPORTED,
       bearer_methods_supported: ["header"],
       resource_documentation: `${baseUrl}/.well-known/oauth-authorization-server`,
     };

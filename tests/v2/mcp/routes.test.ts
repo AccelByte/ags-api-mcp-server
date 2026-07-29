@@ -179,6 +179,29 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
     assert.equal(body.authorization_servers[0], `https://${agsHost}`);
   });
 
+  test("protected resource metadata advertises offline_access so clients request a refresh token", async () => {
+    const agsHost = "teststudio-beta.internal.gamingservices.accelbyte.io";
+    const protectedResourceUrl = `${baseUrl}/.well-known/oauth-protected-resource`;
+
+    const res = await fetch(protectedResourceUrl, {
+      headers: {
+        "X-Forwarded-Host": agsHost,
+        "X-Forwarded-Proto": "https",
+      },
+    });
+
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { scopes_supported?: string[] };
+    // Without this, MCP clients that resolve scope from the resource metadata
+    // (per the MCP SDK's OAuth client) never request offline_access, so IAM
+    // never issues a refresh token and sessions can't silently renew.
+    assert.ok(
+      Array.isArray(body.scopes_supported),
+      "expected scopes_supported to be present on the protected resource metadata",
+    );
+    assert.ok(body.scopes_supported!.includes("offline_access"));
+  });
+
   test("path-aware protected resource doc for /mcp does not fall into namespace route", async () => {
     const agsHost = "teststudio-beta.internal.gamingservices.accelbyte.io";
 
