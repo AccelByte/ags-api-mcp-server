@@ -181,7 +181,7 @@ Once connected, your assistant has access to these tools:
 
 ### `get_token_info`
 
-Returns details about your authenticated session — user ID, namespace, roles, expiration.
+Returns details about your authenticated session — subject, namespace, roles/permissions, token kind, and expiration.
 
 > *"What's my current user information?"*
 
