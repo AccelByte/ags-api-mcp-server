@@ -65,8 +65,17 @@ const ClaimsSchema = z
       .describe("Whether the email is verified"),
     clientId: z.string().optional().describe("The client ID of the token"),
     scope: z.string().optional().describe("The scope of the token"),
-    roles: z.array(z.unknown()).describe("The roles of the token"),
+    roles: z
+      .array(z.unknown())
+      .optional()
+      .describe(
+        "The roles of the token (deprecated by IAM in favour of namespaceRoles)",
+      ),
     // Custom Claims
+    bans: z
+      .array(z.unknown())
+      .optional()
+      .describe("Active bans on the subject"),
     country: z.string().optional().describe("The country of the token"),
     dateOfBirth: z
       .string()
@@ -76,20 +85,34 @@ const ClaimsSchema = z
       .string()
       .optional()
       .describe("The display name of the token"),
-    expiresIn: z.number().optional().describe("The expires in of the token"),
-    grantType: z.string().optional().describe("The grant type of the token"),
     isComply: z.boolean().optional().describe("Whether the token is compliant"),
+    jflgs: z.number().optional().describe("AccelByte justice flags bitmask"),
     namespace: z.string().optional().describe("The namespace of the token"),
-    permissions: z.array(z.unknown()).describe("The permissions of the token"),
+    namespaceRoles: z
+      .array(z.unknown())
+      .optional()
+      .describe("Per-namespace role assignments for the subject"),
+    parentNamespace: z
+      .string()
+      .optional()
+      .describe("The parent (studio) namespace of the token's namespace"),
+    permissions: z
+      .array(z.unknown())
+      .optional()
+      .describe("The permissions of the token"),
     phoneVerified: z
       .boolean()
       .optional()
       .describe("Whether the phone is verified"),
-    refreshExpiresIn: z
-      .number()
+    uniqueDisplayName: z
+      .string()
       .optional()
-      .describe("The refresh expires in of the token"),
-    userId: z.string().optional().describe("The user ID of the token"),
+      .describe("The unique display name of the subject"),
+    unionId: z.string().optional().describe("The union ID of the subject"),
+    unionNamespace: z
+      .string()
+      .optional()
+      .describe("The namespace the union ID belongs to"),
   })
   .describe("Claims information about the token");
 
@@ -111,11 +134,6 @@ const MetadataSchema = z
       .string()
       .optional()
       .describe("The time until the token expires"),
-    lengthRefresh: z
-      .number()
-      .default(0)
-      .describe("The length of the refresh token"),
-    maskedRefresh: z.string().optional().describe("The masked refresh token"),
   })
   .describe("Metadata information about the token");
 
@@ -180,9 +198,6 @@ function setupAuthTools(mcpServer: McpServer) {
         masked: maskToken(token, 10),
         isExpired: false,
         timeUntilExpiry: "unknown",
-        isRefreshExpired: false,
-        lengthRefresh: 0,
-        maskedRefresh: undefined,
       };
 
       try {
@@ -270,28 +285,22 @@ function setupAuthTools(mcpServer: McpServer) {
           if (p.display_name) {
             claims.displayName = p.display_name;
           }
-          if (p.expires_in) {
-            claims.expiresIn = p.expires_in;
+          // IAM does not put grant_type in the token, so the token kind is
+          // inferred from which subject claims are present: user tokens carry
+          // profile claims, client_credentials tokens carry only client_id.
+          if (p.display_name || p.unique_display_name || p.union_id) {
+            metadata.type = "user_token";
+          } else if (p.client_id) {
+            metadata.type = "client_credentials";
           }
-          if (p.grant_type) {
-            claims.grantType = p.grant_type;
-            if (
-              p.grant_type === "client_credentials" ||
-              (p.sub && p.sub.includes("client:")) ||
-              (!p.display_name && p.client_id)
-            ) {
-              metadata.type = "client_credentials";
-            } else if (
-              p.grant_type === "authorization_code" ||
-              p.display_name
-            ) {
-              metadata.type = "user_token";
-            } else if (p.grant_type === "refresh_token") {
-              metadata.type = "refresh_token";
-            }
+          if (p.bans) {
+            claims.bans = p.bans;
           }
           if (p.is_comply) {
             claims.isComply = p.is_comply;
+          }
+          if (p.jflgs) {
+            claims.jflgs = p.jflgs;
           }
           if (p.namespace) {
             claims.namespace = p.namespace;
@@ -300,21 +309,26 @@ function setupAuthTools(mcpServer: McpServer) {
               message: `Use namespace "${p.namespace}" as the implicit default namespace for all subsequent API requests when a namespace parameter is not explicitly specified.`,
             };
           }
+          if (p.namespace_roles) {
+            claims.namespaceRoles = p.namespace_roles;
+          }
+          if (p.parent_namespace) {
+            claims.parentNamespace = p.parent_namespace;
+          }
           if (p.permissions) {
             claims.permissions = p.permissions;
           }
           if (p.phone_verified) {
             claims.phoneVerified = p.phone_verified;
           }
-          if (p.refresh_expires_in) {
-            claims.refreshExpiresIn = p.refresh_expires_in;
+          if (p.unique_display_name) {
+            claims.uniqueDisplayName = p.unique_display_name;
           }
-          if (p.refresh_token) {
-            metadata.lengthRefresh = p.refresh_token.length;
-            metadata.maskedRefresh = maskToken(p.refresh_token, 10);
+          if (p.union_id) {
+            claims.unionId = p.union_id;
           }
-          if (p.user_id) {
-            claims.userId = p.user_id;
+          if (p.union_namespace) {
+            claims.unionNamespace = p.union_namespace;
           }
         }
       } catch (error) {
