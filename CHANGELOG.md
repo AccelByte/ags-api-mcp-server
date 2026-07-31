@@ -1,5 +1,13 @@
 # Changelog
 
+## v2026.4.4 (2026-07-31)
+
+### Fixed
+
+- **`get_token_info` reports only claims an AGS access token can actually carry.** The tool was ported from v1, which was stateful and held IAM's full token-response body (including the refresh token) in a server-side session. v2 is stateless and only ever sees the decoded access-token JWT, but the output shape carried over unchanged — so `metadata.lengthRefresh` defaulted to `0` on every call (reading as "no refresh token exists" even when the client held one), `metadata.type` was always `"unknown"`, and seven claims the token actually carries (`bans`, `jflgs`, `namespace_roles`, `parent_namespace`, `unique_display_name`, `union_id`, `union_namespace`) were silently dropped. `refresh_token`, `refresh_expires_in`, `expires_in`, `grant_type`, and `user_id` are fields of IAM's token response, not JWT claims, so the code reading them off the decoded payload never fired.
+
+  `metadata.lengthRefresh`, `metadata.maskedRefresh`, `metadata.isRefreshExpired`, `claims.refreshExpiresIn`, `claims.expiresIn`, `claims.grantType`, and `claims.userId` are now removed rather than defaulted or left permanently empty. `metadata.type` is inferred from subject-bearing claims (`display_name`, `unique_display_name`, `union_id`) instead of the absent `grant_type`, resolving to `user_token` or `client_credentials`. The seven previously-discarded claims are now surfaced when present, and `roles`/`permissions` are optional in the output schema to match their conditional assignment (a token carrying neither previously failed output validation). Tracked as AFT-142.
+
 ## v2026.4.3 (2026-07-29)
 
 ### Fixed
