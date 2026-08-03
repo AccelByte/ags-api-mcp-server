@@ -1,0 +1,261 @@
+{
+  "info": {
+    "contact": {
+      "email": "engineering@accelbyte.io",
+      "name": "Engineering Platform Team at AccelByte",
+      "url": "https://accelbyte.io"
+    },
+    "description": "Observability Manager",
+    "title": "observability-manager",
+    "version": "0.0.29"
+  },
+  "schemes": [
+    "https"
+  ],
+  "securityDefinitions": {
+    "authorization": {
+      "in": "header",
+      "name": "Authorization",
+      "type": "apiKey"
+    }
+  },
+  "swagger": "2.0",
+  "paths": {
+    "/observability-manager/v1/admin/namespace/{namespace}/grafana/token/broker": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "Required permission : &lt;code&gt;NAMESPACE:{namespace}:USER:* [READ]&lt;/code&gt;\nMint a short-lived Viewer Grafana service-account token for a dedicated\n(private-cloud) tenant so the AGS AI assistant can query that tenant&#39;s\nGrafana. The token is short-lived and Viewer-only; it is returned once in\nthe success body and never logged. Shared-cloud / Multena tenants are out\nof scope and rejected. The requesting identity (actor) is taken from the\naccess token. The tenant is the {namespace} path parameter the caller is\nauthorized for — there is no request body.\n\nNeed valid access token\n",
+        "operationId": "BrokerGrafanaTokenV1",
+        "parameters": [
+          {
+            "description": "game namespace to broker a token for (this is the tenant)",
+            "in": "path",
+            "name": "namespace",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/model.BrokerTokenResult"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/response.ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/response.ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/response.ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/response.ErrorResponse"
+            }
+          }
+        },
+        "security": [
+          {
+            "authorization": []
+          }
+        ],
+        "summary": "Broker a short-lived Viewer Grafana service-account token for a dedicated tenant (ADR-0024)",
+        "tags": [
+          "Grafana Access"
+        ],
+        "x-errorCodes": {}
+      }
+    }
+  },
+  "definitions": {
+    "model.BrokerTokenResult": {
+      "properties": {
+        "expires_at": {
+          "format": "date-time",
+          "type": "string",
+          "x-nullable": false
+        },
+        "grafana_url": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "expires_at",
+        "grafana_url",
+        "token"
+      ]
+    },
+    "response.ErrorResponse": {
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "errorCode": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "errorMessage": {
+          "type": "string"
+        },
+        "errors": {
+          "type": "string"
+        },
+        "messageVariables": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "name": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "error",
+        "errorCode",
+        "errorMessage",
+        "errors",
+        "messageVariables",
+        "name",
+        "reason"
+      ]
+    }
+  },
+  "x-messages": [
+    {
+      "Attributes": [
+        "action",
+        "additionalFields",
+        "reason"
+      ],
+      "Code": "20000",
+      "CodeName": "InternalServerError",
+      "Section": "general",
+      "Service": "general",
+      "Text": "unable to {{action}}: {{reason}}. {{additionalFields}}"
+    },
+    {
+      "Attributes": [],
+      "Code": "20001",
+      "CodeName": "UnauthorizedAccess",
+      "Section": "general",
+      "Service": "general",
+      "Text": "unauthorized access"
+    },
+    {
+      "Attributes": [
+        "message"
+      ],
+      "Code": "20002",
+      "CodeName": "ValidationError",
+      "Section": "general",
+      "Service": "general",
+      "Text": "{{message}}"
+    },
+    {
+      "Attributes": [],
+      "Code": "20003",
+      "CodeName": "ForbiddenAccess",
+      "Section": "general",
+      "Service": "general",
+      "Text": ""
+    },
+    {
+      "Attributes": [],
+      "Code": "20007",
+      "CodeName": "TooManyRequests",
+      "Section": "general",
+      "Service": "general",
+      "Text": ""
+    },
+    {
+      "Attributes": [],
+      "Code": "20013",
+      "CodeName": "InsufficientPermissions",
+      "Section": "general",
+      "Service": "general",
+      "Text": ""
+    },
+    {
+      "Attributes": [
+        "action",
+        "reason"
+      ],
+      "Code": "20019",
+      "CodeName": "UnableToParseRequestBody",
+      "Section": "general",
+      "Service": "general",
+      "Text": "unable to {{action}}: {{reason}}"
+    },
+    {
+      "Attributes": [],
+      "Code": "20020",
+      "CodeName": "UnableToParseAccessToken",
+      "Section": "general",
+      "Service": "general",
+      "Text": "unable to parse access token"
+    },
+    {
+      "Attributes": [
+        "message"
+      ],
+      "Code": "20021",
+      "CodeName": "InvalidPaginationParameters",
+      "Section": "general",
+      "Service": "general",
+      "Text": "{{message}}"
+    },
+    {
+      "Attributes": [
+        "feature"
+      ],
+      "Code": "20022",
+      "CodeName": "NotImplemented",
+      "Section": "general",
+      "Service": "general",
+      "Text": "the {{feature}} feature has not been implemented."
+    },
+    {
+      "Attributes": [
+        "gameNamespace"
+      ],
+      "Code": "41101",
+      "CodeName": "ResourceNotFound",
+      "Section": "extend",
+      "Service": "Observability Manager",
+      "Text": "resource is not found. gameNamespace: {{gameNamespace}}"
+    }
+  ],
+  "x-version": {
+    "buildDate": "Fri Jul 31 03:32:50 UTC 2026",
+    "gitHash": "b38d1e9",
+    "name": "observability-manager",
+    "version": "0.0.29",
+    "version-justice": "",
+    "version-roles-seeding": "1.2.99"
+  }
+}

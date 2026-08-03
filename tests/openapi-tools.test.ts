@@ -354,3 +354,76 @@ test('defaultServerUrl with query string and fragment both stripped without cras
 test('clean defaultServerUrl is normalized correctly (regression guard)', () => {
   assert.doesNotThrow(() => createTools({ defaultServerUrl: 'https://example.com/api/v1/' }));
 });
+
+// ---------------------------------------------------------------------------
+// sanitizeBody — credential redaction for run-apis logging
+// ---------------------------------------------------------------------------
+
+const sanitizeBody = (tools: OpenApiTools, value: unknown) =>
+  (tools as any).sanitizeBody(value);
+
+test('sanitizeBody redacts a top-level token field', () => {
+  const tools = createTools();
+  const result: any = sanitizeBody(tools, { token: 'live-secret', status: 'ok' });
+
+  assert.equal(result.token, '***REDACTED***');
+  assert.equal(result.status, 'ok');
+});
+
+test('sanitizeBody redacts credential-shaped fields nested inside objects and arrays', () => {
+  const tools = createTools();
+  const result: any = sanitizeBody(tools, {
+    data: {
+      items: [{ id: 1, accessToken: 'abc' }, { id: 2, apiKey: 'xyz' }],
+    },
+  });
+
+  assert.equal(result.data.items[0].accessToken, '***REDACTED***');
+  assert.equal(result.data.items[0].id, 1);
+  assert.equal(result.data.items[1].apiKey, '***REDACTED***');
+});
+
+test('sanitizeBody does not mutate the original object', () => {
+  const tools = createTools();
+  const original = { token: 'live-secret', nested: { secret: 'value' } };
+  const result: any = sanitizeBody(tools, original);
+
+  assert.notEqual(result, original);
+  assert.equal(original.token, 'live-secret');
+  assert.equal(original.nested.secret, 'value');
+  assert.equal(result.token, '***REDACTED***');
+});
+
+test('sanitizeBody passes through primitives and null unchanged', () => {
+  const tools = createTools();
+  assert.equal(sanitizeBody(tools, null), null);
+  assert.equal(sanitizeBody(tools, undefined), undefined);
+  assert.equal(sanitizeBody(tools, 'plain string'), 'plain string');
+  assert.equal(sanitizeBody(tools, 42), 42);
+});
+
+test('sanitizeBody fails closed past the recursion depth cap instead of returning raw data', () => {
+  const tools = createTools();
+
+  let deep: any = { token: 'buried-secret' };
+  for (let i = 0; i < 15; i++) {
+    deep = { child: deep };
+  }
+
+  const result: any = sanitizeBody(tools, deep);
+
+  // Walk down to where the cap kicks in — the subtree must be a redaction
+  // placeholder, not an object that still contains the buried token.
+  let node = result;
+  let sawRedactionPlaceholder = false;
+  for (let i = 0; i < 16; i++) {
+    if (typeof node === 'string' && node.includes('REDACTED')) {
+      sawRedactionPlaceholder = true;
+      break;
+    }
+    node = node?.child;
+  }
+
+  assert.ok(sawRedactionPlaceholder, 'expected a redaction placeholder before the buried token');
+  assert.equal(JSON.stringify(result).includes('buried-secret'), false);
+});

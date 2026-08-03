@@ -433,7 +433,7 @@ export class OpenApiTools {
           method: operation.method,
           url: url.toString(),
           headers: this.sanitizeHeaders(headers),
-          body: args.body ?? null,
+          body: this.sanitizeBody(args.body ?? null),
         },
       },
       "Executing API request via run-apis tool",
@@ -450,7 +450,7 @@ export class OpenApiTools {
             status: response.status,
             statusText: response.statusText,
             headers: this.sanitizeHeaders(response.headers),
-            data: response.data,
+            data: this.sanitizeBody(response.data),
             durationMs,
           },
         },
@@ -496,7 +496,7 @@ export class OpenApiTools {
               code: axiosError.code,
               status: axiosError.response?.status,
               headers: this.sanitizeHeaders(axiosError.response?.headers ?? {}),
-              data: axiosError.response?.data,
+              data: this.sanitizeBody(axiosError.response?.data),
               durationMs,
             },
           },
@@ -1458,6 +1458,35 @@ export class OpenApiTools {
     for (const [key, value] of Object.entries(headers)) {
       sanitized[key] =
         key.toLowerCase() === "authorization" ? "***REDACTED***" : value;
+    }
+    return sanitized;
+  }
+
+  private static readonly SENSITIVE_FIELD_PATTERN =
+    /token|secret|password|credential|api[_-]?key/i;
+
+  // Deep-redacts any object/array field whose key looks credential-shaped, so
+  // logging any request/response body stays safe regardless of which spec or
+  // operation produced it (e.g. specs whose success schema returns a bearer
+  // token, like BrokerTokenResult).
+  private sanitizeBody(value: unknown, depth = 0): unknown {
+    if (value === null || typeof value !== "object") {
+      return value;
+    }
+    if (depth > 10) {
+      // Fail closed: past the recursion cap we can no longer verify there's
+      // no credential-shaped field buried inside, so drop the subtree rather
+      // than let it through unredacted.
+      return "***REDACTED (max depth exceeded)***";
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => this.sanitizeBody(item, depth + 1));
+    }
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      sanitized[key] = OpenApiTools.SENSITIVE_FIELD_PATTERN.test(key)
+        ? "***REDACTED***"
+        : this.sanitizeBody(val, depth + 1);
     }
     return sanitized;
   }
