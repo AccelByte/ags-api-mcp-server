@@ -1,5 +1,15 @@
 # Changelog
 
+## v2026.4.5 (2026-08-03)
+
+### Added
+
+- **`observability-manager` OpenAPI spec.** Adds the whitelisted `BrokerGrafanaTokenV1` operation, auto-loading it as an MCP tool at startup.
+
+### Fixed
+
+- **`run-apis` debug logging no longer leaks response/request body credentials.** `sanitizeHeaders()` only redacted `Authorization`; the body was logged verbatim under `LOG_LEVEL=debug`. `sanitizeBody()` now redacts credential-shaped fields (`token`, `secret`, `password`, `credential`, `apiKey`, snake_case/camelCase variants) in both request and response bodies before logging, failing closed past its recursion depth cap. `src/logger.ts` also gained a global pino `redact` backstop. Scope: `src/tools/openapi-tools.ts` and `src/logger.ts` (v2/shared) only — v1's equivalent logging is a separate follow-up.
+
 ## v2026.4.4 (2026-07-31)
 
 ### Fixed
