@@ -112,7 +112,11 @@ function registerMcpRoutes(
   // route `//:namespace` and the advertised resource_metadata URL gains a
   // double slash. auth/routes.ts applies the same rule to its path-aware
   // well-known routes.
-  const mcpBasePath = path === "/" ? "" : path;
+  // Trailing slashes are stripped as well as the root case: "/mcp/" would
+  // otherwise build "/mcp//:namespace" and "/mcp//version.json", which no
+  // ordinary request matches. config.ts normalizes MCP_PATH too; this covers
+  // callers that construct the routes directly.
+  const mcpBasePath = path === "/" ? "" : path.replace(/\/+$/, "");
 
   const postHandler = async (req: Request, res: Response) => {
     const { namespace }: { namespace?: string } = req.params;
@@ -205,7 +209,7 @@ function registerMcpRoutes(
   }
 
   // Register routes for both the base path and the namespace-parameterized path
-  const routePatterns = [path, `${mcpBasePath}/:namespace`];
+  const routePatterns = [mcpBasePath || "/", `${mcpBasePath}/:namespace`];
 
   routePatterns.forEach((routePattern) => {
     if (enableAuth) {

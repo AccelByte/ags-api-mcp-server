@@ -863,6 +863,64 @@ describe("GET on MCP paths (server-identity probe vs. OAuth discovery)", () => {
   });
 });
 
+describe("MCP_PATH carrying a trailing slash", () => {
+  // "/mcp/" used to build "/mcp//:namespace" and "/mcp//version.json" — routes
+  // no ordinary request matches, while the advertised URLs carried the same
+  // double slash. config.ts normalizes the env var; this pins the route layer
+  // so a direct caller gets the same treatment.
+  let s: http.Server;
+  let url: string;
+
+  before(async () => {
+    const app = express();
+    app.use(express.json());
+    registerOAuthRoutes(app, MCP_SERVER_URL, AGS_BASE_URL, {
+      hostedMode: false,
+      mcpPath: "/mcp/",
+    });
+    registerMcpRoutes(
+      app,
+      async () => {
+        throw new Error("factory should not be called");
+      },
+      {
+        path: "/mcp/",
+        serverInfo: { name: "ags-api-mcp-server", version: "9.9.9" },
+      },
+    );
+    return new Promise<void>((resolve) => {
+      s = app.listen(0, "127.0.0.1", () => {
+        const addr = s.address() as { port: number };
+        url = `http://127.0.0.1:${addr.port}`;
+        resolve();
+      });
+    });
+  });
+
+  after(async () => new Promise<void>((resolve) => s.close(() => resolve())));
+
+  test("routes are reachable at the single-slash paths", async () => {
+    assert.equal((await fetch(`${url}/mcp/version.json`)).status, 200);
+    assert.equal((await fetch(`${url}/mcp`)).status, 405);
+    assert.equal((await fetch(`${url}/mcp/somestudio`)).status, 405);
+  });
+
+  test("double-slash paths are not what got registered", async () => {
+    assert.equal((await fetch(`${url}/mcp//version.json`)).status, 404);
+  });
+
+  test("well-known documents avoid the double slash too", async () => {
+    const res = await fetch(
+      `${url}/.well-known/oauth-protected-resource/mcp/somestudio`,
+    );
+
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { resource: string };
+    assert.equal(body.resource, `${MCP_SERVER_URL}/mcp/somestudio`);
+    assert.ok(!body.resource.includes("//mcp"));
+  });
+});
+
 describe("version.json when MCP is mounted at the web root", () => {
   let s: http.Server;
   let url: string;

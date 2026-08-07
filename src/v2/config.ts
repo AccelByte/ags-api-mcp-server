@@ -38,7 +38,19 @@ const EnvBooleanSchema = z.preprocess((val) => {
 
 const McpConfigSchema = z.object({
   port: z.coerce.number().min(1).max(65535).default(3000),
-  path: z.string().default("/mcp"),
+  // Normalized so every derived path is built from one canonical form. An
+  // operator-supplied "/mcp/" would otherwise register "/mcp//:namespace" and
+  // "/mcp//version.json" — routes no ordinary request matches — and advertise
+  // the same double slash in the root endpoint's URLs. Leading slash added,
+  // trailing slashes stripped, root stays "/".
+  path: z
+    .string()
+    .default("/mcp")
+    .transform((raw) => {
+      const trimmed = raw.trim().replace(/\/+$/, "");
+      if (!trimmed) return "/";
+      return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+    }),
   serverUrl: z.string().url(),
   enableAuth: EnvBooleanSchema.default(true),
   enableRenderTools: EnvBooleanSchema.default(true),

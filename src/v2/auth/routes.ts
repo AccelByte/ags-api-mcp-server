@@ -92,16 +92,19 @@ function registerOAuthRoutes(
 
   const isDiscoveryWorkaroundEnabled =
     authorizationServerDiscoveryMode !== AuthorizationServerDiscoveryMode.None;
-  const hasPathAwareMcpRoute = mcpPath !== "/";
   // A root MCP path contributes no path segment to advertised resource URLs,
   // mirroring registerMcpRoutes — otherwise a namespaced resource would be
-  // advertised as e.g. "https://host//myns".
-  const mcpBasePath = hasPathAwareMcpRoute ? mcpPath : "";
+  // advertised as e.g. "https://host//myns". Trailing slashes are stripped for
+  // the same reason: "/mcp/" would advertise and register the well-known
+  // documents under "/mcp//", which no client resolves to.
+  const normalizedMcpPath = mcpPath.replace(/\/+$/, "");
+  const hasPathAwareMcpRoute = normalizedMcpPath !== "";
+  const mcpBasePath = hasPathAwareMcpRoute ? normalizedMcpPath : "";
   const pathAwareProtectedResourceRoute = hasPathAwareMcpRoute
-    ? `/.well-known/oauth-protected-resource${mcpPath}`
+    ? `/.well-known/oauth-protected-resource${mcpBasePath}`
     : null;
   const pathAwareAuthorizationServerRoute = hasPathAwareMcpRoute
-    ? `/.well-known/oauth-authorization-server${mcpPath}`
+    ? `/.well-known/oauth-authorization-server${mcpBasePath}`
     : null;
 
   // Protected-resource metadata must describe the same public resource URL
