@@ -62,6 +62,7 @@ app.get("/", (req, res) => {
     mode: config.hosted.enabled ? "hosted" : "standalone",
     endpoints: {
       mcp: `${config.mcp.serverUrl}${config.mcp.path}`,
+      version: `${config.mcp.serverUrl}${config.mcp.path === "/" ? "" : config.mcp.path}/version.json`,
       health: `${config.mcp.serverUrl}/health`,
       protectedResourceMetadata: `${config.mcp.serverUrl}/.well-known/oauth-protected-resource`,
     },

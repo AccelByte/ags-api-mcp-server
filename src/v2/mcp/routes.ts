@@ -63,10 +63,9 @@ interface RegisterMcpRoutesOptions {
   allowParentDomainIssuer?: boolean;
 
   /**
-   * If provided, GET on the MCP path returns this {name, version} payload
-   * instead of 405. Lets unauthenticated clients (and operators behind
-   * ingresses that only forward /mcp*) probe the server identity without
-   * completing the MCP `initialize` handshake.
+   * If provided, `GET <mcpPath>/version.json` returns this {name, version}
+   * payload — the only server-identity probe hosted deployments have, whose
+   * ingress forwards /mcp* and so never reaches / or /health.
    */
   serverInfo?: { name: string; version: string };
 }
@@ -189,6 +188,17 @@ function registerMcpRoutes(
     }
   };
 
+  // Registered before the `:namespace` pattern, which would otherwise swallow
+  // it. ".json" is load-bearing: namespaces match /^[a-zA-Z0-9_-]+$/, so the
+  // dot puts this path out of reach of a tenant — a bare "version" would be a
+  // legal namespace. Name and version are disclosed unauthenticated by
+  // design; gate at the ingress if a deployment objects to fingerprinting.
+  if (serverInfo) {
+    app.get(`${mcpBasePath}/version.json`, (_: Request, res: Response) => {
+      res.json(serverInfo);
+    });
+  }
+
   // Register routes for both the base path and the namespace-parameterized path
   const routePatterns = [path, `${mcpBasePath}/:namespace`];
 
@@ -208,25 +218,16 @@ function registerMcpRoutes(
     }
 
     app.get(routePattern, async (_: Request, res: Response) => {
-      // Streamable HTTP transport reserves GET for opening server→client SSE
-      // streams in stateful mode. This server runs stateless
-      // (sessionIdGenerator: undefined), so the SDK doesn't accept GET, and
-      // returning serverInfo here is safe today. If we ever flip to stateful
-      // sessions, branch on `Accept: text/event-stream` and hand those
-      // requests to the transport instead of replying with JSON.
+      // MCP Streamable HTTP reserves GET for server→client SSE and mandates
+      // 405 where no stream is offered. This server is stateless
+      // (sessionIdGenerator: undefined), so there is never one to open; going
+      // stateful means branching on `Accept: text/event-stream` here.
       //
-      // Security trade-off (deliberate): serverInfo is returned UNauthenticated
-      // on both GET /mcp and GET /mcp/:namespace, disclosing the server name
-      // and version (and that a :namespace path param exists). This is
-      // intentional to support unauthenticated ingress health checks and
-      // operator probing. The disclosed data is low-sensitivity (name +
-      // version, already shipped in the public image); if a deployment's threat
-      // model objects to version fingerprinting, gate this at the ingress layer
-      // (internal CIDR / known-secret query param) rather than here.
-      if (serverInfo) {
-        res.json(serverInfo);
-        return;
-      }
+      // Never answer 200: rmcp (>= 2.0, used by Codex) opens OAuth discovery
+      // with a GET on this URL and reads any 200 as the RFC 9728 metadata
+      // document, aborting on the missing required `resource` field before it
+      // ever POSTs and sees postHandler's WWW-Authenticate challenge.
+      // Server identity lives on `<mcpPath>/version.json` instead.
       res
         .status(405)
         .json(jsonRPCError(ErrorCode.InvalidRequest, "Method not allowed"));

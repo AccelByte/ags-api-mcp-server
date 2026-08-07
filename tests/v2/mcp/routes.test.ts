@@ -731,3 +731,138 @@ describe("MCP mounted at the web root (MCP_PATH='/')", () => {
     assert.equal(body.resource, MCP_SERVER_URL);
   });
 });
+
+describe("GET on MCP paths (server-identity probe vs. OAuth discovery)", () => {
+  // serverInfo once came from the `:namespace` catch-all, so every
+  // GET /mcp/<anything> answered 200 and rmcp-based clients read it as OAuth
+  // metadata. Identity now has its own path; the MCP paths answer 405.
+  const SERVER_INFO = { name: "ags-api-mcp-server", version: "9.9.9" };
+
+  let s: http.Server;
+  let url: string;
+
+  before(async () => {
+    const app = express();
+    app.use(express.json());
+    registerOAuthRoutes(app, MCP_SERVER_URL, AGS_BASE_URL, {
+      hostedMode: false,
+      mcpPath: "/mcp",
+    });
+    registerMcpRoutes(
+      app,
+      async () => {
+        throw new Error("factory should not be called for unauthenticated 401");
+      },
+      {
+        path: "/mcp",
+        enableAuth: true,
+        defaultAgsBaseUrl: AGS_BASE_URL,
+        mcpServerUrl: MCP_SERVER_URL,
+        hostedMode: false,
+        serverInfo: SERVER_INFO,
+      },
+    );
+    return new Promise<void>((resolve) => {
+      s = app.listen(0, "127.0.0.1", () => {
+        const addr = s.address() as { port: number };
+        url = `http://127.0.0.1:${addr.port}`;
+        resolve();
+      });
+    });
+  });
+
+  after(async () => new Promise<void>((resolve) => s.close(() => resolve())));
+
+  test("GET /mcp/version.json returns serverInfo", async () => {
+    const res = await fetch(`${url}/mcp/version.json`);
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), SERVER_INFO);
+  });
+
+  test("GET /mcp answers 405, never a 200 JSON body", async () => {
+    const res = await fetch(`${url}/mcp`);
+
+    assert.equal(res.status, 405);
+    const body = (await res.json()) as { error?: { message?: string } };
+    assert.equal(body.error?.message, "Method not allowed");
+  });
+
+  test("GET /mcp/:namespace answers 405, never a 200 JSON body", async () => {
+    const res = await fetch(`${url}/mcp/teststudio-testgame`);
+
+    assert.equal(res.status, 405);
+  });
+
+  test("rmcp-style discovery reaches valid resource metadata after the 405", async () => {
+    // Mirrors rmcp's discover_resource_metadata_url(): probe the MCP URL, then
+    // on a non-200/401 fall through to the path-inserted well-known URL, which
+    // must carry a `resource` field or discovery aborts.
+    const probe = await fetch(`${url}/mcp/teststudio-testgame`);
+    assert.notEqual(probe.status, 200);
+
+    const metadata = await fetch(
+      `${url}/.well-known/oauth-protected-resource/mcp/teststudio-testgame`,
+    );
+    assert.equal(metadata.status, 200);
+    const body = (await metadata.json()) as { resource?: string };
+    assert.equal(body.resource, `${MCP_SERVER_URL}/mcp/teststudio-testgame`);
+  });
+
+  test("omitting serverInfo leaves no version route", async () => {
+    const app = express();
+    app.use(express.json());
+    registerMcpRoutes(app, async () => {
+      throw new Error("factory should not be called");
+    });
+
+    const bare = await new Promise<http.Server>((resolve) => {
+      const srv = app.listen(0, "127.0.0.1", () => resolve(srv));
+    });
+    const addr = bare.address() as { port: number };
+
+    try {
+      // Falls through to the :namespace GET handler — 405, not a 200.
+      const res = await fetch(`http://127.0.0.1:${addr.port}/mcp/version.json`);
+      assert.equal(res.status, 405);
+    } finally {
+      await new Promise<void>((resolve) => bare.close(() => resolve()));
+    }
+  });
+});
+
+describe("version.json when MCP is mounted at the web root", () => {
+  let s: http.Server;
+  let url: string;
+
+  before(async () => {
+    const app = express();
+    app.use(express.json());
+    registerMcpRoutes(
+      app,
+      async () => {
+        throw new Error("factory should not be called");
+      },
+      {
+        path: "/",
+        serverInfo: { name: "ags-api-mcp-server", version: "9.9.9" },
+      },
+    );
+    return new Promise<void>((resolve) => {
+      s = app.listen(0, "127.0.0.1", () => {
+        const addr = s.address() as { port: number };
+        url = `http://127.0.0.1:${addr.port}`;
+        resolve();
+      });
+    });
+  });
+
+  after(async () => new Promise<void>((resolve) => s.close(() => resolve())));
+
+  test("is served at /version.json, not //version.json", async () => {
+    const res = await fetch(`${url}/version.json`);
+
+    assert.equal(res.status, 200);
+    assert.equal(((await res.json()) as { version: string }).version, "9.9.9");
+  });
+});

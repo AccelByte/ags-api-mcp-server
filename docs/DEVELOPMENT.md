@@ -52,7 +52,12 @@ pnpm run inspect    # start server + MCP Inspector
 ```bash
 curl http://localhost:3000/health
 # {"status":"ok","timestamp":"..."}
+
+curl http://localhost:3000/mcp/version.json
+# {"name":"ags-api-mcp-server","version":"..."}
 ```
+
+`version.json` is the identity probe for deployments whose ingress forwards only `/mcp*` (hosted AGS), where `/` and `/health` never arrive. The MCP paths themselves answer `405`; see `src/v2/mcp/routes.ts` for why a `200` there breaks OAuth discovery.
 
 ---
 
