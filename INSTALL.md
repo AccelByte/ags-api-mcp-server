@@ -27,28 +27,27 @@ If the user is using a client not in this list, tell them the MCP server require
 
 Ask the user which AccelByte Gaming Services (AGS) edition they use:
 
-**Option A — Shared Cloud**
+**Option A — Public Cloud** (older docs call this "Shared Cloud")
 
-Ask for two values:
+Ask for one value:
 - `studio` — the studio namespace they were assigned at registration
-- `game` — the game namespace they were assigned at registration
 
 #### Critical: Do not guess namespaces
 
-If the user doesn't know their namespaces, tell them to check their AccelByte Admin Portal (the namespace appears in the URL once they log in) or their AGS welcome email from registration. If neither works, they should contact their AccelByte administrator.
+If the user doesn't know their namespace, tell them to check their AccelByte Admin Portal (the namespace appears in the URL once they log in) or their AGS welcome email from registration. If neither works, they should contact their AccelByte administrator.
 
 Assemble the URL as:
 ```
-https://{studio}-{game}.prod.gamingservices.accelbyte.io/mcp/{studio}-{game}
+https://prod.gamingservices.accelbyte.io/mcp/{studio}
 ```
 
-Note that `{studio}-{game}` appears **twice** in the URL.
+Do **not** append a game namespace. Studio admins and game admins both connect to the studio URL — assigned roles decide which namespaces they can reach. If the user offers a `{studio}-{game}` value, take only the `{studio}` portion.
 
 **Option B — Private Cloud**
 
-Ask whether they use the default `accelbyte.io` domain or a custom domain.
-- Default: ask for `environment-name`, assemble as `https://{environment-name}.accelbyte.io/mcp`
-- Custom: ask the user to paste the full URL (typically ends in `/mcp`)
+Ask the user for their environment's domain, or to paste the full URL.
+- Assemble as `https://{domain}/mcp` — any domain, not just `accelbyte.io`
+- No namespace segment on Private Cloud
 
 **Confirm the assembled URL with the user before continuing.** Show it back to them and ask "is this correct?"
 

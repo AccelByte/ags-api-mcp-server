@@ -11,28 +11,20 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://{studio}-{game}.prod.gamingservices.accelbyte.io/mcp/{studio}-{game}",
+      "url": "https://prod.gamingservices.accelbyte.io/mcp/{studio}",
       "variables": {
         "studio": {
-          "description": "Shared Cloud — your AccelByte studio namespace (studio portion of your studio-game identifier)",
-          "isRequired": true
-        },
-        "game": {
-          "description": "Shared Cloud — your AccelByte game namespace (game portion of your studio-game identifier)",
+          "description": "Public Cloud — your AccelByte studio namespace (not the studio-game identifier)",
           "isRequired": true
         }
       }
     },
     {
       "type": "streamable-http",
-      "url": "https://{private_cloud_url}/mcp/{namespace}",
+      "url": "https://{private_cloud_domain}/mcp",
       "variables": {
-        "private_cloud_url": {
-          "description": "Private Cloud — your Private Cloud base host only, e.g. mygame.accelbyte.io (no https:// prefix, no trailing slash)",
-          "isRequired": true
-        },
-        "namespace": {
-          "description": "Private Cloud — your AccelByte namespace (typically studio-game)",
+        "private_cloud_domain": {
+          "description": "Private Cloud — your environment's domain only, e.g. mygame.accelbyte.io (no https:// prefix, no trailing slash)",
           "isRequired": true
         }
       }

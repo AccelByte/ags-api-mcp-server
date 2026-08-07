@@ -278,8 +278,10 @@ test("validateUrlMatchesIssuer - flag honors deep subdomain (multiple labels)", 
 //     tokens from the namespaced discovery chain). ---
 
 test("validateUrlMatchesIssuer - namespaced issuer accepted at its own tenant host", () => {
-  // The documented Shared Cloud URL form: the client reaches the MCP server at
-  // "{namespace}.{baseHost}" while IAM issues "{baseHost}/{namespace}".
+  // The legacy tenant-subdomain form: the client reaches the MCP server at
+  // "{namespace}.{baseHost}" while IAM issues "{baseHost}/{namespace}". No
+  // longer the documented URL — Public Cloud is namespace-suffixed on the bare
+  // host now — but those deployments are still live, so the match must hold.
   assert.equal(
     validateUrlMatchesIssuer(
       "https://teststudio-alpha.internal.gamingservices.accelbyte.io",
