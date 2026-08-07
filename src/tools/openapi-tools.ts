@@ -5,11 +5,17 @@ import axios, { AxiosError, AxiosRequestConfig, Method } from "axios";
 import { parse as parseYaml } from "yaml";
 import { UserContext } from "../mcp-server.js";
 import { logger } from "../logger.js";
+import { version } from "../v2/version.js";
 import {
   PRIVATE_IPV4_PATTERNS,
   PRIVATE_OTHER_PATTERNS,
   isPrivateIPv4,
 } from "../v2/ssrf-guard.js";
+
+// Deliberately shorter than the package name: "ags-api-mcp" is this
+// component's short name everywhere else, and "-server" earns nothing in a
+// log line. Package, registry, and MCP `serverInfo` identity are unchanged.
+const USER_AGENT_PRODUCT = "ags-api-mcp";
 
 type HttpMethod =
   | "GET"
@@ -365,6 +371,14 @@ export class OpenApiTools {
           headers[key] = value;
         }
       }
+    }
+
+    // Identify the caller to AGS so traffic from this server is separable from
+    // the SDKs and the dashboard in access logs. Caller-supplied values win —
+    // run-apis lets a caller set arbitrary headers, and silently overriding one
+    // they passed would be surprising.
+    if (!this.hasHeader(headers, "user-agent")) {
+      headers["User-Agent"] = `${USER_AGENT_PRODUCT}/${version}`;
     }
 
     if (

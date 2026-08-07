@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import axios from 'axios';
 import { OpenApiTools } from '../src/tools/openapi-tools';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -426,4 +427,57 @@ test('sanitizeBody fails closed past the recursion depth cap instead of returnin
 
   assert.ok(sawRedactionPlaceholder, 'expected a redaction placeholder before the buried token');
   assert.equal(JSON.stringify(result).includes('buried-secret'), false);
+});
+
+// ---------------------------------------------------------------------------
+// User-Agent — identify this server to AGS on outbound run-apis requests
+// ---------------------------------------------------------------------------
+
+const captureOutboundHeaders = async (
+  run: () => Promise<unknown>
+): Promise<Record<string, any>> => {
+  const originalAdapter = axios.defaults.adapter;
+  let captured: any;
+
+  axios.defaults.adapter = async (config: any) => {
+    captured = config.headers;
+    return { data: {}, status: 200, statusText: 'OK', headers: {}, config };
+  };
+
+  try {
+    await run();
+  } finally {
+    axios.defaults.adapter = originalAdapter;
+  }
+
+  return captured;
+};
+
+const readHeader = (headers: Record<string, any>, name: string): string =>
+  String(headers?.get?.(name) ?? headers?.[name] ?? '');
+
+test('runApi identifies this server and its version in the outbound User-Agent', async () => {
+  const tools = createTools({ defaultServerUrl: 'https://configured-base.invalid' });
+
+  const headers = await captureOutboundHeaders(() =>
+    tools.runApi({ spec: 'swagger-2-host-api', method: 'get', path: '/status' })
+  );
+
+  // AGS access logs need this server separable from the SDKs and the dashboard.
+  assert.match(readHeader(headers, 'User-Agent'), /^ags-api-mcp\/\d/);
+});
+
+test('runApi leaves a caller-supplied User-Agent untouched', async () => {
+  const tools = createTools({ defaultServerUrl: 'https://configured-base.invalid' });
+
+  const headers = await captureOutboundHeaders(() =>
+    tools.runApi({
+      spec: 'swagger-2-host-api',
+      method: 'get',
+      path: '/status',
+      headers: { 'User-Agent': 'caller-supplied/1.0' }
+    })
+  );
+
+  assert.equal(readHeader(headers, 'User-Agent'), 'caller-supplied/1.0');
 });
