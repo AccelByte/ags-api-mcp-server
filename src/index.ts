@@ -393,9 +393,11 @@ function startHttpServer(
   // of sync across the three responses the way it previously did (missing
   // `offline_access` meant IAM never issued a refresh token, so sessions
   // couldn't silently renew).
+  //
+  // `openid` and `email` are deliberately absent, matching v2: AGS IAM rejects
+  // an authorization request carrying them, so a client that requests the
+  // advertised set verbatim gets invalid_scope and has to retry.
   const AUTH_SERVER_SCOPES_SUPPORTED = [
-    "openid",
-    "email",
     "offline_access",
     "commerce",
     "account",
