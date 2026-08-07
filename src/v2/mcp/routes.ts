@@ -197,11 +197,18 @@ function registerMcpRoutes(
   // that POST is the way in, and gives up instead of retrying.
   const ALLOWED_MCP_METHODS = "POST";
 
-  // Registered before the `:namespace` pattern, which would otherwise swallow
-  // it. ".json" is load-bearing: namespaces match /^[a-zA-Z0-9_-]+$/, so the
-  // dot puts this path out of reach of a tenant — a bare "version" would be a
-  // legal namespace. Name and version are disclosed unauthenticated by
-  // design; gate at the ingress if a deployment objects to fingerprinting.
+  // Registration order is what makes this win: Express matches first-declared,
+  // and the `:namespace` pattern below would otherwise swallow it. GET does no
+  // namespace validation at all — that lives in postHandler — so ordering, not
+  // the /^[a-zA-Z0-9_-]+$/ rule, is the mechanism.
+  //
+  // ".json" is still load-bearing, for the inverse reason: a tenant namespaced
+  // "version" is legal, and this route would shadow it, answering their GET
+  // with 200 serverInfo — the exact body that breaks rmcp's OAuth discovery.
+  // The dot makes that collision impossible.
+  //
+  // Name and version are disclosed unauthenticated by design; gate at the
+  // ingress if a deployment objects to fingerprinting.
   if (serverInfo) {
     app.get(`${mcpBasePath}/version.json`, (_: Request, res: Response) => {
       res.json(serverInfo);
