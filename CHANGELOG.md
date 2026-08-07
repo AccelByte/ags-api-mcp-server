@@ -1,5 +1,23 @@
 # Changelog
 
+## v2026.4.6 (2026-08-07)
+
+### Added
+
+- **Outbound `run-apis` requests identify this server in the `User-Agent`.** Requests to AGS previously carried axios's default agent string, leaving MCP-server traffic indistinguishable from the SDKs and the dashboard in access logs. They now send `ags-api-mcp/<version>`. A `User-Agent` supplied explicitly through `run-apis`'s `headers` argument still wins — the default only fills a gap. Applied in shared code (`src/tools/openapi-tools.ts`), so v1 picks it up too. The product token is deliberately shorter than the package name; package, registry, and MCP `serverInfo` identity are unchanged.
+
+### Changed
+
+- **Documented MCP server URLs corrected for both editions.** The Public Cloud URL was published as `https://{studio}-{game}.prod.gamingservices.accelbyte.io/mcp/{studio}-{game}`. The game suffix never applied — end users are not an audience for this server, so studio admins and game admins connect to the same URL and their assigned roles decide which namespaces they reach. The correct form is `https://{studio}.prod.gamingservices.accelbyte.io/mcp/{studio}`, with the studio namespace as both subdomain and path: shared-mode deployments enforce subdomain validation, so the bare host does not serve a namespaced path. Private Cloud is now written as `https://{domain}/mcp`, since those environments are not limited to `*.accelbyte.io` and take no namespace segment. `README.md`, `INSTALL.md`, and the `server.json` registry manifest all updated.
+
+### Fixed
+
+- **Server identity moved off the MCP endpoint, unblocking OAuth discovery for Rust MCP clients.** `GET` on the MCP path returned `{name, version}` rather than `405`, and because that handler was also registered on the namespace-parameterised route, every `GET /mcp/<anything>` answered `200` — there was no dedicated version route, only a catch-all being read as one. rmcp (the Rust MCP SDK crate, used by Codex from v2.0 onward) opens OAuth discovery with a `GET` against the MCP URL and treats any `200` as the RFC 9728 protected-resource-metadata document; it parsed the identity body, found no `resource` field, and aborted with `Metadata error: Protected resource metadata missing required resource field` before ever issuing the `POST` that surfaces the `WWW-Authenticate` challenge. Claude Code's TypeScript SDK POSTs first and never tripped this.
+
+  `GET` on both the MCP base path and the namespace-parameterised path now answers `405`, as MCP Streamable HTTP requires of a server offering no SSE stream there, and rmcp falls through to the path-aware well-known document as intended. Identity moved to `<MCP_PATH>/version.json`, registered ahead of the namespace route; the dot is load-bearing, because that route would otherwise shadow a tenant legitimately namespaced `version` and answer their `GET` with the very body that breaks discovery. The dedicated path matters for hosted deployments, whose ingress forwards only `/mcp*` — `/` and `/health` never reach the server. Verified end to end against Codex 0.147.0 (rmcp 3.0.0), which now reaches the IAM authorize URL.
+
+- **`openid` and `email` dropped from the advertised `scopes_supported`.** AGS IAM rejects an authorization request carrying them, so a client that requested the advertised set verbatim got an `invalid_scope` error and had to retry without scopes. Observed against production IAM while verifying the discovery fix above. Corrected in v1 as well, whose constant feeds its authorization-server metadata and protected-resource document alike.
+
 ## v2026.4.5 (2026-08-03)
 
 ### Added
