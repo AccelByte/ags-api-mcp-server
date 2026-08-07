@@ -202,6 +202,23 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
     assert.ok(body.scopes_supported!.includes("offline_access"));
   });
 
+  test("protected resource metadata omits scopes AGS IAM rejects", async () => {
+    const res = await fetch(`${baseUrl}/.well-known/oauth-protected-resource`, {
+      headers: {
+        "X-Forwarded-Host":
+          "teststudio-beta.internal.gamingservices.accelbyte.io",
+        "X-Forwarded-Proto": "https",
+      },
+    });
+
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { scopes_supported: string[] };
+    // A client that requests the advertised set verbatim must not be handed
+    // an invalid_scope error by IAM.
+    assert.ok(!body.scopes_supported.includes("openid"));
+    assert.ok(!body.scopes_supported.includes("email"));
+  });
+
   test("path-aware protected resource doc for /mcp does not fall into namespace route", async () => {
     const agsHost = "teststudio-beta.internal.gamingservices.accelbyte.io";
 

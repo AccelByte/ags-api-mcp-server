@@ -112,9 +112,11 @@ function registerOAuthRoutes(
   // clients performing OAuth discovery know to request `offline_access` and
   // get a refresh token back — without this, IAM issues access-token-only
   // grants that expire with no way to silently renew.
+  //
+  // `openid` and `email` are deliberately absent. AGS IAM rejects an
+  // authorization request carrying them, so a client that requests the
+  // advertised set verbatim gets an invalid_scope error and has to retry.
   const PROTECTED_RESOURCE_SCOPES_SUPPORTED = [
-    "openid",
-    "email",
     "offline_access",
     "account",
     "commerce",
