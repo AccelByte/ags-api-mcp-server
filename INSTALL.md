@@ -41,7 +41,9 @@ Assemble the URL as:
 https://prod.gamingservices.accelbyte.io/mcp/{studio}
 ```
 
-Do **not** append a game namespace. Studio admins and game admins both connect to the studio URL — assigned roles decide which namespaces they can reach. If the user offers a `{studio}-{game}` value, take only the `{studio}` portion.
+Do **not** append a game namespace. Studio admins and game admins both connect to the studio URL — assigned roles decide which namespaces they can reach.
+
+If the user offers a combined `studio-game` value, **do not try to split it.** Both halves may contain hyphens, so `red-fox-space-war` could be studio `red`, `red-fox`, or `red-fox-space` — there is no way to tell. Ask them to read the studio namespace directly from the Admin Portal namespace switcher, or to confirm it with their AccelByte administrator.
 
 **Option B — Private Cloud**
 
