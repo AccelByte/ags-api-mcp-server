@@ -42,10 +42,10 @@ The URL depends on which AGS edition you're on:
 
 | Edition | URL format |
 |---|---|
-| **Public Cloud** | `https://prod.gamingservices.accelbyte.io/mcp/{studio}` |
+| **Public Cloud** | `https://{studio}.prod.gamingservices.accelbyte.io/mcp/{studio}` |
 | **Private Cloud** | `https://{domain}/mcp` |
 
-- **Public Cloud** customers receive a `{studio}` namespace at registration — that one value is all you substitute. Studio admins and game admins use the **same** URL; your assigned roles decide which namespaces you can reach, not the URL you connect to.
+- **Public Cloud** customers receive a `{studio}` namespace at registration — that one value goes in **twice**, once as the subdomain and once as the path. Studio admins and game admins use the **same** URL; your assigned roles decide which namespaces you can reach, not the URL you connect to.
 - **Private Cloud** customers use their own environment domain, whatever it is — no namespace segment. You may need to coordinate with AccelByte support to enable the MCP endpoint.
 
 > **"Shared Cloud"** is the same thing as Public Cloud — older docs and support threads use that name.

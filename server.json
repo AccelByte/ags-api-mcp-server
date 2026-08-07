@@ -11,10 +11,10 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://prod.gamingservices.accelbyte.io/mcp/{studio}",
+      "url": "https://{studio}.prod.gamingservices.accelbyte.io/mcp/{studio}",
       "variables": {
         "studio": {
-          "description": "Public Cloud — your AccelByte studio namespace (not the studio-game identifier)",
+          "description": "Public Cloud — your AccelByte studio namespace, used as both subdomain and path",
           "isRequired": true
         }
       }

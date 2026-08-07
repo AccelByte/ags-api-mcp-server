@@ -38,8 +38,10 @@ If the user doesn't know their namespace, tell them to check their AccelByte Adm
 
 Assemble the URL as:
 ```
-https://prod.gamingservices.accelbyte.io/mcp/{studio}
+https://{studio}.prod.gamingservices.accelbyte.io/mcp/{studio}
 ```
+
+The studio namespace appears **twice** — as the subdomain and as the path segment. Shared-mode deployments enforce subdomain validation, so the bare host will not serve a namespaced path.
 
 Do **not** append a game namespace. Studio admins and game admins both connect to the studio URL — assigned roles decide which namespaces they can reach.
 
