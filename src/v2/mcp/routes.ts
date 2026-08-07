@@ -188,6 +188,11 @@ function registerMcpRoutes(
     }
   };
 
+  // RFC 9110 §15.5.6 requires a 405 to name the methods that ARE allowed.
+  // Without it a method-aware proxy or client sees the rejection with no hint
+  // that POST is the way in, and gives up instead of retrying.
+  const ALLOWED_MCP_METHODS = "POST";
+
   // Registered before the `:namespace` pattern, which would otherwise swallow
   // it. ".json" is load-bearing: namespaces match /^[a-zA-Z0-9_-]+$/, so the
   // dot puts this path out of reach of a tenant — a bare "version" would be a
@@ -229,12 +234,14 @@ function registerMcpRoutes(
       // ever POSTs and sees postHandler's WWW-Authenticate challenge.
       // Server identity lives on `<mcpPath>/version.json` instead.
       res
+        .set("Allow", ALLOWED_MCP_METHODS)
         .status(405)
         .json(jsonRPCError(ErrorCode.InvalidRequest, "Method not allowed"));
     });
 
     app.delete(routePattern, async (_: Request, res: Response) => {
       res
+        .set("Allow", ALLOWED_MCP_METHODS)
         .status(405)
         .json(jsonRPCError(ErrorCode.InvalidRequest, "Method not allowed"));
     });

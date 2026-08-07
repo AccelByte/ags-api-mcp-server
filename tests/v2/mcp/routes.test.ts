@@ -805,6 +805,21 @@ describe("GET on MCP paths (server-identity probe vs. OAuth discovery)", () => {
     assert.equal(body.error?.message, "Method not allowed");
   });
 
+  test("405 responses name the allowed method", async () => {
+    // RFC 9110 §15.5.6: a 405 without Allow leaves a method-aware proxy no way
+    // to learn that POST is the supported verb.
+    for (const [method, path] of [
+      ["GET", "/mcp"],
+      ["GET", "/mcp/teststudio-testgame"],
+      ["DELETE", "/mcp"],
+      ["DELETE", "/mcp/teststudio-testgame"],
+    ] as const) {
+      const res = await fetch(`${url}${path}`, { method });
+      assert.equal(res.status, 405, `${method} ${path}`);
+      assert.equal(res.headers.get("allow"), "POST", `${method} ${path}`);
+    }
+  });
+
   test("GET /mcp/:namespace answers 405, never a 200 JSON body", async () => {
     const res = await fetch(`${url}/mcp/teststudio-testgame`);
 
