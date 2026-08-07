@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import axios from 'axios';
 import { OpenApiTools } from '../src/tools/openapi-tools';
+import { version as pkgVersion } from '../src/v2/version.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -463,8 +464,9 @@ test('runApi identifies this server and its version in the outbound User-Agent',
     tools.runApi({ spec: 'swagger-2-host-api', method: 'get', path: '/status' })
   );
 
-  // AGS access logs need this server separable from the SDKs and the dashboard.
-  assert.match(readHeader(headers, 'User-Agent'), /^ags-api-mcp\/\d/);
+  // Asserting a leading digit is not enough -- "ags-api-mcp/0" would satisfy
+  // it while the access log carries a version that was never released.
+  assert.equal(readHeader(headers, 'User-Agent'), `ags-api-mcp/${pkgVersion}`);
 });
 
 test('runApi leaves a caller-supplied User-Agent untouched', async () => {
