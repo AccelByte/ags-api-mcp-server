@@ -797,6 +797,18 @@ describe("GET on MCP paths (server-identity probe vs. OAuth discovery)", () => {
     assert.deepEqual(await res.json(), SERVER_INFO);
   });
 
+  test("version.json is a dedicated route, not the namespace catch-all", async () => {
+    // Load-bearing pairing: asserting the 200 alone also passes against the
+    // old implementation, where the catch-all returned this same body for any
+    // segment. Only the contrast proves a separate route exists.
+    const identity = await fetch(`${url}/mcp/version.json`);
+    const namespaced = await fetch(`${url}/mcp/somestudio`);
+
+    assert.equal(identity.status, 200);
+    assert.deepEqual(await identity.json(), SERVER_INFO);
+    assert.equal(namespaced.status, 405);
+  });
+
   test("GET /mcp answers 405, never a 200 JSON body", async () => {
     const res = await fetch(`${url}/mcp`);
 
