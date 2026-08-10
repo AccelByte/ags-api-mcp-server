@@ -257,9 +257,11 @@ test('isUsableIssuer rejects identifiers RFC 8414 §3 cannot build a URL from', 
 
 // A blank JWT_ISSUER normalizes to "", and jsonwebtoken skips issuer
 // validation entirely when that option is falsy — so the misconfiguration
-// would disable the `iss` check rather than fail it. Config must refuse to
-// start instead, which is asserted here at the predicate level: anything
-// isUsableIssuer rejects is a value the loader throws on.
+// would disable the `iss` check rather than fail it. Only the *empty* case is
+// fatal; a non-empty unusable issuer warns and starts, because jsonwebtoken
+// exact-compares any truthy string and only discovery breaks. The loader's
+// branch ordering is covered end to end in tests/v1/config-issuer-guard.test.ts;
+// this pins the predicate those branches read.
 test('isUsableIssuer rejects every value that would disable issuer validation', async () => {
   const { isUsableIssuer, normalizeIssuer } = await import('../src/config.js');
 

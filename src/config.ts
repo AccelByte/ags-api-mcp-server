@@ -337,14 +337,15 @@ function loadConfig(): Config {
       );
     } else if (!isUsableIssuer(config.oidc.issuer)) {
       // Non-empty but unusable — a query, fragment, embedded credentials, or
-      // not a URL at all. Unlike the empty case this fails *closed*: the
-      // verifier compares it against `iss` and rejects every token, and OAuth
-      // discovery breaks loudly. Warn rather than throw, so a v1 deployment
-      // that never reaches the discovery endpoints is not stopped from
-      // starting over a value it does not use.
+      // not a URL at all. Unlike the empty case this does not fail open:
+      // jsonwebtoken exact-compares any truthy issuer, so tokens are still
+      // checked against this exact string. What breaks is OAuth discovery,
+      // which cannot build a `.well-known` URL from it. Warn rather than
+      // throw, so a v1 deployment that never reaches the discovery endpoints
+      // is not stopped from starting over a value it does not use.
       logger.warn(
         { issuer: config.oidc.issuer },
-        "JWT_ISSUER is not a usable OAuth issuer identifier (needs an absolute http(s) URL with no query, fragment, or credentials). OAuth discovery will fail RFC 8414 §3.3 issuer matching, and every token will be rejected.",
+        "JWT_ISSUER is not a usable OAuth issuer identifier (needs an absolute http(s) URL with no query, fragment, or credentials). Token validation still exact-matches this string, but OAuth discovery will fail RFC 8414 §3.3 issuer matching.",
       );
     }
 
