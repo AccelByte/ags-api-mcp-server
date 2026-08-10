@@ -121,6 +121,44 @@ function validatePositiveInteger(
   return parsed;
 }
 
+/**
+ * Normalize an OAuth issuer identifier.
+ *
+ * The issuer is advertised in `authorization_servers` (RFC 9728) and in the
+ * `issuer` field of the RFC 8414 documents, and RFC 8414 §3.3 requires it to
+ * be *byte-identical* to what the authorization server returns. AGS IAM emits
+ * no trailing slash, so an `AB_BASE_URL` or `JWT_ISSUER` carrying one silently
+ * fails that comparison on any client that checks — the same defect class as
+ * the trailing-slash bug fixed in v2. Surrounding whitespace comes from
+ * hand-edited env files and is never intentional.
+ *
+ * Exported for direct testing: the config module resolves once at import, so
+ * this is the only way to cover the cases without env-mutation games.
+ */
+export function normalizeIssuer(value: string): string {
+  return value.trim().replace(/\/+$/, "");
+}
+
+/**
+ * True when the value can serve as an OAuth issuer identifier: an absolute
+ * http(s) URL carrying no query, fragment, or embedded credentials. Anything
+ * else cannot have `.well-known` inserted into it per RFC 8414 §3.
+ */
+export function isUsableIssuer(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "https:" || url.protocol === "http:") &&
+      !url.search &&
+      !url.hash &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+}
+
 // Load and validate configuration
 function loadConfig(): Config {
   try {
@@ -223,9 +261,10 @@ function loadConfig(): Config {
         jwksUri:
           validateEnvVar("JWKS_URI", process.env.JWKS_URI, false) ||
           `${abBaseUrl}/iam/v3/oauth/jwks`,
-        issuer:
+        issuer: normalizeIssuer(
           validateEnvVar("JWT_ISSUER", process.env.JWT_ISSUER, false) ||
-          abBaseUrl,
+            abBaseUrl,
+        ),
         audience:
           validateEnvVar("JWT_AUDIENCE", process.env.JWT_AUDIENCE, false) ||
           "NOT_SET",
@@ -270,6 +309,21 @@ function loadConfig(): Config {
     if (!config.oidc.jwksUri || !config.oidc.issuer) {
       logger.warn(
         "OIDC configuration is incomplete. Set JWKS_URI and JWT_ISSUER environment variables.",
+      );
+    } else if (!isUsableIssuer(config.oidc.issuer)) {
+      // Refuse to start rather than warn. This value is both published as an
+      // issuer identifier in the discovery documents *and* handed to the JWT
+      // verifier, and `jsonwebtoken` skips issuer validation entirely when the
+      // option is falsy — so a `JWT_ISSUER` of "   " normalizes to "" and
+      // turns off the `iss` check instead of failing it. That is an
+      // authentication fail-open, and it is not something a log line can make
+      // safe. Every value rejected here already broke OAuth discovery, so the
+      // only configurations this stops are ones that were never working.
+      throw new Error(
+        `Invalid JWT_ISSUER: ${JSON.stringify(config.oidc.issuer)}. ` +
+          "Must be an absolute http(s) URL with no query, fragment, or embedded credentials — " +
+          "it is published as the OAuth issuer identifier (RFC 8414 §3.3 requires a byte-identical match) " +
+          "and used to validate the token `iss` claim. An empty or blank value would disable issuer validation.",
       );
     }
 

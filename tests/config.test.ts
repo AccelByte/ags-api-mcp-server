@@ -193,3 +193,77 @@ test('config - validateEnvVar throws for required missing values', () => {
   assert.throws(() => validateEnvVar('REQUIRED_VAR', '', true), /is not set/);
   assert.throws(() => validateEnvVar('REQUIRED_VAR', '   ', true), /is not set/);
 });
+
+// AFT-178: the issuer is advertised in `authorization_servers` (RFC 9728) and
+// in the `issuer` field of the RFC 8414 documents, and RFC 8414 §3.3 requires
+// a byte-identical match against what the authorization server returns. These
+// cover the values that start the server fine and then fail every discovery
+// attempt with a mismatch no log explains.
+test('normalizeIssuer strips the trailing slash AGS IAM never emits', async () => {
+  const { normalizeIssuer } = await import('../src/config.js');
+
+  assert.equal(
+    normalizeIssuer('https://development.accelbyte.io/'),
+    'https://development.accelbyte.io',
+  );
+  assert.equal(
+    normalizeIssuer('https://development.accelbyte.io///'),
+    'https://development.accelbyte.io',
+  );
+  // Already correct values must survive untouched.
+  assert.equal(
+    normalizeIssuer('https://development.accelbyte.io'),
+    'https://development.accelbyte.io',
+  );
+  // A namespaced issuer keeps its path segment.
+  assert.equal(
+    normalizeIssuer('https://development.accelbyte.io/myns/'),
+    'https://development.accelbyte.io/myns',
+  );
+});
+
+test('normalizeIssuer trims whitespace from hand-edited env files', async () => {
+  const { normalizeIssuer } = await import('../src/config.js');
+
+  assert.equal(
+    normalizeIssuer('  https://development.accelbyte.io  '),
+    'https://development.accelbyte.io',
+  );
+  // Whitespace-only is not a valid issuer and must not survive as one.
+  assert.equal(normalizeIssuer('   '), '');
+});
+
+test('isUsableIssuer rejects identifiers RFC 8414 §3 cannot build a URL from', async () => {
+  const { isUsableIssuer } = await import('../src/config.js');
+
+  assert.equal(isUsableIssuer('https://development.accelbyte.io'), true);
+  assert.equal(isUsableIssuer('https://development.accelbyte.io/myns'), true);
+  assert.equal(isUsableIssuer('http://localhost:3000'), true);
+
+  assert.equal(isUsableIssuer(''), false);
+  assert.equal(isUsableIssuer('   '), false);
+  assert.equal(isUsableIssuer('not-a-url'), false);
+  // A query or fragment cannot survive `.well-known` insertion.
+  assert.equal(isUsableIssuer('https://mcp.example.com/?region=us'), false);
+  assert.equal(isUsableIssuer('https://mcp.example.com/#frag'), false);
+  // Embedded credentials must never be published in metadata.
+  assert.equal(isUsableIssuer('https://user:pw@mcp.example.com'), false);
+});
+
+// A blank JWT_ISSUER normalizes to "", and jsonwebtoken skips issuer
+// validation entirely when that option is falsy — so the misconfiguration
+// would disable the `iss` check rather than fail it. Config must refuse to
+// start instead, which is asserted here at the predicate level: anything
+// isUsableIssuer rejects is a value the loader throws on.
+test('isUsableIssuer rejects every value that would disable issuer validation', async () => {
+  const { isUsableIssuer, normalizeIssuer } = await import('../src/config.js');
+
+  for (const blank of ['', '   ', '\t', '\n  ']) {
+    assert.equal(normalizeIssuer(blank), '');
+    assert.equal(
+      isUsableIssuer(normalizeIssuer(blank)),
+      false,
+      `blank issuer ${JSON.stringify(blank)} must not be accepted`,
+    );
+  }
+});

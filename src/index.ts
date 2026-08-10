@@ -408,7 +408,15 @@ function startHttpServer(
 
   function buildAuthorizationServerMetadata() {
     return {
-      issuer: oauthConfig.authorizationUrl.replace("/oauth/authorize", ""),
+      // The configured issuer (`JWT_ISSUER`, defaulting to the AGS base URL) —
+      // the same value `oauth-middleware` validates token `iss` against, and
+      // the one IAM actually mints. Previously derived by stripping
+      // `/oauth/authorize` off the authorization URL, which yielded
+      // `<base>/iam/v3`: a string no token carries, and one whose RFC 8414 §3
+      // discovery URL (`<base>/.well-known/oauth-authorization-server/iam/v3`)
+      // nothing serves. RFC 8414 §3.3 requires an exact match, so the old value
+      // could not satisfy any client that checked.
+      issuer: oidcConfig.issuer,
       authorization_endpoint: oauthConfig.authorizationUrl,
       token_endpoint: oauthConfig.tokenUrl,
       jwks_uri: oidcConfig.jwksUri,
@@ -495,7 +503,12 @@ function startHttpServer(
     const baseUrl = serverConfig.baseUrl;
     const metadata = {
       resource: baseUrl,
-      authorization_servers: [buildAuthorizationServerMetadata()],
+      // RFC 9728 defines this as a list of issuer *identifiers*, not metadata
+      // documents. It previously carried the whole authorization-server
+      // metadata object, which a client cannot insert `.well-known` into per
+      // RFC 8414 §3. Sourced from the same builder the authorization-server
+      // endpoint uses, so the identifier always resolves back to that document.
+      authorization_servers: [buildAuthorizationServerMetadata().issuer],
       scopes_supported: AUTH_SERVER_SCOPES_SUPPORTED,
       bearer_methods_supported: ["header"],
       resource_documentation: `${baseUrl}/.well-known/oauth-authorization-server`,
