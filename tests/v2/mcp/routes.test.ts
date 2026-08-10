@@ -7,7 +7,10 @@ import http from "node:http";
 import express from "express";
 
 import registerMcpRoutes from "../../../src/v2/mcp/routes.js";
-import registerOAuthRoutes from "../../../src/v2/auth/routes.js";
+import registerOAuthRoutes, {
+  AuthorizationServerDiscoveryMode,
+  metadataCache,
+} from "../../../src/v2/auth/routes.js";
 import { resolveAgsHost } from "../../../src/v2/auth/host-resolver.js";
 
 // Stand up a minimal MCP server instance with hosted-mode wiring matching
@@ -176,7 +179,14 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
       !body.resource.startsWith(MCP_SERVER_URL),
       `resource must not expose backend host (${MCP_SERVER_URL}), got: ${body.resource}`,
     );
-    assert.equal(body.authorization_servers[0], `https://${agsHost}`);
+    // The authorization server is an issuer identifier, so it stays on the
+    // configured base URL even though the client reached a tenant subdomain.
+    // IAM confirms only this form, and RFC 8414 §3.3 demands an exact match.
+    assert.equal(body.authorization_servers[0], AGS_BASE_URL);
+    assert.ok(
+      !body.authorization_servers[0].includes(agsHost),
+      `authorization_servers must not be derived from the request host (${agsHost}), got: ${body.authorization_servers[0]}`,
+    );
   });
 
   test("protected resource metadata advertises offline_access so clients request a refresh token", async () => {
@@ -238,7 +248,7 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
       authorization_servers: string[];
     };
     assert.equal(body.resource, `https://${agsHost}/mcp`);
-    assert.equal(body.authorization_servers[0], `https://${agsHost}`);
+    assert.equal(body.authorization_servers[0], AGS_BASE_URL);
   });
 
   test("short backend namespace route keeps the public resource identity", async () => {
@@ -259,7 +269,7 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
       authorization_servers: string[];
     };
     assert.equal(body.resource, `https://${agsHost}/mcp/myns`);
-    assert.equal(body.authorization_servers[0], `https://${agsHost}/myns`);
+    assert.equal(body.authorization_servers[0], `${AGS_BASE_URL}/myns`);
   });
 
   test("full path-aware namespace route works without an ingress rewrite", async () => {
@@ -280,7 +290,266 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
       authorization_servers: string[];
     };
     assert.equal(body.resource, `https://${agsHost}/mcp/myns`);
-    assert.equal(body.authorization_servers[0], `https://${agsHost}/myns`);
+    assert.equal(body.authorization_servers[0], `${AGS_BASE_URL}/myns`);
+  });
+});
+
+describe("authorization_servers is an issuer identifier, not a request address", () => {
+  // These cases pin the two halves of AFT-177 that the assertions above cannot
+  // express: that a trailing slash on the configured base URL never reaches a
+  // client, and that the discovery workarounds still point clients back here.
+  async function withServer(
+    register: (app: express.Express) => void,
+    run: (base: string) => Promise<void>,
+  ): Promise<void> {
+    const app = express();
+    app.set("trust proxy", 1);
+    app.use(express.json());
+    register(app);
+
+    const srv = await new Promise<http.Server>((resolve) => {
+      const s = app.listen(0, "127.0.0.1", () => resolve(s));
+    });
+    try {
+      const addr = srv.address() as { port: number };
+      await run(`http://127.0.0.1:${addr.port}`);
+    } finally {
+      await new Promise<void>((resolve) => srv.close(() => resolve()));
+    }
+  }
+
+  test("a trailing slash on the configured base URL never reaches the client", async () => {
+    await withServer(
+      (app) =>
+        registerOAuthRoutes(app, MCP_SERVER_URL, `${AGS_BASE_URL}/`, {
+          hostedMode: true,
+          mcpPath: "/mcp",
+        }),
+      async (base) => {
+        const res = await fetch(
+          `${base}/.well-known/oauth-protected-resource/mcp/myns`,
+          {
+            headers: {
+              "X-Forwarded-Host": "teststudio-beta.example.com",
+              "X-Forwarded-Proto": "https",
+            },
+          },
+        );
+
+        assert.equal(res.status, 200);
+        const body = (await res.json()) as { authorization_servers: string[] };
+        // `https://host//myns` is what a naive concatenation produces, and no
+        // client resolves it.
+        assert.equal(body.authorization_servers[0], `${AGS_BASE_URL}/myns`);
+      },
+    );
+  });
+
+  test("a trailing slash on the configured server URL never reaches resource either", async () => {
+    // RFC 9728 §3.3 has the client discard metadata whose `resource` is not
+    // identical to the URL it requested, so `https://host//mcp/myns` is as
+    // fatal as a wrong issuer — and it is reachable whenever no trusted
+    // forwarded host is present to override the configured value.
+    await withServer(
+      (app) =>
+        registerOAuthRoutes(app, `${MCP_SERVER_URL}/`, AGS_BASE_URL, {
+          hostedMode: true,
+          mcpPath: "/mcp",
+        }),
+      async (base) => {
+        const res = await fetch(
+          `${base}/.well-known/oauth-protected-resource/mcp/myns`,
+        );
+
+        assert.equal(res.status, 200);
+        const body = (await res.json()) as { resource: string };
+        assert.equal(body.resource, `${MCP_SERVER_URL}/mcp/myns`);
+      },
+    );
+  });
+
+  test("the discovery workaround still advertises this server as the authorization server", async () => {
+    await withServer(
+      (app) =>
+        registerOAuthRoutes(app, MCP_SERVER_URL, AGS_BASE_URL, {
+          // Standalone only — config.ts rejects this alongside hosted mode.
+          hostedMode: false,
+          mcpPath: "/mcp",
+          authorizationServerDiscoveryMode:
+            AuthorizationServerDiscoveryMode.Redirect,
+        }),
+      async (base) => {
+        const proxiedHost = "localhost:3030";
+        const res = await fetch(
+          `${base}/.well-known/oauth-protected-resource/mcp/myns`,
+          {
+            headers: {
+              "X-Forwarded-Host": proxiedHost,
+              "X-Forwarded-Proto": "http",
+            },
+          },
+        );
+
+        assert.equal(res.status, 200);
+        const body = (await res.json()) as { authorization_servers: string[] };
+        // The workaround exists so clients that cannot do cross-origin
+        // discovery talk to this server, which then redirects or proxies. If
+        // this ever returns the configured AGS base URL, the workaround is
+        // dead and those clients silently break.
+        assert.equal(
+          body.authorization_servers[0],
+          `http://${proxiedHost}/myns`,
+        );
+      },
+    );
+  });
+
+  test("the discovery workaround falls back to this server, not AGS, when no forwarded headers are present", async () => {
+    // The case above passes even against a host-derived implementation, because
+    // trusted forwarded headers resolve to this server either way. This one
+    // sends none, so the fallback argument is the only thing deciding the
+    // answer — and a fallback of AGS_BASE_URL sends the client past the very
+    // workaround it needs.
+    await withServer(
+      (app) =>
+        registerOAuthRoutes(app, MCP_SERVER_URL, AGS_BASE_URL, {
+          hostedMode: false,
+          mcpPath: "/mcp",
+          authorizationServerDiscoveryMode:
+            AuthorizationServerDiscoveryMode.Redirect,
+        }),
+      async (base) => {
+        const res = await fetch(
+          `${base}/.well-known/oauth-protected-resource/mcp/myns`,
+        );
+
+        assert.equal(res.status, 200);
+        const body = (await res.json()) as { authorization_servers: string[] };
+        assert.equal(
+          body.authorization_servers[0],
+          `${MCP_SERVER_URL}/myns`,
+          "workaround modes must advertise this server, never the AGS base URL",
+        );
+      },
+    );
+  });
+
+  test("a query string on the configured server URL cannot leak into the issuer", async () => {
+    // MCP_SERVER_URL is validated as a URL, not as an origin, so a query or
+    // fragment survives config. Concatenating a namespace onto it yields
+    // `https://host/?region=us/myns`, and a registration path that lands
+    // inside the query string instead of on the proxy route.
+    await withServer(
+      (app) =>
+        registerOAuthRoutes(
+          app,
+          "https://mcp.example.com/?region=us",
+          AGS_BASE_URL,
+          {
+            hostedMode: false,
+            mcpPath: "/mcp",
+            authorizationServerDiscoveryMode:
+              AuthorizationServerDiscoveryMode.Redirect,
+          },
+        ),
+      async (base) => {
+        const res = await fetch(
+          `${base}/.well-known/oauth-protected-resource/mcp/myns`,
+        );
+
+        assert.equal(res.status, 200);
+        const body = (await res.json()) as { authorization_servers: string[] };
+        assert.equal(
+          body.authorization_servers[0],
+          "https://mcp.example.com/myns",
+        );
+      },
+    );
+  });
+});
+
+describe("proxyRegister keeps pointing clients at this server's registration proxy", () => {
+  // Cycle-1 review found the registration rewrite ran only on a cache miss, so
+  // for the metadata TTL after the first request every client was handed the
+  // upstream cross-origin endpoint — the exact registration this mode exists
+  // to intercept. Nothing covered it, so it is covered here.
+  const UPSTREAM = "https://upstream.example.com";
+  const UPSTREAM_DOC = {
+    issuer: UPSTREAM,
+    registration_endpoint: `${UPSTREAM}/iam/v3/oauth/register`,
+    token_endpoint: `${UPSTREAM}/iam/v3/oauth/token`,
+  };
+
+  test("a cached document is still rewritten, per requesting origin", async () => {
+    // Seeded directly: a real proxy fetch is unreachable here because the SSRF
+    // guard rejects the loopback upstream a test can stand up, and relaxing it
+    // would remove a check this server depends on. The cache-hit branch is the
+    // one that regressed, and this reaches it without a fetch.
+    metadataCache.set(
+      `${UPSTREAM}/.well-known/oauth-authorization-server/myns`,
+      { metadata: UPSTREAM_DOC, expiresAt: Date.now() + 60_000 },
+    );
+
+    const app = express();
+    app.set("trust proxy", 1);
+    app.use(express.json());
+    registerOAuthRoutes(app, MCP_SERVER_URL, UPSTREAM, {
+      hostedMode: false,
+      mcpPath: "/mcp",
+      authorizationServerDiscoveryMode:
+        AuthorizationServerDiscoveryMode.ProxyRegister,
+    });
+
+    const srv = await new Promise<http.Server>((resolve) => {
+      const s = app.listen(0, "127.0.0.1", () => resolve(s));
+    });
+
+    try {
+      const addr = srv.address() as { port: number };
+      const base = `http://127.0.0.1:${addr.port}`;
+
+      const read = async (host: string) => {
+        const res = await fetch(
+          `${base}/.well-known/oauth-authorization-server/myns`,
+          {
+            headers: {
+              "X-Forwarded-Host": host,
+              "X-Forwarded-Proto": "https",
+            },
+          },
+        );
+        assert.equal(res.status, 200);
+        return (await res.json()) as Record<string, string>;
+      };
+
+      const first = await read("one.example.com");
+      const second = await read("two.example.com");
+
+      // Before the fix a cache hit returned the upstream document untouched,
+      // handing every client the cross-origin registration endpoint this mode
+      // exists to intercept.
+      assert.equal(
+        first.registration_endpoint,
+        "https://one.example.com/oauth/namespaces/myns/register",
+      );
+      // And the cache must not have absorbed the first request's origin.
+      assert.equal(
+        second.registration_endpoint,
+        "https://two.example.com/oauth/namespaces/myns/register",
+      );
+      // Every other upstream field survives the rewrite untouched.
+      assert.equal(second.token_endpoint, UPSTREAM_DOC.token_endpoint);
+      // The cache still holds the upstream document verbatim.
+      assert.equal(
+        metadataCache.get(
+          `${UPSTREAM}/.well-known/oauth-authorization-server/myns`,
+        )?.metadata.registration_endpoint,
+        UPSTREAM_DOC.registration_endpoint,
+      );
+    } finally {
+      metadataCache.clear();
+      await new Promise<void>((resolve) => srv.close(() => resolve()));
+    }
   });
 });
 

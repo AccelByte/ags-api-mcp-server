@@ -14,11 +14,25 @@ import { deriveBaseUrl } from "../utils.js";
  * Caches metadata per URL with a configurable TTL to avoid fetching on every request.
  */
 interface MetadataCacheEntry {
-  metadata: unknown;
+  metadata: Record<string, unknown>;
   expiresAt: number;
 }
 
-const metadataCache = new Map<string, MetadataCacheEntry>();
+/**
+ * An RFC 8414 metadata document is a JSON object. A `200 application/json`
+ * upstream response can still carry a string, array, or null — spreading one
+ * of those into the proxied response yields an object of numeric character
+ * keys rather than metadata, so the shape is checked before it is used.
+ */
+function isMetadataObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// Exported so tests can exercise the cache-hit path directly. Proxying a real
+// upstream is not testable here: the SSRF guard rejects loopback addresses by
+// design, and relaxing it for tests would remove the check this server relies
+// on. Seeding the cache reaches the same branch without a fetch.
+export const metadataCache = new Map<string, MetadataCacheEntry>();
 const METADATA_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const METADATA_FETCH_TIMEOUT_MS = 10_000; // 10 seconds
 
@@ -34,6 +48,16 @@ const METADATA_FETCH_TIMEOUT_MS = 10_000; // 10 seconds
  * TEMPORARY WORKAROUND: All modes except `none` exist because VS Code and some
  * MCP clients cannot discover the auth server when it's on a different host.
  * TODO: Remove once MCP clients properly support cross-origin OAuth discovery.
+ *
+ * These modes cannot satisfy a strict RFC 9207 client, and that is inherent
+ * rather than a bug to fix here. They advertise this server as the
+ * authorization server while the document a client then fetches is IAM's,
+ * carrying IAM's `issuer` — so the RFC 8414 §3.3 comparison fails. Rewriting
+ * that `issuer` to this origin would only move the failure to token
+ * validation, since IAM mints `iss` and this server does not. They remain
+ * usable only by clients that skip issuer validation, which is the same set of
+ * clients that needed the workaround in the first place. `config.ts` rejects
+ * them alongside hosted mode, so no multi-tenant deployment can reach this.
  */
 enum AuthorizationServerDiscoveryMode {
   None = "none",
@@ -92,6 +116,44 @@ function registerOAuthRoutes(
 
   const isDiscoveryWorkaroundEnabled =
     authorizationServerDiscoveryMode !== AuthorizationServerDiscoveryMode.None;
+  // Trailing slashes are stripped once here and reused everywhere the value is
+  // concatenated. Without it a configured `https://host/` produces
+  // `https://host//myns` as an issuer identifier, which no client resolves.
+  const normalizedAuthorizationServerUrl = authorizationServerUrl.replace(
+    /\/+$/,
+    "",
+  );
+  const normalizedResourceServerUrl = resourceServerUrl.replace(/\/+$/, "");
+
+  // This server's own public origin as the client sees it. Used only by the
+  // discovery workarounds, which advertise this server as the authorization
+  // server and must therefore publish URLs that point back here — both the
+  // issuer identifier and, in `proxyRegister`, the registration endpoint. Both
+  // must agree, or a client registers against an origin the metadata never
+  // named.
+  //
+  // Reduced to a true origin rather than merely stripped of trailing slashes.
+  // `MCP_SERVER_URL` is validated only as a URL, so a configured value like
+  // `https://mcp.example/?region=us` passes and would otherwise produce the
+  // issuer `https://mcp.example/?region=us/myns` and a registration endpoint
+  // whose `/oauth/...` path lands inside the query string — a request that
+  // reaches `/`, not the registration proxy. The registration routes are
+  // registered at the app root, so the origin is also the correct base for
+  // them. Falls back to the stripped string if the value will not parse,
+  // which keeps behaviour identical for the normal origin-only case.
+  const toOrigin = (value: string): string => {
+    try {
+      return new URL(value).origin;
+    } catch {
+      return value.replace(/\/+$/, "");
+    }
+  };
+  const deriveThisServerOrigin = (req: Request): string =>
+    toOrigin(
+      deriveBaseUrl(req, normalizedResourceServerUrl, {
+        allowHostedContext: !hostedMode,
+      }),
+    );
   // A root MCP path contributes no path segment to advertised resource URLs,
   // mirroring registerMcpRoutes — otherwise a namespaced resource would be
   // advertised as e.g. "https://host//myns". Trailing slashes are stripped for
@@ -145,10 +207,39 @@ function registerOAuthRoutes(
       return;
     }
 
-    const effectiveAuthServer = deriveBaseUrl(req, authorizationServerUrl, {
-      allowHostedContext: !hostedMode,
-    });
-    const resourceBaseUrl = deriveBaseUrl(req, resourceServerUrl, {
+    // `authorization_servers` entries are OAuth *issuer identifiers*, not
+    // addresses of this server. IAM always derives its issuer from its own
+    // configured base URI, so deriving this from the request host advertises
+    // an issuer IAM never confirms: a client inserts `.well-known` into the
+    // identifier per RFC 8414 §3, fetches, and RFC 8414 §3.3 requires the
+    // returned `issuer` to be *identical* to what the URL was built from.
+    // Tenant subdomain in, apex out — the login is rejected at discovery.
+    //
+    // The discovery workarounds are the deliberate exception: they exist so
+    // this server advertises *itself* as the authorization server for clients
+    // that cannot discover a cross-origin one, and then redirect or proxy. In
+    // those modes the client must be pointed back here, so this server's own
+    // public origin is the correct value — hence `resourceServerUrl` as the
+    // fallback, never the AGS base URL. Falling back to AGS would send the
+    // client straight past the workaround to the origin it cannot reach,
+    // which is the whole reason the workaround exists. config.ts rejects
+    // these modes in hosted deployments, so every hosted tier takes the
+    // configured branch below.
+    const effectiveAuthServer = isDiscoveryWorkaroundEnabled
+      ? deriveThisServerOrigin(req)
+      : normalizedAuthorizationServerUrl;
+    // `resource` stays host-aware by contrast: RFC 9728 requires it to match
+    // the public URL the client actually connected to. There is no same-origin
+    // requirement between the two fields.
+    //
+    // Normalized on the same grounds as the issuer, and only on the configured
+    // fallback — the forwarded-host branch already yields a bare origin. A
+    // configured `https://mcp.example/` otherwise advertised
+    // `https://mcp.example//mcp`, and RFC 9728 §3.3 has the client discard
+    // metadata whose `resource` is not identical to the URL it requested. Not
+    // reduced to an origin the way the issuer is: a deployment mounted under a
+    // sub-path legitimately carries that path here.
+    const resourceBaseUrl = deriveBaseUrl(req, normalizedResourceServerUrl, {
       allowHostedContext: !hostedMode,
     });
 
@@ -216,10 +307,37 @@ function registerOAuthRoutes(
           return;
         }
 
-        const baseUrl = authorizationServerUrl.replace(/\/+$/, "");
+        const baseUrl = normalizedAuthorizationServerUrl;
         const metadataUrl = namespace
           ? `${baseUrl}/.well-known/oauth-authorization-server/${namespace}`
           : `${baseUrl}/.well-known/oauth-authorization-server`;
+
+        // In `proxyRegister` the advertised registration endpoint must point at
+        // this server's registration proxy, on the same origin the metadata
+        // named as the authorization server. Applied per response rather than
+        // per fetch: the cache holds the upstream document verbatim, keyed by
+        // upstream URL, so rewriting before caching would both leak one
+        // request's origin into every later response and skip the rewrite
+        // entirely on a cache hit — leaving clients pointed at the upstream
+        // cross-origin endpoint for the rest of the TTL, which is exactly the
+        // registration the mode exists to intercept.
+        const withProxiedRegistration = (
+          metadata: Record<string, unknown>,
+        ): Record<string, unknown> => {
+          if (
+            authorizationServerDiscoveryMode !==
+            AuthorizationServerDiscoveryMode.ProxyRegister
+          ) {
+            return metadata;
+          }
+          const registrationPath = namespace
+            ? `/oauth/namespaces/${namespace}/register`
+            : `/oauth/register`;
+          return {
+            ...metadata,
+            registration_endpoint: `${deriveThisServerOrigin(req)}${registrationPath}`,
+          };
+        };
 
         if (
           authorizationServerDiscoveryMode ===
@@ -238,7 +356,7 @@ function registerOAuthRoutes(
           const cached = metadataCache.get(metadataUrl);
           if (cached && cached.expiresAt > Date.now()) {
             log.debug({ metadataUrl }, "Returning cached metadata");
-            res.status(200).json(cached.metadata);
+            res.status(200).json(withProxiedRegistration(cached.metadata));
             return;
           }
 
@@ -284,7 +402,19 @@ function registerOAuthRoutes(
               return;
             }
 
-            const metadata = await response.json();
+            const metadata: unknown = await response.json();
+
+            if (!isMetadataObject(metadata)) {
+              log.error(
+                { metadataUrl, type: typeof metadata },
+                "Authorization server returned a non-object metadata document",
+              );
+              res.status(502).json({
+                error: "Bad Gateway",
+                message: "Authorization server returned invalid metadata",
+              });
+              return;
+            }
 
             // Cache the result
             metadataCache.set(metadataUrl, {
@@ -294,21 +424,7 @@ function registerOAuthRoutes(
 
             log.debug({ metadataUrl }, "Fetched and cached metadata");
 
-            // For ProxyRegister mode, rewrite registration_endpoint to go through this server
-            if (
-              authorizationServerDiscoveryMode ===
-              AuthorizationServerDiscoveryMode.ProxyRegister
-            ) {
-              const registrationPath = namespace
-                ? `/oauth/namespaces/${namespace}/register`
-                : `/oauth/register`;
-              res.status(200).json({
-                ...metadata,
-                registration_endpoint: `${resourceServerUrl}${registrationPath}`,
-              });
-            } else {
-              res.status(200).json(metadata);
-            }
+            res.status(200).json(withProxiedRegistration(metadata));
           } catch (fetchError) {
             clearTimeout(timeoutId);
 
@@ -354,7 +470,7 @@ function registerOAuthRoutes(
       authorizationServerDiscoveryMode ===
       AuthorizationServerDiscoveryMode.ProxyRegister
     ) {
-      const baseUrl = authorizationServerUrl.replace(/\/+$/, "");
+      const baseUrl = normalizedAuthorizationServerUrl;
 
       const oauthRegisterHandler = async (
         req: Request,

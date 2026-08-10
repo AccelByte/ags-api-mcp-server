@@ -10,6 +10,7 @@ This document describes environment variables for the AGS API MCP Server.
 - **Default**: `https://development.accelbyte.io`
 - **Required**: No (but strongly recommended for non-development environments)
 - **Note**: Used for API calls to AccelByte services, including Athena Facade requests when render tools use `provider="facade"`. If not set, defaults to the AccelByte development environment. Always set this explicitly in staging and production to avoid unintended API calls to the wrong environment.
+- **Also the advertised OAuth issuer**: under the default `MCP_AUTH_SERVER_DISCOVERY_MODE=none`, this value is what the RFC 9728 protected-resource document publishes as `authorization_servers` (with `/{namespace}` appended on the namespaced route). IAM derives its issuer from its own configured base URI, and RFC 8414 §3.3 requires the two to be byte-identical, so an `AB_BASE_URL` that does not exactly match IAM's issuer — wrong host, extra path, or left at the development default — makes OAuth discovery fail on any client that enforces the issuer check. This is separate from `MCP_SERVER_URL`, which identifies *this* server as the protected resource; the two are expected to differ, and there is no same-origin requirement between them. The `redirect`, `proxy`, and `proxyRegister` discovery modes deliberately advertise *this server* instead, so that it can redirect or proxy clients that cannot follow a cross-origin authorization server; those modes are local-only and rejected at startup alongside `MCP_HOSTED=true`.
 
 ---
 
