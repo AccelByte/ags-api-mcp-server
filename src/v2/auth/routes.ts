@@ -239,9 +239,19 @@ function registerOAuthRoutes(
     // metadata whose `resource` is not identical to the URL it requested. Not
     // reduced to an origin the way the issuer is: a deployment mounted under a
     // sub-path legitimately carries that path here.
-    const resourceBaseUrl = deriveBaseUrl(req, normalizedResourceServerUrl, {
-      allowHostedContext: !hostedMode,
-    });
+    //
+    // Stripped only when something is appended. At a root mount
+    // (`MCP_PATH="/"`) with no namespace nothing is, and the configured value
+    // is then the whole answer — normalizing `https://mcp.example/` down to
+    // `https://mcp.example` there would advertise a resource that is not
+    // identical to the URL the client requested, which is the very failure
+    // this normalization exists to prevent.
+    const appendsToResourceBase = Boolean(mcpBasePath) || Boolean(namespace);
+    const resourceBaseUrl = deriveBaseUrl(
+      req,
+      appendsToResourceBase ? normalizedResourceServerUrl : resourceServerUrl,
+      { allowHostedContext: !hostedMode },
+    );
 
     const protectedResourceUrl = namespace
       ? `${resourceBaseUrl}${mcpBasePath}/${namespace}`

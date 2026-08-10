@@ -368,6 +368,27 @@ describe("authorization_servers is an issuer identifier, not a request address",
     );
   });
 
+  test("a root-mounted resource keeps the configured trailing slash", async () => {
+    // The mirror of the case above. At MCP_PATH="/" with no namespace nothing
+    // is appended, so the configured value is the whole answer — stripping the
+    // slash here would itself produce a `resource` that is not identical to
+    // the URL the client requested, which RFC 9728 §3.3 makes fatal.
+    await withServer(
+      (app) =>
+        registerOAuthRoutes(app, `${MCP_SERVER_URL}/`, AGS_BASE_URL, {
+          hostedMode: true,
+          mcpPath: "/",
+        }),
+      async (base) => {
+        const res = await fetch(`${base}/.well-known/oauth-protected-resource`);
+
+        assert.equal(res.status, 200);
+        const body = (await res.json()) as { resource: string };
+        assert.equal(body.resource, `${MCP_SERVER_URL}/`);
+      },
+    );
+  });
+
   test("the discovery workaround still advertises this server as the authorization server", async () => {
     await withServer(
       (app) =>
