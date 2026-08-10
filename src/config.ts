@@ -145,12 +145,17 @@ export function normalizeIssuer(value: string): string {
  * else cannot have `.well-known` inserted into it per RFC 8414 §3.
  */
 export function isUsableIssuer(value: string): boolean {
+  // Checked on the raw string, not only the parsed URL: Node reports empty
+  // `.search`/`.hash` for `https://iam.example?` and `https://iam.example#`,
+  // yet RFC 8414 §2 forbids query and fragment components in an issuer
+  // identifier, and the bare delimiter is one.
+  if (value.includes("?") || value.includes("#")) {
+    return false;
+  }
   try {
     const url = new URL(value);
     return (
       (url.protocol === "https:" || url.protocol === "http:") &&
-      !url.search &&
-      !url.hash &&
       !url.username &&
       !url.password
     );
@@ -305,25 +310,41 @@ function loadConfig(): Config {
       );
     }
 
+    // Checked BEFORE the incompleteness warning below, which tests
+    // `!config.oidc.issuer` and would otherwise swallow precisely this case:
+    // an empty issuer is "missing configuration" by that test, so it would
+    // warn and carry on.
+    //
+    // An empty issuer is not merely missing — it is unsafe. This value is
+    // handed to the JWT verifier as its `issuer` option, and `jsonwebtoken`
+    // skips issuer validation entirely when that option is falsy. So a
+    // `JWT_ISSUER` of "   " normalizes to "" and turns the `iss` check *off*
+    // rather than failing it, silently accepting tokens from any issuer. A log
+    // line cannot make that safe, so it is fatal. The value cannot be empty by
+    // accident: it falls back through `AB_BASE_URL` to a non-empty default, so
+    // reaching here means someone configured whitespace.
+    if (!config.oidc.issuer) {
+      throw new Error(
+        "JWT_ISSUER resolved to an empty value (check JWT_ISSUER and AB_BASE_URL for a blank or whitespace-only setting). " +
+          "It is used to validate the token `iss` claim, and an empty issuer disables that check entirely instead of failing it.",
+      );
+    }
+
     // Warn about missing OIDC configuration
-    if (!config.oidc.jwksUri || !config.oidc.issuer) {
+    if (!config.oidc.jwksUri) {
       logger.warn(
         "OIDC configuration is incomplete. Set JWKS_URI and JWT_ISSUER environment variables.",
       );
     } else if (!isUsableIssuer(config.oidc.issuer)) {
-      // Refuse to start rather than warn. This value is both published as an
-      // issuer identifier in the discovery documents *and* handed to the JWT
-      // verifier, and `jsonwebtoken` skips issuer validation entirely when the
-      // option is falsy — so a `JWT_ISSUER` of "   " normalizes to "" and
-      // turns off the `iss` check instead of failing it. That is an
-      // authentication fail-open, and it is not something a log line can make
-      // safe. Every value rejected here already broke OAuth discovery, so the
-      // only configurations this stops are ones that were never working.
-      throw new Error(
-        `Invalid JWT_ISSUER: ${JSON.stringify(config.oidc.issuer)}. ` +
-          "Must be an absolute http(s) URL with no query, fragment, or embedded credentials — " +
-          "it is published as the OAuth issuer identifier (RFC 8414 §3.3 requires a byte-identical match) " +
-          "and used to validate the token `iss` claim. An empty or blank value would disable issuer validation.",
+      // Non-empty but unusable — a query, fragment, embedded credentials, or
+      // not a URL at all. Unlike the empty case this fails *closed*: the
+      // verifier compares it against `iss` and rejects every token, and OAuth
+      // discovery breaks loudly. Warn rather than throw, so a v1 deployment
+      // that never reaches the discovery endpoints is not stopped from
+      // starting over a value it does not use.
+      logger.warn(
+        { issuer: config.oidc.issuer },
+        "JWT_ISSUER is not a usable OAuth issuer identifier (needs an absolute http(s) URL with no query, fragment, or credentials). OAuth discovery will fail RFC 8414 §3.3 issuer matching, and every token will be rejected.",
       );
     }
 

@@ -248,6 +248,11 @@ test('isUsableIssuer rejects identifiers RFC 8414 §3 cannot build a URL from', 
   assert.equal(isUsableIssuer('https://mcp.example.com/#frag'), false);
   // Embedded credentials must never be published in metadata.
   assert.equal(isUsableIssuer('https://user:pw@mcp.example.com'), false);
+  // Node parses these with empty .search/.hash, so a parsed-URL-only check
+  // passes them — but RFC 8414 §2 forbids the components, and the bare
+  // delimiter is one.
+  assert.equal(isUsableIssuer('https://mcp.example.com?'), false);
+  assert.equal(isUsableIssuer('https://mcp.example.com#'), false);
 });
 
 // A blank JWT_ISSUER normalizes to "", and jsonwebtoken skips issuer
