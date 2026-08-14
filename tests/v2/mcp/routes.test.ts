@@ -9,9 +9,37 @@ import express from "express";
 import registerMcpRoutes from "../../../src/v2/mcp/routes.js";
 import registerOAuthRoutes, {
   AuthorizationServerDiscoveryMode,
+  issuerCache,
   metadataCache,
 } from "../../../src/v2/auth/routes.js";
 import { resolveAgsHost } from "../../../src/v2/auth/host-resolver.js";
+
+// In hosted mode the advertised issuer is read from the tenant host's own
+// authorization-server document. Seeding the cache records that lookup as
+// already done — `null` for a failed one, which selects the fallback — so no
+// test resolves DNS. Same seam `metadataCache` provides for the proxy path.
+function stubIssuerLookup(
+  origin: string,
+  namespace: string | null,
+  issuer: string | null,
+): void {
+  const discoveryUrl = namespace
+    ? `${origin}/.well-known/oauth-authorization-server/${namespace}`
+    : `${origin}/.well-known/oauth-authorization-server`;
+  issuerCache.set(discoveryUrl, { issuer, expiresAt: Date.now() + 60_000 });
+}
+
+/** Records every lookup the hosted suites can reach as failed. */
+function stubHostedIssuerLookupsAsUnreachable(
+  origins: string[],
+  namespaces: (string | null)[] = [null, "myns"],
+): void {
+  for (const origin of origins) {
+    for (const namespace of namespaces) {
+      stubIssuerLookup(origin, namespace, null);
+    }
+  }
+}
 
 // Stand up a minimal MCP server instance with hosted-mode wiring matching
 // production. Tests assert OAuth discovery stays on the client-facing public
@@ -73,8 +101,17 @@ async function stopServer(): Promise<void> {
 }
 
 describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
-  before(async () => startServer());
-  after(async () => stopServer());
+  before(async () => {
+    stubHostedIssuerLookupsAsUnreachable([
+      "https://teststudio-beta.internal.gamingservices.accelbyte.io",
+      AGS_BASE_URL,
+    ]);
+    await startServer();
+  });
+  after(async () => {
+    issuerCache.clear();
+    await stopServer();
+  });
 
   test("advertises the path-aware URL on the client-facing origin", async () => {
     const agsHost = "teststudio-beta.internal.gamingservices.accelbyte.io";
@@ -179,13 +216,13 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
       !body.resource.startsWith(MCP_SERVER_URL),
       `resource must not expose backend host (${MCP_SERVER_URL}), got: ${body.resource}`,
     );
-    // The authorization server is an issuer identifier, so it stays on the
-    // configured base URL even though the client reached a tenant subdomain.
-    // IAM confirms only this form, and RFC 8414 §3.3 demands an exact match.
-    assert.equal(body.authorization_servers[0], AGS_BASE_URL);
+    // The issuer belongs to the tenant the client reached, not to whichever
+    // environment AB_BASE_URL names. With the lookup stubbed unreachable and
+    // no namespace to strip a label against, the fallback is the tenant origin.
+    assert.equal(body.authorization_servers[0], `https://${agsHost}`);
     assert.ok(
-      !body.authorization_servers[0].includes(agsHost),
-      `authorization_servers must not be derived from the request host (${agsHost}), got: ${body.authorization_servers[0]}`,
+      !body.authorization_servers[0].startsWith(AGS_BASE_URL),
+      `authorization_servers must not name the configured environment (${AGS_BASE_URL}), got: ${body.authorization_servers[0]}`,
     );
   });
 
@@ -248,7 +285,7 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
       authorization_servers: string[];
     };
     assert.equal(body.resource, `https://${agsHost}/mcp`);
-    assert.equal(body.authorization_servers[0], AGS_BASE_URL);
+    assert.equal(body.authorization_servers[0], `https://${agsHost}`);
   });
 
   test("short backend namespace route keeps the public resource identity", async () => {
@@ -269,7 +306,8 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
       authorization_servers: string[];
     };
     assert.equal(body.resource, `https://${agsHost}/mcp/myns`);
-    assert.equal(body.authorization_servers[0], `${AGS_BASE_URL}/myns`);
+    // The label is not the namespace, so the fallback keeps the reached host.
+    assert.equal(body.authorization_servers[0], `https://${agsHost}/myns`);
   });
 
   test("full path-aware namespace route works without an ingress rewrite", async () => {
@@ -290,7 +328,7 @@ describe("WWW-Authenticate header in hosted mode (non-colocated AGS)", () => {
       authorization_servers: string[];
     };
     assert.equal(body.resource, `https://${agsHost}/mcp/myns`);
-    assert.equal(body.authorization_servers[0], `${AGS_BASE_URL}/myns`);
+    assert.equal(body.authorization_servers[0], `https://${agsHost}/myns`);
   });
 });
 
@@ -319,10 +357,13 @@ describe("authorization_servers is an issuer identifier, not a request address",
   }
 
   test("a trailing slash on the configured base URL never reaches the client", async () => {
+    // Standalone: this is where the configured base URL is the issuer, so it
+    // is the only mode where a trailing slash on it can reach a client. A
+    // hosted deployment resolves the issuer from the tenant host instead.
     await withServer(
       (app) =>
         registerOAuthRoutes(app, MCP_SERVER_URL, `${AGS_BASE_URL}/`, {
-          hostedMode: true,
+          hostedMode: false,
           mcpPath: "/mcp",
         }),
       async (base) => {
@@ -489,6 +530,114 @@ describe("authorization_servers is an issuer identifier, not a request address",
   });
 });
 
+describe("hosted mode advertises the tenant's issuer, not the configured one", () => {
+  // One deployment serves every environment, so AB_BASE_URL names no
+  // particular tenant. Deriving the advertised issuer from it sent every
+  // tenant's clients to whichever environment that value happened to name.
+  //
+  // Placeholder hosts, modelling a tenant subdomain named after its namespace
+  // under an environment root.
+  const ENVIRONMENT_ROOT = "tenants.example.com";
+  const TENANT_HOST = `myns.${ENVIRONMENT_ROOT}`;
+  const TENANT_ORIGIN = `https://${TENANT_HOST}`;
+
+  async function readMetadata(
+    path: string,
+  ): Promise<{ resource: string; authorization_servers: string[] }> {
+    const app = express();
+    app.set("trust proxy", 1);
+    app.use(express.json());
+    registerOAuthRoutes(app, MCP_SERVER_URL, AGS_BASE_URL, {
+      hostedMode: true,
+      mcpPath: "/mcp",
+    });
+
+    const srv = await new Promise<http.Server>((resolve) => {
+      const s = app.listen(0, "127.0.0.1", () => resolve(s));
+    });
+    try {
+      const addr = srv.address() as { port: number };
+      const res = await fetch(`http://127.0.0.1:${addr.port}${path}`, {
+        headers: {
+          "X-Forwarded-Host": TENANT_HOST,
+          "X-Forwarded-Proto": "https",
+        },
+      });
+      assert.equal(res.status, 200);
+      return (await res.json()) as {
+        resource: string;
+        authorization_servers: string[];
+      };
+    } finally {
+      await new Promise<void>((resolve) => srv.close(() => resolve()));
+    }
+  }
+
+  after(() => issuerCache.clear());
+
+  test("republishes the issuer the tenant's authorization server reports", async () => {
+    // RFC 8414 §3.3 rejects the document unless `issuer` comes back identical
+    // to what the client built the URL from.
+    stubIssuerLookup(TENANT_ORIGIN, "myns", `https://${ENVIRONMENT_ROOT}/myns`);
+
+    const body = await readMetadata(
+      "/.well-known/oauth-protected-resource/mcp/myns",
+    );
+
+    assert.equal(body.resource, `${TENANT_ORIGIN}/mcp/myns`);
+    assert.deepEqual(body.authorization_servers, [
+      `https://${ENVIRONMENT_ROOT}/myns`,
+    ]);
+  });
+
+  test("does not republish an issuer belonging to an unrelated host", async () => {
+    // A rejected issuer counts as no answer, and the fallback stands.
+    stubIssuerLookup(
+      TENANT_ORIGIN,
+      "myns",
+      "https://attacker.example.net/myns",
+    );
+
+    const body = await readMetadata(
+      "/.well-known/oauth-protected-resource/mcp/myns",
+    );
+
+    assert.deepEqual(body.authorization_servers, [
+      `https://${ENVIRONMENT_ROOT}/myns`,
+    ]);
+  });
+
+  test("falls back to the tenant's own environment root when the lookup fails", async () => {
+    // An unreachable IAM must not fail discovery, nor fall back to the
+    // configured environment.
+    stubIssuerLookup(TENANT_ORIGIN, "myns", null);
+
+    const body = await readMetadata(
+      "/.well-known/oauth-protected-resource/mcp/myns",
+    );
+
+    assert.deepEqual(body.authorization_servers, [
+      `https://${ENVIRONMENT_ROOT}/myns`,
+    ]);
+    assert.ok(
+      !body.authorization_servers[0].startsWith(AGS_BASE_URL),
+      `the configured environment (${AGS_BASE_URL}) must not be advertised to a tenant on another host, got: ${body.authorization_servers[0]}`,
+    );
+  });
+
+  test("the root document takes the environment root from the lookup", async () => {
+    // With no namespace there is no label to compare against, so only the
+    // lookup can name the environment root.
+    stubIssuerLookup(TENANT_ORIGIN, null, `https://${ENVIRONMENT_ROOT}`);
+
+    const body = await readMetadata("/.well-known/oauth-protected-resource");
+
+    assert.deepEqual(body.authorization_servers, [
+      `https://${ENVIRONMENT_ROOT}`,
+    ]);
+  });
+});
+
 describe("proxyRegister keeps pointing clients at this server's registration proxy", () => {
   // Cycle-1 review found the registration rewrite ran only on a cache miss, so
   // for the metadata TTL after the first request every client was handed the
@@ -579,6 +728,7 @@ describe("hosted mode without a trusted proxy", () => {
   let untrustedBaseUrl: string;
 
   before(async () => {
+    stubHostedIssuerLookupsAsUnreachable([AGS_BASE_URL]);
     const app = express();
     // Deliberately leave Express `trust proxy` disabled. resolveAgsHost still
     // creates req.ags from raw headers, so these requests exercise the hosted
@@ -619,10 +769,12 @@ describe("hosted mode without a trusted proxy", () => {
     });
   });
 
-  after(
-    async () =>
-      new Promise<void>((resolve) => untrustedServer.close(() => resolve())),
-  );
+  after(async () => {
+    issuerCache.clear();
+    await new Promise<void>((resolve) =>
+      untrustedServer.close(() => resolve()),
+    );
+  });
 
   test("ignores attacker-controlled hosted headers in WWW-Authenticate", async () => {
     const attackerHost = "attacker.example.com";

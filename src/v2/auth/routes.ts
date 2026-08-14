@@ -37,6 +37,197 @@ const METADATA_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const METADATA_FETCH_TIMEOUT_MS = 10_000; // 10 seconds
 
 /**
+ * Issuer identifiers resolved from a tenant's authorization-server document,
+ * keyed by the discovery URL. A `null` entry records a lookup that failed or
+ * was rejected, so an unreachable IAM costs one timeout per negative TTL.
+ *
+ * Exported for the same reason as `metadataCache`: the SSRF guard rejects
+ * loopback, so a test seeds an entry instead of standing up an upstream.
+ */
+interface IssuerCacheEntry {
+  issuer: string | null;
+  expiresAt: number;
+}
+
+export const issuerCache = new Map<string, IssuerCacheEntry>();
+const ISSUER_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const ISSUER_NEGATIVE_CACHE_TTL_MS = 60 * 1000; // 1 minute
+// Shorter than METADATA_FETCH_TIMEOUT_MS: this lookup blocks discovery and has
+// a usable fallback.
+const ISSUER_FETCH_TIMEOUT_MS = 3_000; // 3 seconds
+
+// Collapses concurrent cold lookups for the same document into one fetch.
+const inFlightIssuerLookups = new Map<string, Promise<string | null>>();
+
+/**
+ * Issuer identifier for a tenant reached at `origin`, derived without asking
+ * the authorization server.
+ *
+ * IAM identifies a namespace as `{environmentRoot}/{namespace}`, and a client
+ * reaches the tenant-subdomain tier at `{namespace}.{environmentRoot}`, so the
+ * environment root is recovered by dropping a leading label that is the
+ * namespace. Any other host is already the root. At least two labels must
+ * remain, so `ns.localhost` is left alone rather than reduced to `localhost`.
+ */
+export function deriveTenantIssuer(origin: string, namespace?: string): string {
+  const stripped = origin.replace(/\/+$/, "");
+  let url: URL;
+  try {
+    url = new URL(stripped);
+  } catch {
+    return namespace ? `${stripped}/${namespace}` : stripped;
+  }
+
+  let issuerHost = url.host;
+  if (namespace) {
+    const [label, ...rest] = url.host.split(".");
+    if (label.toLowerCase() === namespace.toLowerCase() && rest.length >= 2) {
+      issuerHost = rest.join(".");
+    }
+  }
+
+  const base = `${url.protocol}//${issuerHost}`;
+  return namespace ? `${base}/${namespace}` : base;
+}
+
+/**
+ * Whether an issuer read from an upstream document may be republished as this
+ * resource's authorization server.
+ *
+ * The document comes from a host derived from forwarded headers, so echoing
+ * `issuer` verbatim would let whatever answered there name any authorization
+ * server it liked. Accepted only for the host the client reached or a parent
+ * domain of it — the host↔issuer relationship `validateUrlMatchesIssuer`
+ * enforces on the token side — with the namespace as its only path segment.
+ */
+export function isIssuerAcceptableForHost(
+  issuer: string,
+  requestOrigin: string,
+  namespace?: string,
+): boolean {
+  let issuerUrl: URL;
+  let requestUrl: URL;
+  try {
+    issuerUrl = new URL(issuer);
+    requestUrl = new URL(requestOrigin);
+  } catch {
+    return false;
+  }
+
+  // An issuer identifier is an origin plus an optional path, with no query,
+  // fragment, or credentials (RFC 8414 §2). Requiring the request's scheme
+  // also blocks a downgrade to http.
+  if (issuerUrl.protocol !== requestUrl.protocol) return false;
+  if (issuerUrl.search || issuerUrl.hash) return false;
+  if (issuerUrl.username || issuerUrl.password) return false;
+
+  const segments = issuerUrl.pathname.split("/").filter(Boolean);
+  if (namespace) {
+    if (segments.length !== 1 || segments[0] !== namespace) return false;
+  } else if (segments.length > 0) {
+    return false;
+  }
+
+  if (issuerUrl.port && issuerUrl.port !== requestUrl.port) return false;
+
+  const issuerHost = issuerUrl.hostname.toLowerCase();
+  const requestHost = requestUrl.hostname.toLowerCase();
+  return issuerHost === requestHost || requestHost.endsWith(`.${issuerHost}`);
+}
+
+/**
+ * Reads the issuer identifier from the authorization-server document on the
+ * host the client reached, returning it when `isIssuerAcceptableForHost`
+ * allows it.
+ *
+ * RFC 8414 §3.3 has the client rebuild this URL from the advertised identifier
+ * and reject the document unless `issuer` comes back identical, so reading it
+ * from that same document is the only derivation that always matches.
+ */
+async function fetchIssuerIdentifier(
+  discoveryUrl: string,
+  requestOrigin: string,
+  namespace?: string,
+): Promise<string | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    ISSUER_FETCH_TIMEOUT_MS,
+  );
+  try {
+    await assertNotPrivateUrl(new URL(discoveryUrl));
+
+    const response = await fetch(discoveryUrl, { signal: controller.signal });
+    if (!response.ok) return null;
+
+    const document: unknown = await response.json();
+    if (!isMetadataObject(document)) return null;
+
+    const { issuer } = document;
+    if (typeof issuer !== "string" || !issuer) return null;
+    if (!isIssuerAcceptableForHost(issuer, requestOrigin, namespace)) {
+      log.warn(
+        { discoveryUrl, issuer },
+        "Authorization server advertised an issuer this host may not republish",
+      );
+      return null;
+    }
+
+    return issuer;
+  } catch (error) {
+    log.warn(
+      { discoveryUrl, error: error instanceof Error ? error.message : error },
+      "Could not resolve issuer identifier from the authorization server",
+    );
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/** Cached, single-flight wrapper around `fetchIssuerIdentifier`. */
+async function resolveIssuerIdentifier(
+  requestOrigin: string,
+  namespace?: string,
+): Promise<string | null> {
+  const discoveryUrl = namespace
+    ? `${requestOrigin}/.well-known/oauth-authorization-server/${namespace}`
+    : `${requestOrigin}/.well-known/oauth-authorization-server`;
+
+  // Re-checked on the way out: a cached value reaches a response without
+  // passing the fetch path.
+  const accept = (issuer: string | null): string | null =>
+    issuer && isIssuerAcceptableForHost(issuer, requestOrigin, namespace)
+      ? issuer
+      : null;
+
+  const cached = issuerCache.get(discoveryUrl);
+  if (cached && cached.expiresAt > Date.now()) {
+    return accept(cached.issuer);
+  }
+
+  const inFlight = inFlightIssuerLookups.get(discoveryUrl);
+  if (inFlight) return inFlight.then(accept);
+
+  const lookup = fetchIssuerIdentifier(discoveryUrl, requestOrigin, namespace)
+    .then((issuer) => {
+      issuerCache.set(discoveryUrl, {
+        issuer,
+        expiresAt:
+          Date.now() +
+          (issuer ? ISSUER_CACHE_TTL_MS : ISSUER_NEGATIVE_CACHE_TTL_MS),
+      });
+      return issuer;
+    })
+    .finally(() => {
+      inFlightIssuerLookups.delete(discoveryUrl);
+    });
+
+  inFlightIssuerLookups.set(discoveryUrl, lookup);
+  return lookup.then(accept);
+}
+
+/**
  * Authorization server discovery mode for OAuth.
  * - `none`: Use standard discovery (no workaround)
  * - `redirect`: Advertise this server as the authorization server and redirect
@@ -80,7 +271,10 @@ interface RegisterOAuthRoutesOptions {
 
   /**
    * Whether hosted mode is enabled.
-   * When true, the authorization server URL is derived from req.ags.baseUrl.
+   *
+   * When true, one deployment fronts many AGS environments, so the advertised
+   * authorization server is resolved per request from the tenant host the
+   * client reached rather than from the configured AGS base URL.
    */
   hostedMode?: boolean;
 
@@ -195,7 +389,10 @@ function registerOAuthRoutes(
   // (deriving the resource/auth-server base URLs, the metadata shape) is
   // identical, so one handler serves the root, path-aware, and namespace-aware
   // variants alike.
-  const protectedResourceHandler = (req: Request, res: Response) => {
+  const withNamespace = (base: string, ns?: string): string =>
+    ns ? `${base}/${ns}` : base;
+
+  const protectedResourceHandler = async (req: Request, res: Response) => {
     const { namespace } = req.params;
 
     // Validate namespace to prevent path traversal / URL injection
@@ -208,26 +405,46 @@ function registerOAuthRoutes(
     }
 
     // `authorization_servers` entries are OAuth *issuer identifiers*, not
-    // addresses of this server. IAM always derives its issuer from its own
-    // configured base URI, so deriving this from the request host advertises
-    // an issuer IAM never confirms: a client inserts `.well-known` into the
-    // identifier per RFC 8414 §3, fetches, and RFC 8414 §3.3 requires the
-    // returned `issuer` to be *identical* to what the URL was built from.
-    // Tenant subdomain in, apex out — the login is rejected at discovery.
+    // addresses of this server. A client inserts `.well-known` into the
+    // identifier per RFC 8414 §3, fetches, and §3.3 requires the returned
+    // `issuer` to be identical to what the URL was built from. Three sources,
+    // in order of precedence:
     //
-    // The discovery workarounds are the deliberate exception: they exist so
-    // this server advertises *itself* as the authorization server for clients
-    // that cannot discover a cross-origin one, and then redirect or proxy. In
-    // those modes the client must be pointed back here, so this server's own
-    // public origin is the correct value — hence `resourceServerUrl` as the
-    // fallback, never the AGS base URL. Falling back to AGS would send the
-    // client straight past the workaround to the origin it cannot reach,
-    // which is the whole reason the workaround exists. config.ts rejects
-    // these modes in hosted deployments, so every hosted tier takes the
-    // configured branch below.
-    const effectiveAuthServer = isDiscoveryWorkaroundEnabled
-      ? deriveThisServerOrigin(req)
-      : normalizedAuthorizationServerUrl;
+    //  1. The discovery workarounds advertise *this* server as the
+    //     authorization server, then redirect or proxy — so the client must be
+    //     pointed back here. Falling back to the AGS base URL would send it
+    //     past the workaround to the origin it cannot reach.
+    //
+    //  2. Hosted mode serves many environments from one deployment, so the
+    //     configured AGS base URL identifies no particular tenant and applies
+    //     only to requests carrying no trusted host. The tenant is the request
+    //     host, and its issuer is read from the authorization-server document
+    //     there, falling back to `deriveTenantIssuer`.
+    //
+    //  3. Standalone deployments point at one environment. IAM derives its
+    //     issuer from its own base URI, so the configured value is the issuer
+    //     and the request host must not override it.
+    let effectiveAuthorizationServer: string;
+    if (isDiscoveryWorkaroundEnabled) {
+      effectiveAuthorizationServer = withNamespace(
+        deriveThisServerOrigin(req),
+        namespace,
+      );
+    } else if (hostedMode) {
+      const tenantOrigin = toOrigin(
+        deriveBaseUrl(req, normalizedAuthorizationServerUrl, {
+          allowHostedContext: false,
+        }),
+      );
+      effectiveAuthorizationServer =
+        (await resolveIssuerIdentifier(tenantOrigin, namespace)) ??
+        deriveTenantIssuer(tenantOrigin, namespace);
+    } else {
+      effectiveAuthorizationServer = withNamespace(
+        normalizedAuthorizationServerUrl,
+        namespace,
+      );
+    }
     // `resource` stays host-aware by contrast: RFC 9728 requires it to match
     // the public URL the client actually connected to. There is no same-origin
     // requirement between the two fields.
@@ -256,13 +473,10 @@ function registerOAuthRoutes(
     const protectedResourceUrl = namespace
       ? `${resourceBaseUrl}${mcpBasePath}/${namespace}`
       : `${resourceBaseUrl}${mcpBasePath}`;
-    const authorizationServers = namespace
-      ? [`${effectiveAuthServer}/${namespace}`]
-      : [effectiveAuthServer];
 
     const metadata: OAuthProtectedResourceMetadata = {
       resource: protectedResourceUrl,
-      authorization_servers: authorizationServers,
+      authorization_servers: [effectiveAuthorizationServer],
       bearer_methods_supported: ["header"],
       scopes_supported: PROTECTED_RESOURCE_SCOPES_SUPPORTED,
     };
