@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Hosted deployments advertise the tenant's issuer, not the configured one.** v2026.4.7 moved `authorization_servers` off the request host and onto `AB_BASE_URL`. That is correct for a standalone deployment, which points at one AGS environment, and wrong for a hosted one: a single hosted deployment fronts every environment, so `AB_BASE_URL` there names no particular tenant and applies only to requests arriving without a trusted host. Tenants on a subdomain were sent to `https://development.accelbyte.io/{namespace}` to log in — a working authorization endpoint for the wrong environment. Standalone and Private Cloud deployments, where the configured value is the environment, were unaffected.
+
+  In hosted mode the issuer is now read per request from the authorization-server document on the tenant host the client reached, and republished verbatim. RFC 8414 §3.3 has the client rebuild the discovery URL from the advertised identifier and reject the answer unless `issuer` comes back identical, so that document is the only source that always matches — including the two forms no rule derives from the request alone: `https://{env}/{namespace}` for a client that reached `https://{namespace}.{env}`, and `https://{env}` at the root document.
+
+  A read issuer is republished only when it names the host the client reached or a parent domain of it, with the namespace as its only path segment and no query, fragment, credentials, foreign port, or scheme change — the host↔issuer relationship `validateUrlMatchesIssuer` enforces on the token side. Anything else counts as no answer.
+
+  When the lookup fails, discovery still answers, from the tenant host with a leading label dropped when that label is the namespace. Results are cached per discovery URL for five minutes and failures for one, and concurrent cold lookups collapse into a single fetch with a three-second timeout. `resource` is unchanged, and standalone deployments still take the issuer from `AB_BASE_URL`.
+
 ## v2026.4.7 (2026-08-10)
 
 ### Fixed
