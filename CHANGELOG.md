@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **AFS query submissions carry request provenance (AFT-119).** A query submitted through this server now tells the Athena Facade which artifacts produced it, so the query corpus can be attributed to the revisions in play when a query was generated. `User-Agent` carries `ags-api-mcp-server/<version>` plus a `(MCP-Client <name>/<version>)` marker when the calling client is known; `X-Ab-AFS-Metadata` carries `playbook="<sha256 of the served playbook>"` and `context="<the catalog version this session read>"`. Both are sent only on the AFS endpoints that execute SQL — `POST .../queries` and `POST .../pinned-queries/{id}/refresh`.
+
+  Provenance is telemetry and fails open in every direction. The facade rejects a whole submission with `400` on a malformed or over-cap value, so each value is re-normalized at the point it leaves and dropped if it does not fit; an unavailable playbook asset costs the playbook member and nothing else. Caller-supplied `X-Ab-AFS-Metadata` is stripped on every request and every transport — a caller cannot assert its own attribution — and the catalog version is keyed by namespace, so a session that reads one namespace's catalog never stamps another namespace's query with it.
+
+  On V2 the `User-Agent` is now server-controlled on all downstream calls, replacing the previous "caller-supplied wins" behaviour. V1 (stdio) keeps the old contract.
+
+  Client identity is a known gap until the MCP SDK speaks revision `2026-07-28`, which carries it on every request in `params._meta`. That path is already read and preferred; until clients send it, a temporary session-scoped bridge supplies the value. See AFT-215.
+
 ## v2026.4.8 (2026-08-14)
 
 ### Fixed
