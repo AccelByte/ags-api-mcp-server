@@ -60,6 +60,10 @@ export interface Playbook {
 
 let cachedPlaybooks: Map<string, Playbook> | null = null;
 
+/** Retry window after a failed load; see `getOrLoadPlaybooks`. */
+const FAILED_LOAD_RETRY_MS = 60_000;
+let failedLoadRetryAt = 0;
+
 /**
  * Pull a `title:` value out of the document's YAML frontmatter, if present.
  * Intentionally light-weight — no full YAML parser; the only field we read
@@ -155,9 +159,18 @@ async function getOrLoadPlaybooks(): Promise<Map<string, Playbook>> {
   if (cachedPlaybooks !== null) {
     return cachedPlaybooks;
   }
+  // A failure is cached for a window rather than not at all. Never caching it
+  // meant a deployment shipping no playbook assets — reachable, since the build
+  // copies them with `|| true` and the Dockerfile ships only dist — re-read the
+  // directory and re-logged on every MCP request, on every method, including
+  // the `initialize` and `tools/list` calls that have no bearing on AFS. The
+  // window still lets a transient readdir error recover on its own.
+  if (Date.now() < failedLoadRetryAt) return new Map();
   const loaded = await loadPlaybooks(PLAYBOOK_DIR);
-  // Only a successful load is cached, so a later request can retry.
-  if (loaded === null) return new Map();
+  if (loaded === null) {
+    failedLoadRetryAt = Date.now() + FAILED_LOAD_RETRY_MS;
+    return new Map();
+  }
   cachedPlaybooks = loaded;
   return cachedPlaybooks;
 }

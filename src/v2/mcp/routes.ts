@@ -262,13 +262,10 @@ function registerMcpRoutes(
     // Provenance is telemetry: an unavailable playbook asset costs attribution
     // on AFS submits and nothing else. It must never fail a request — least of
     // all `initialize` or `tools/list`, which have no bearing on AFS at all.
+    // An unavailable asset is logged once per retry window at the load site,
+    // not here: this runs on every POST, so warning here emitted one line per
+    // MCP request for what is a single deployment-wide condition.
     const playbookVersion = await getPlaybookVersion("afs");
-    if (!playbookVersion) {
-      log.warn(
-        { handler: "MCP POST", namespace },
-        "AFS playbook unavailable; submitting without playbook attribution",
-      );
-    }
 
     const context: McpRequestContext = {
       agsBaseUrl:
