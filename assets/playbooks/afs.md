@@ -40,6 +40,8 @@ Every endpoint takes a `{namespace}` path param. When the user hasn't named one,
 
 The context document is the catalog for this namespace's event tables: what tables exist, naming conventions, partition columns, common joins. Without it you will hallucinate table or column names. Don't skip it even if you think you remember the schema from a previous turn — it's namespace-specific.
 
+Fetching it also stamps every query you later submit in this session with the catalog revision you actually read, which is what makes the query corpus attributable. Skip the fetch and the queries still run — they just land in the corpus unattributable to any catalog version.
+
 The response is the *merged* catalog: the embedded base context plus any tenant-authored context documents, interleaved by `order`. To add or edit those tenant documents — not just read them — use the **Analytics Context** playbook instead; this playbook only consumes the merged result.
 
 ### 2. Find candidate tables with `GET /afs/v1/admin/namespaces/{namespace}/tables`
