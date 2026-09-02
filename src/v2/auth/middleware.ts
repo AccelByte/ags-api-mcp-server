@@ -8,6 +8,7 @@ import { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 
 import log from "../logger.js";
 import securityLog from "../security-logger.js";
+import { downstreamUserAgent } from "../mcp/provenance.js";
 import { assertNotPrivateUrl } from "../ssrf-guard.js";
 import { validateUrlMatchesIssuer } from "./host-resolver.js";
 
@@ -188,7 +189,10 @@ async function discoverJwksUri(agsBaseUrl: string): Promise<string> {
   );
 
   try {
-    const response = await fetch(metadataUrl, { signal: controller.signal });
+    const response = await fetch(metadataUrl, {
+      signal: controller.signal,
+      headers: { "User-Agent": downstreamUserAgent() },
+    });
     clearTimeout(timeoutId);
 
     if (!response.ok) {

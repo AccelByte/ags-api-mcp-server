@@ -6,6 +6,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { OAuthProtectedResourceMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
 
 import log from "../logger.js";
+import { downstreamUserAgent } from "../mcp/provenance.js";
 import { assertNotPrivateUrl } from "../ssrf-guard.js";
 import { deriveBaseUrl } from "../utils.js";
 
@@ -157,7 +158,10 @@ async function fetchIssuerIdentifier(
   try {
     await assertNotPrivateUrl(new URL(discoveryUrl));
 
-    const response = await fetch(discoveryUrl, { signal: controller.signal });
+    const response = await fetch(discoveryUrl, {
+      signal: controller.signal,
+      headers: { "User-Agent": downstreamUserAgent() },
+    });
     if (!response.ok) return null;
 
     const document: unknown = await response.json();
@@ -597,6 +601,7 @@ function registerOAuthRoutes(
           try {
             const response = await fetch(metadataUrl, {
               signal: controller.signal,
+              headers: { "User-Agent": downstreamUserAgent() },
             });
             clearTimeout(timeoutId);
 
@@ -743,6 +748,7 @@ function registerOAuthRoutes(
           try {
             const metadataResponse = await fetch(metadataUrl, {
               signal: metaController.signal,
+              headers: { "User-Agent": downstreamUserAgent() },
             });
             clearTimeout(metaTimeoutId);
             if (metadataResponse.ok) {
@@ -777,7 +783,10 @@ function registerOAuthRoutes(
           try {
             response = await fetch(registrationEndpoint, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                "User-Agent": downstreamUserAgent(),
+              },
               body: JSON.stringify(req.body),
               signal: regController.signal,
             });
