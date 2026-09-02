@@ -1,6 +1,8 @@
 // Copyright (c) 2025 AccelByte Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { randomUUID } from "node:crypto";
+
 import type { Express, Request, Response } from "express";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -13,10 +15,57 @@ import setAuthFromToken, {
 import log from "../logger.js";
 import securityLog from "../security-logger.js";
 import { jsonRPCError, logError, deriveBaseUrl } from "../utils.js";
+import { getPlaybookVersion } from "./prompts/playbooks.js";
+import { recallSession, rememberSession } from "./session-cache.js";
+import { clientUserAgent, runWithRequestProvenance } from "./provenance.js";
 
-interface McpRequestContext {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * Per-request client identity, introduced by MCP revision 2026-07-28.
+ *
+ * From that revision on, every request — `tools/call` included — carries the
+ * calling client's name and version in `params._meta`, so no session state is
+ * needed to attribute a downstream call. Read straight off the request body
+ * rather than through the SDK, which as of 1.30.0 still tops out at 2025-11-25.
+ */
+const CLIENT_INFO_META_KEY = "io.modelcontextprotocol/clientInfo";
+
+function perRequestClientInfo(
+  body: unknown,
+): Record<string, unknown> | undefined {
+  if (!isRecord(body) || !isRecord(body.params)) return undefined;
+  // `_meta` is the wire name fixed by the MCP spec, not a local naming choice.
+  // eslint-disable-next-line no-underscore-dangle
+  const meta = body.params._meta;
+  if (!isRecord(meta)) return undefined;
+  const clientInfo = meta[CLIENT_INFO_META_KEY];
+  return isRecord(clientInfo) ? clientInfo : undefined;
+}
+
+export interface McpRequestContext {
   agsBaseUrl: string;
   namespace?: string;
+  userAgent: string;
+  playbookVersion?: string;
+  contextVersions?: Record<string, string>;
+  sessionId?: string;
+}
+
+/** A session id we minted: opaque, and safe to echo in a response header. */
+const SESSION_ID_PATTERN = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+
+function resolveSessionId(req: Request): string {
+  const supplied = req.headers["mcp-session-id"];
+  const candidate = Array.isArray(supplied) ? supplied[0] : supplied;
+  // Only ids matching the shape we mint are honoured. An unrecognised value is
+  // replaced rather than trusted, so a caller cannot read or poison another
+  // session's provenance by guessing a key.
+  return candidate && SESSION_ID_PATTERN.test(candidate)
+    ? candidate
+    : randomUUID();
 }
 
 /**
@@ -164,32 +213,95 @@ function registerMcpRoutes(
       return;
     }
 
+    // The preferred source: present on every request once the client speaks
+    // MCP 2026-07-28. Needs no session state at all.
+    const requestClientInfo = perRequestClientInfo(req.body);
+
+    // --- BEGIN AFT-215 bridge: delete once clients speak MCP 2026-07-28 ---
+    // Until then, `clientInfo` arrives only on `initialize`, and this server is
+    // stateless (a fresh McpServer and transport per POST), so the identity is
+    // gone by the time a tool call runs. The session id below is minted by this
+    // route, not by MCP: 2026-07-28 removes `Mcp-Session-Id` and instructs
+    // servers not to mint or echo it. Everything in this block goes away with
+    // the SDK upgrade — see AFT-215 (blocked by AFT-174).
+    const sessionId = resolveSessionId(req);
+    res.setHeader("Mcp-Session-Id", sessionId);
+
+    // Only `initialize` may assert an identity. Honouring `clientInfo` on any
+    // method would let a `tools/call` restamp its own attribution per request,
+    // which is neither what the 2025-era protocol does nor what the corpus
+    // should record.
+    const legacyClientInfo =
+      req.body?.method === "initialize" &&
+      isRecord(req.body?.params?.clientInfo)
+        ? req.body.params.clientInfo
+        : undefined;
+    if (legacyClientInfo) {
+      rememberSession(sessionId, {
+        clientName:
+          typeof legacyClientInfo.name === "string"
+            ? legacyClientInfo.name
+            : undefined,
+        clientVersion:
+          typeof legacyClientInfo.version === "string"
+            ? legacyClientInfo.version
+            : undefined,
+      });
+    }
+    const session = recallSession(sessionId);
+    // --- END AFT-215 bridge ---
+
+    // The per-request envelope wins whenever it is present, so the bridge above
+    // stops being consulted on its own as clients migrate. Removing it is then
+    // a dead-code deletion rather than a behavioural change.
+    const clientName = requestClientInfo?.name ?? session?.clientName;
+    const clientVersion = requestClientInfo?.version ?? session?.clientVersion;
+    // Resolved before the provenance scope opens, so the value the scope stores
+    // is never mutated after the fact.
+    //
+    // Provenance is telemetry: an unavailable playbook asset costs attribution
+    // on AFS submits and nothing else. It must never fail a request — least of
+    // all `initialize` or `tools/list`, which have no bearing on AFS at all.
+    const playbookVersion = await getPlaybookVersion("afs");
+    if (!playbookVersion) {
+      log.warn(
+        { handler: "MCP POST", namespace },
+        "AFS playbook unavailable; submitting without playbook attribution",
+      );
+    }
+
     const context: McpRequestContext = {
       agsBaseUrl:
         req.ags?.baseUrl ||
         defaultAgsBaseUrl ||
         "https://development.accelbyte.io",
       namespace,
+      userAgent: clientUserAgent(clientName, clientVersion),
+      playbookVersion,
+      contextVersions: session?.contextVersions,
+      sessionId,
     };
 
-    try {
-      const server = await factory(context);
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: undefined,
-      });
-      await server.connect(transport);
-      await transport.handleRequest(req, res, req.body);
-      res.on("close", async () => {
-        await transport.close();
-        await server.close();
-      });
-    } catch (error: unknown) {
-      // Log error for debugging with proper type narrowing
-      logError(error, log, { handler: "MCP POST", namespace });
-      res
-        .status(500)
-        .json(jsonRPCError(ErrorCode.InternalError, "Internal error"));
-    }
+    await runWithRequestProvenance(context, async () => {
+      try {
+        const server = await factory(context);
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: undefined,
+        });
+        await server.connect(transport);
+        await transport.handleRequest(req, res, req.body);
+        res.on("close", async () => {
+          await transport.close();
+          await server.close();
+        });
+      } catch (error: unknown) {
+        // Log error for debugging with proper type narrowing
+        logError(error, log, { handler: "MCP POST", namespace });
+        res
+          .status(500)
+          .json(jsonRPCError(ErrorCode.InternalError, "Internal error"));
+      }
+    });
   };
 
   // RFC 9110 §15.5.6 requires a 405 to name the methods that ARE allowed.
@@ -259,5 +371,5 @@ function registerMcpRoutes(
   });
 }
 
-export type { McpRequestContext, McpServerFactory, RegisterMcpRoutesOptions };
+export type { McpServerFactory, RegisterMcpRoutesOptions };
 export default registerMcpRoutes;

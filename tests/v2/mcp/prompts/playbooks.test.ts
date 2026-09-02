@@ -129,8 +129,19 @@ describe("loadPlaybooks", () => {
     assert.equal(map.get("afs")?.body, "body A");
   });
 
-  it("returns an empty map for a missing directory instead of throwing", async () => {
-    const map = await loadPlaybooks(join(dir, "does-not-exist"));
-    assert.equal(map.size, 0);
+  it("reports failure for a missing directory instead of throwing", async () => {
+    // `null` rather than an empty map, so the caller can tell "this directory
+    // holds no playbooks" from "reading it failed". Only the former is safe to
+    // cache; caching the latter would make one transient error permanent.
+    assert.equal(await loadPlaybooks(join(dir, "does-not-exist")), null);
+  });
+
+  it("returns an empty map for a directory with no playbooks", async () => {
+    const empty = await mkdtemp(join(tmpdir(), "playbooks-empty-"));
+    try {
+      assert.equal((await loadPlaybooks(empty))?.size, 0);
+    } finally {
+      await rm(empty, { recursive: true, force: true });
+    }
   });
 });

@@ -469,6 +469,9 @@ test('runApi identifies this server and its version in the outbound User-Agent',
   assert.equal(readHeader(headers, 'User-Agent'), `ags-api-mcp/${pkgVersion}`);
 });
 
+// V2 opens an AsyncLocalStorage provenance scope and overrides User-Agent; V1
+// (stdio, no scope) keeps the older contract where the caller wins. Both are
+// pinned so a change to one cannot silently alter the other.
 test('runApi leaves a caller-supplied User-Agent untouched', async () => {
   const tools = createTools({ defaultServerUrl: 'https://configured-base.invalid' });
 
@@ -482,4 +485,29 @@ test('runApi leaves a caller-supplied User-Agent untouched', async () => {
   );
 
   assert.equal(readHeader(headers, 'User-Agent'), 'caller-supplied/1.0');
+});
+
+test('runApi never forwards caller-supplied AFS provenance, even outside a request scope', async () => {
+  // The facade must never receive a playbook or context version a caller
+  // asserted for itself. This holds on V1 too, where no provenance scope
+  // exists and the caller otherwise controls its own headers.
+  const tools = createTools({ defaultServerUrl: 'https://configured-base.invalid' });
+
+  const headers = await captureOutboundHeaders(() =>
+    tools.runApi({
+      spec: 'swagger-2-host-api',
+      method: 'get',
+      path: '/status',
+      headers: {
+        'User-Agent': 'caller-supplied/1.0',
+        'X-Ab-AFS-Metadata': 'playbook="forged", context="forged"'
+      }
+    })
+  );
+
+  assert.equal(readHeader(headers, 'User-Agent'), 'caller-supplied/1.0');
+  assert.ok(
+    !readHeader(headers, 'X-Ab-AFS-Metadata'),
+    'caller-supplied AFS provenance must be stripped before the request goes out'
+  );
 });

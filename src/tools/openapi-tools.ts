@@ -7,6 +7,12 @@ import { UserContext } from "../mcp-server.js";
 import { logger } from "../logger.js";
 import { version } from "../v2/version.js";
 import {
+  contextVersionFor,
+  getRequestProvenance,
+  normalizeProvenanceValue,
+  recordContextVersion,
+} from "../v2/mcp/provenance.js";
+import {
   PRIVATE_IPV4_PATTERNS,
   PRIVATE_OTHER_PATTERNS,
   isPrivateIPv4,
@@ -16,6 +22,9 @@ import {
 // component's short name everywhere else, and "-server" earns nothing in a
 // log line. Package, registry, and MCP `serverInfo` identity are unchanged.
 const USER_AGENT_PRODUCT = "ags-api-mcp";
+// Mirrors the facade's aggregate cap on X-Ab-AFS-Metadata; over it, the facade
+// rejects the whole submission rather than the header.
+const MAX_PROVENANCE_HEADER_BYTES = 1024;
 
 type HttpMethod =
   | "GET"
@@ -373,11 +382,43 @@ export class OpenApiTools {
       }
     }
 
-    // Identify the caller to AGS so traffic from this server is separable from
-    // the SDKs and the dashboard in access logs. Caller-supplied values win —
-    // run-apis lets a caller set arbitrary headers, and silently overriding one
-    // they passed would be surprising.
-    if (!this.hasHeader(headers, "user-agent")) {
+    // Caller-supplied AFS provenance never leaves this server, on any request
+    // and on any transport. The facade must not receive a playbook or context
+    // version a caller asserted for itself.
+    this.removeHeader(headers, "x-ab-afs-metadata");
+
+    // V2 request provenance is carried by AsyncLocalStorage for the lifetime of
+    // this HTTP request only. It is never stored on the shared OpenAPI client.
+    const provenance = getRequestProvenance();
+    if (provenance) {
+      this.removeHeader(headers, "user-agent");
+      // A caller/model cannot impersonate the MCP server or its client.
+      headers["User-Agent"] = provenance.userAgent;
+
+      // The context version sent is the one this session observed when it
+      // fetched this namespace's catalog, not a value the model can assert.
+      const namespace = args.pathParams?.namespace;
+      const contextVersion = contextVersionFor(namespace);
+
+      if (this.isAfsQuerySubmit(operation)) {
+        // Every value is re-normalized here, at the one point where bytes
+        // actually leave for the facade. The facade rejects the whole
+        // submission with 400 on an over-cap or malformed value, so anything
+        // that does not normalize is dropped and the query still runs.
+        const members = [
+          ...this.provenanceMember("playbook", provenance.playbookVersion),
+          ...this.provenanceMember("context", contextVersion),
+        ];
+        const metadata = members.join(", ");
+        if (
+          members.length > 0 &&
+          Buffer.byteLength(metadata, "utf8") <= MAX_PROVENANCE_HEADER_BYTES
+        ) {
+          headers["X-Ab-AFS-Metadata"] = metadata;
+        }
+      }
+    } else if (!this.hasHeader(headers, "user-agent")) {
+      // Legacy V1 behavior remains unchanged when no V2 request context exists.
       headers["User-Agent"] = `${USER_AGENT_PRODUCT}/${version}`;
     }
 
@@ -456,6 +497,16 @@ export class OpenApiTools {
     try {
       const response = await axios(config);
       const durationMs = Date.now() - startedAt;
+
+      // The facade stamps the merged analytics catalog it served. Remembering
+      // it here is what lets a later submit on this session say which catalog
+      // revision the model actually read.
+      if (operation.specName === "afs") {
+        recordContextVersion(
+          args.pathParams?.namespace,
+          response.headers?.["x-context-version"],
+        );
+      }
       logger.debug(
         {
           tool: "run-apis",
@@ -1465,6 +1516,37 @@ export class OpenApiTools {
   private hasHeader(headers: Record<string, string>, name: string): boolean {
     const target = name.toLowerCase();
     return Object.keys(headers).some((key) => key.toLowerCase() === target);
+  }
+
+  /**
+   * AFS endpoints that execute SQL and therefore produce a corpus entry.
+   * `pinned-queries/{id}/refresh` re-runs a pinned query's SQL, so it needs
+   * the same attribution as a fresh submit; `queries/estimate` does not
+   * execute and is deliberately excluded.
+   */
+  private isAfsQuerySubmit(operation: {
+    specName: string;
+    method: string;
+    path: string;
+  }): boolean {
+    return (
+      operation.specName === "afs" &&
+      operation.method === "POST" &&
+      /\/(?:queries|pinned-queries\/\{[^}]+\}\/refresh)$/.test(operation.path)
+    );
+  }
+
+  /** One metadata member, or nothing at all when the value cannot be sent. */
+  private provenanceMember(key: string, value: unknown): string[] {
+    const normalized = normalizeProvenanceValue(value);
+    return normalized ? [`${key}="${normalized}"`] : [];
+  }
+
+  private removeHeader(headers: Record<string, string>, name: string): void {
+    const target = name.toLowerCase();
+    Object.keys(headers).forEach((key) => {
+      if (key.toLowerCase() === target) delete headers[key];
+    });
   }
 
   private sanitizeHeaders(headers: Record<string, any>): Record<string, any> {

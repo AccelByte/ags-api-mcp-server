@@ -24,7 +24,9 @@
  * The final menu entry reads `Run <topic> Playbook`.
  */
 
+import { existsSync } from "fs";
 import { readFile, readdir } from "fs/promises";
+import { createHash } from "node:crypto";
 import { join, dirname, resolve } from "path";
 import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -36,11 +38,18 @@ import log from "../../logger.js";
 // and `dev` run the compiled output, so from
 // dist/v2/mcp/prompts/playbooks.js this lands on dist/assets/playbooks.
 const here = dirname(fileURLToPath(import.meta.url));
-const PLAYBOOK_DIR = resolve(here, "../../../assets/playbooks");
+const bundledPlaybookDir = resolve(here, "../../../assets/playbooks");
+// The bundled path exists in dist/; tsx development runs from src/, where the
+// source assets live one directory higher.
+const PLAYBOOK_DIR = existsSync(bundledPlaybookDir)
+  ? bundledPlaybookDir
+  : resolve(here, "../../../../assets/playbooks");
 
-interface Playbook {
+export interface Playbook {
   /** Stable filename id, used as the prompt name and resource URI segment. */
   id: string;
+  /** Deterministic content version used for downstream analytics provenance. */
+  version: string;
   /** Human-readable topic (e.g. "Athena"). */
   topic: string;
   /** Final display title (e.g. "Run Athena Playbook"). */
@@ -90,11 +99,13 @@ export function buildDisplayTitle(topic: string): string {
 
 export function describePlaybook(id: string, content: string): Playbook {
   const { title: frontmatterTitle, body } = parseFrontmatter(content);
+  const playbookVersion = createHash("sha256").update(content).digest("hex");
   const heading = firstHeading(body);
   const headingTopic = heading?.replace(/\s+Playbook\s*$/i, "");
   const topic = frontmatterTitle ?? headingTopic ?? id;
   return {
     id,
+    version: `sha256-${playbookVersion}`,
     topic,
     displayTitle: buildDisplayTitle(topic),
     body,
@@ -108,7 +119,7 @@ export function describePlaybook(id: string, content: string): Playbook {
  */
 export async function loadPlaybooks(
   dir: string,
-): Promise<Map<string, Playbook>> {
+): Promise<Map<string, Playbook> | null> {
   const loaded = new Map<string, Playbook>();
   try {
     const entries = await readdir(dir);
@@ -131,7 +142,11 @@ export async function loadPlaybooks(
       "Playbooks loaded and cached",
     );
   } catch (error) {
+    // Signal failure rather than returning a partial map: caching an empty
+    // result would make one transient readdir/readFile error permanent for the
+    // life of the process.
     log.error({ error }, "Failed to load playbooks");
+    return null;
   }
   return loaded;
 }
@@ -140,8 +155,17 @@ async function getOrLoadPlaybooks(): Promise<Map<string, Playbook>> {
   if (cachedPlaybooks !== null) {
     return cachedPlaybooks;
   }
-  cachedPlaybooks = await loadPlaybooks(PLAYBOOK_DIR);
+  const loaded = await loadPlaybooks(PLAYBOOK_DIR);
+  // Only a successful load is cached, so a later request can retry.
+  if (loaded === null) return new Map();
+  cachedPlaybooks = loaded;
   return cachedPlaybooks;
+}
+
+export async function getPlaybookVersion(
+  id: string,
+): Promise<string | undefined> {
+  return (await getOrLoadPlaybooks()).get(id)?.version;
 }
 
 async function setupPlaybooks(mcpServer: McpServer): Promise<void> {

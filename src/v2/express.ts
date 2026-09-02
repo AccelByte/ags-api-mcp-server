@@ -44,7 +44,10 @@ function create(): Express {
   );
 
   // CORS: Allow all origins by default. Configure via cors() options for production.
-  app.use(cors({}));
+  // AFT-215 bridge: Mcp-Session-Id must be readable by browser clients so they
+  // can echo it back and keep their provenance tuple attached across requests.
+  // Revert to `cors({})` when the session bridge is removed.
+  app.use(cors({ exposedHeaders: ["Mcp-Session-Id"] }));
 
   // Rate limit configuration (configurable via environment variables)
   const rateLimitWindowMs =
