@@ -12,6 +12,12 @@
 
   Client identity is a known gap until the MCP SDK speaks revision `2026-07-28`, which carries it on every request in `params._meta`. That path is already read and preferred; until clients send it, a temporary session-scoped bridge supplies the value. See AFT-215.
 
+  **That bridge is in-process, and the `context` member depends on it too.** The catalog read and the query submit are separate requests, so both members are populated only when those requests reach the same replica — which the documented deployment model (horizontal scaling, no session affinity) does not guarantee. A deployment running more than one replica without affinity will see both attributed intermittently: absent, never wrong, and never a failed query. Sticky sessions are what make attribution reliable until AFT-215 removes the bridge.
+
+### Fixed
+
+- **A missing playbook asset no longer costs a directory read and a log line on every MCP request.** Only a successful load was cached, so in the reachable "no playbook shipped" state (the build copies assets with `|| true`; the Dockerfile ships only `dist`) every POST re-read the playbook directory and logged the failure — on every method, including the `initialize` and `tools/list` calls that have no bearing on AFS, making log volume scale with total traffic rather than with the condition. A failed load is now cached for a 60-second window, which still lets a transient `readdir` error recover on its own, and the per-request warning in the MCP route is gone since the load site already reports the cause once per window.
+
 ## v2026.4.8 (2026-08-14)
 
 ### Fixed
