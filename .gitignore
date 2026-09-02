@@ -139,6 +139,7 @@ build/
 # Temporary files
 tmp/
 temp/
+.temp/
 
 # Runtime files
 *.pid
