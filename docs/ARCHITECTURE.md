@@ -39,6 +39,13 @@ The server is built around:
 **Trade-offs:**
 - Simpler deployment (no state to manage)
 - Horizontal scaling (no session affinity)
+  - **One exception, until AFT-215:** the AFS provenance bridge
+    (`src/v2/mcp/session-cache.ts`) is an in-process map keyed by a minted
+    `Mcp-Session-Id`. Both provenance members it feeds — the MCP client identity
+    and the catalog version — are written on one request and read on a later one,
+    so across replicas without affinity they are populated only when both
+    requests land on the same process. Attribution degrades to *absent*, never
+    wrong, and no request fails. Nothing else in the request path reads it.
 - No memory leaks from session accumulation
 - Client must handle token refresh
 
