@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  ListToolsRequestSchema,
+  type ListToolsResult,
+} from "@modelcontextprotocol/sdk/types.js";
 
 import { Config } from "../config.js";
 import { registerRendererResource } from "./renderer-resource.js";
@@ -12,6 +16,41 @@ import setupAuthTools from "./tools/auth.js";
 import setupWorkflows from "./prompts/workflows.js";
 import setupPlaybooks from "./prompts/playbooks.js";
 import setupRenderTools from "./tools/renderers/index.js";
+
+type ListToolsHandler = (
+  ...args: unknown[]
+) => ListToolsResult | Promise<ListToolsResult>;
+
+/**
+ * Drops the draft-07 `$schema` that zod-to-json-schema stamps on each
+ * `outputSchema`; clients with a 2020-12-only validator reject it. The SDK has
+ * no hook for this, so the `tools/list` handler is wrapped directly.
+ */
+function stripOutputSchemaDialect(server: McpServer): void {
+  const method = ListToolsRequestSchema.shape.method.value;
+  const handlers =
+    // eslint-disable-next-line no-underscore-dangle
+    (
+      server.server as unknown as {
+        _requestHandlers: Map<string, ListToolsHandler>;
+      }
+    )._requestHandlers;
+  const listTools = handlers.get(method);
+  if (!listTools) return;
+
+  handlers.set(method, async (...args) => {
+    const result = await listTools(...args);
+    return {
+      ...result,
+      tools: result.tools.map((tool) => {
+        if (!tool.outputSchema) return tool;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { $schema, ...outputSchema } = tool.outputSchema;
+        return { ...tool, outputSchema };
+      }),
+    };
+  });
+}
 
 /**
  * Creates a new MCP server instance with tools and prompts registered.
@@ -66,6 +105,8 @@ async function createServer(
     );
     await registerRendererResource(server);
   }
+
+  stripOutputSchemaDialect(server);
 
   return server;
 }

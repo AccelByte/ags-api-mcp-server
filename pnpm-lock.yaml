@@ -108,6 +108,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^7.18.0
         version: 7.18.0(eslint@8.57.1)(typescript@5.9.3)
+      ajv:
+        specifier: ^8.17.1
+        version: 8.17.1
       chart.js:
         specifier: ^4.5.1
         version: 4.5.1
