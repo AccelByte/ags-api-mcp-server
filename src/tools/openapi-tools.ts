@@ -189,6 +189,15 @@ export class OpenApiTools {
     }
   }
 
+  /**
+   * True when write operations were excluded at load time (V2
+   * `MCP_READ_ONLY=true`, or the legacy `INCLUDE_WRITE_REQUESTS=false`): only
+   * GET operations are indexed, so any other method can never resolve.
+   */
+  get readOnly(): boolean {
+    return !this.options.includeWriteRequests;
+  }
+
   async searchApis(args: SearchApisArgs = {}): Promise<object> {
     if (this.operations.length === 0) {
       throw new Error(

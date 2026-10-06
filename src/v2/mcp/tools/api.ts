@@ -387,6 +387,24 @@ async function setupApiTools(
         resolvedMethod &&
         methodsRequiringConsent.includes(resolvedMethod.toUpperCase());
 
+      // Read-only mode: refuse before eliciting, so the user is never asked to
+      // approve a request that cannot run.
+      if (
+        resolvedMethod &&
+        resolvedMethod.toUpperCase() !== "GET" &&
+        !config.openapi.includeWriteRequests
+      ) {
+        const result = RunApisOutputSchema.parse({
+          error: {
+            message: `This server is in read-only mode (MCP_READ_ONLY=true): ${resolvedMethod.toUpperCase()} requests are disabled.`,
+          },
+        });
+        return {
+          content: [{ type: "text", text: JSON.stringify(result) }],
+          structuredContent: result,
+        };
+      }
+
       if (requiresConsent && resolvedMethod) {
         const methodUpper = resolvedMethod.toUpperCase();
         const resolvedAllow = await elicitAllow(mcpServer, allow, {

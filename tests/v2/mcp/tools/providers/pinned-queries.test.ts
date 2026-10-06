@@ -326,4 +326,49 @@ describe("pinned-queries provider", () => {
       );
     });
   });
+
+    describe("read-only mode", () => {
+    const readOnlyTools = (runApi: RunApi): OpenApiTools =>
+      ({ runApi, readOnly: true }) as unknown as OpenApiTools;
+
+    test("refuses every write with READ_ONLY before calling runApi", async () => {
+      const { runApi, calls } = fakeRunApi(() => {
+        throw new Error("operation not found");
+      });
+      const t = readOnlyTools(runApi);
+      const writes = [
+        () =>
+          createPin(
+            t,
+            "studioalpha",
+            {
+              title: "x",
+              render_tool: "render_bar_chart",
+              render_options: {},
+              query_id: "q1",
+            },
+            "tok",
+          ),
+        () => updatePin(t, "studioalpha", "p1", { title: "y" }, "tok"),
+        () => deletePin(t, "studioalpha", "p1", "tok"),
+        () => refreshPin(t, "studioalpha", "p1", "tok"),
+      ];
+      for (const write of writes) {
+        await assert.rejects(
+          write,
+          (err: unknown) =>
+            err instanceof FacadeError && err.code === "READ_ONLY",
+        );
+      }
+      assert.equal(calls.length, 0);
+    });
+
+    test("still lists pins", async () => {
+      const { runApi } = fakeRunApi(() => ({
+        response: { status: 200, data: { data: [RECORD] } },
+      }));
+      const pins = await listPins(readOnlyTools(runApi), "studioalpha", "tok");
+      assert.equal(pins.length, 1);
+    });
+  });
 });

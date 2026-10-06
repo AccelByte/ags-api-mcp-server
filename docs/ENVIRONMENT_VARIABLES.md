@@ -65,6 +65,13 @@ export MCP_AUTH=false
 - **Options**: `true`, `false`
 - **Note**: This is the only new analytics-related server environment variable. Set to `false` as an operational rollback switch to suppress all 15 `render_*` tools and `ui://renderer/index.html`.
 
+### `MCP_READ_ONLY`
+- **Description**: Run the server read-only (V2)
+- **Default**: `false`
+- **Required**: No
+- **Options**: `true`, `false`
+- **Note**: Only GET operations are indexed. `run-apis` refuses any other method before asking for consent, and the dashboard's pin, edit, remove, and refresh actions fail with a `READ_ONLY` error. Viewing dashboards and pinned results still works. With `false`, write operations are available and require user consent via elicitation. Takes precedence over the legacy [`INCLUDE_WRITE_REQUESTS`](#include_write_requests-legacy).
+
 ### `MCP_AUTH_SERVER_DISCOVERY_MODE`
 - **Description**: OAuth authorization server discovery workaround mode for MCP clients that don't support cross-host discovery (e.g., VS Code)
 - **Default**: `none`
@@ -106,12 +113,11 @@ export MCP_AUTH=false
 - **Required**: No
 - **Range**: 1-60000
 
-### `INCLUDE_WRITE_REQUESTS`
-- **Description**: Include write operations (POST/PUT/PATCH/DELETE) in tools
+### `INCLUDE_WRITE_REQUESTS` (legacy)
+- **Description**: Superseded by [`MCP_READ_ONLY`](#mcp_read_only); `INCLUDE_WRITE_REQUESTS=false` is equivalent to `MCP_READ_ONLY=true`
 - **Default**: `true`
 - **Required**: No
-- **Options**: `true`, `false`
-- **Note**: When `true`, write operations require user consent via elicitation
+- **Note**: Still honored when `MCP_READ_ONLY` is unset. When both are set, `MCP_READ_ONLY` wins and a startup warning is logged if they disagree. V1 reads only this variable.
 
 ---
 

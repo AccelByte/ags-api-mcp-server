@@ -145,6 +145,17 @@ async function callPinnedQueries(
   },
   token: string,
 ): Promise<{ status: number; data: unknown }> {
+  // In read-only mode the non-GET operations were never indexed, so `runApi`
+  // would throw a lookup miss that the catch below misreports as an undeployed
+  // endpoint. Refuse up front with the real reason instead.
+  if (args.method !== "GET" && openApiTools.readOnly) {
+    throw new FacadeError(
+      "READ_ONLY",
+      "This server is in read-only mode (MCP_READ_ONLY=true): " +
+        "pinning, editing, removing, and refreshing pins are disabled.",
+    );
+  }
+
   let envelope: RunApiEnvelope;
   try {
     envelope = (await openApiTools.runApi(
