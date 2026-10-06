@@ -57,6 +57,10 @@ const McpConfigSchema = z.object({
   // Direct/snapshot dashboard pins (inline data routed through the model) are
   // off by default: dashboards are live-only unless an operator opts in.
   allowDirectPins: EnvBooleanSchema.default(false),
+  // MCP_READ_ONLY: preferred spelling of INCLUDE_WRITE_REQUESTS=false. Left
+  // undefined when unset so the legacy variable can still decide; once
+  // resolved, `openapi.includeWriteRequests` is the single effective value.
+  readOnly: EnvBooleanSchema.optional(),
   /**
    * TEMPORARY WORKAROUND: OAuth authorization server discovery mode.
    * Needed because VS Code (and some MCP clients) cannot discover the actual
@@ -151,6 +155,7 @@ function loadConfig(): Config {
         enableAuth: process.env.MCP_AUTH,
         enableRenderTools: process.env.MCP_RENDER_TOOLS,
         allowDirectPins: process.env.DASHBOARD_ALLOW_DIRECT_PINS,
+        readOnly: process.env.MCP_READ_ONLY,
         authServerDiscoveryMode: process.env.MCP_AUTH_SERVER_DISCOVERY_MODE,
       },
       openapi: {
@@ -174,6 +179,25 @@ function loadConfig(): Config {
     };
 
     const config: Config = ConfigSchema.parse(raw);
+
+    // MCP_READ_ONLY wins over the legacy INCLUDE_WRITE_REQUESTS. The two have
+    // opposite polarity, so a disagreement is easy to miss — warn on it.
+    if (config.mcp.readOnly !== undefined) {
+      if (
+        process.env.INCLUDE_WRITE_REQUESTS !== undefined &&
+        config.openapi.includeWriteRequests === config.mcp.readOnly
+      ) {
+        log.warn(
+          {
+            MCP_READ_ONLY: config.mcp.readOnly,
+            INCLUDE_WRITE_REQUESTS: config.openapi.includeWriteRequests,
+          },
+          "MCP_READ_ONLY and INCLUDE_WRITE_REQUESTS disagree; MCP_READ_ONLY wins",
+        );
+      }
+      config.openapi.includeWriteRequests = !config.mcp.readOnly;
+    }
+    config.mcp.readOnly = !config.openapi.includeWriteRequests;
 
     // Auth server discovery workaround is for local use only; it must not
     // be enabled in hosted (multi-tenant) mode where the server is publicly
@@ -215,6 +239,7 @@ function loadConfig(): Config {
         mcpServerUrl: config.mcp.serverUrl,
         mcpAuthEnabled: config.mcp.enableAuth,
         enableRenderTools: config.mcp.enableRenderTools,
+        mcpReadOnly: config.mcp.readOnly,
         mcpAuthServerDiscoveryMode: config.mcp.authServerDiscoveryMode,
         // OpenAPI Configuration
         openapiSpecsDir: config.openapi.specsDir,

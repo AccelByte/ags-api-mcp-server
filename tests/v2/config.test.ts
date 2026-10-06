@@ -136,3 +136,63 @@ describe("config startup guards (V2)", () => {
     );
   });
 });
+
+describe("read-only mode resolution (V2)", () => {
+  /** The effective values from the "Configuration loaded" log line. */
+  function resolved(env: Record<string, string>): {
+    readOnly: boolean;
+    includeWriteRequests: boolean;
+    output: string;
+  } {
+    const result = runConfigImport(env);
+    assert.equal(result.status, 0, `stderr=${result.stderr}`);
+    const output = `${result.stdout}\n${result.stderr}`;
+    const line = output
+      .split("\n")
+      .find((l) => l.includes('"msg":"Configuration loaded"'));
+    assert.ok(line, `no config log line in: ${output}`);
+    const parsed = JSON.parse(line);
+    return {
+      readOnly: parsed.mcpReadOnly,
+      includeWriteRequests: parsed.includeWriteRequests,
+      output,
+    };
+  }
+
+  test("defaults to writes enabled", () => {
+    const r = resolved({});
+    assert.equal(r.readOnly, false);
+    assert.equal(r.includeWriteRequests, true);
+  });
+
+  test("MCP_READ_ONLY=true disables writes", () => {
+    const r = resolved({ MCP_READ_ONLY: "true" });
+    assert.equal(r.readOnly, true);
+    assert.equal(r.includeWriteRequests, false);
+  });
+
+  test("legacy INCLUDE_WRITE_REQUESTS=false still enables read-only", () => {
+    const r = resolved({ INCLUDE_WRITE_REQUESTS: "false" });
+    assert.equal(r.readOnly, true);
+    assert.equal(r.includeWriteRequests, false);
+  });
+
+  test("MCP_READ_ONLY wins over a disagreeing INCLUDE_WRITE_REQUESTS and warns", () => {
+    const r = resolved({
+      MCP_READ_ONLY: "false",
+      INCLUDE_WRITE_REQUESTS: "false",
+    });
+    assert.equal(r.readOnly, false);
+    assert.equal(r.includeWriteRequests, true);
+    assert.match(r.output, /MCP_READ_ONLY and INCLUDE_WRITE_REQUESTS disagree/);
+  });
+
+  test("agreeing values do not warn", () => {
+    const r = resolved({
+      MCP_READ_ONLY: "true",
+      INCLUDE_WRITE_REQUESTS: "false",
+    });
+    assert.equal(r.readOnly, true);
+    assert.doesNotMatch(r.output, /disagree/);
+  });
+});
