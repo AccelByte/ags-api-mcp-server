@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`MCP_READ_ONLY` switches the server to read-only mode (AFT-254).** Set `MCP_READ_ONLY=true` to allow only GET operations. `run-apis` refuses any other method before asking the user for consent, where it used to ask for approval and then fail with "operation not found". The dashboard's pin, edit, remove, and refresh actions fail with a `READ_ONLY` code instead of a misleading `PINNED_QUERIES_UNAVAILABLE`. Reads are unaffected.
+
+  `MCP_READ_ONLY` replaces `INCLUDE_WRITE_REQUESTS`, which has the opposite polarity. The old variable is still honored when `MCP_READ_ONLY` is unset. When both are set, `MCP_READ_ONLY` wins and startup logs a warning if they disagree. V1 reads only `INCLUDE_WRITE_REQUESTS`.
+
 ## v2026.4.10 (2026-10-06)
 
 ### Fixed
