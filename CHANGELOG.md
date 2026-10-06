@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Tools with an `outputSchema` no longer fail client-side in Claude Desktop.** The MCP SDK converts zod v3 schemas with zod-to-json-schema, which stamps `"$schema": "http://json-schema.org/draft-07/schema#"` on every generated schema. Claude Desktop validates `outputSchema` with a 2020-12-only validator and refused to call `search-apis`, `describe-apis`, `run-apis`, `get_token_info`, and every other tool declaring one, before the request reached the server. `tools/list` now omits `$schema` from each `outputSchema`: spec-compliant clients read 2020-12, draft-07 validators fall back to their own default, and the schemas use only keywords that mean the same in both. The payload is otherwise unchanged. `inputSchema` still carries the draft-07 marker; no client is known to reject it.
+
 ## v2026.4.9 (2026-09-02)
 
 ### Added
